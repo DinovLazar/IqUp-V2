@@ -1,0 +1,11 @@
+# Build output / deps / lockfiles
+node_modules
+.next
+out
+build
+package-lock.json
+
+# Binary + curated docs (Prettier shouldn't rewrite hand-authored Markdown).
+# Markdown is owned by Chat/Code by hand; keep it out of the formatter.
+*.pdf
+**/*.md
