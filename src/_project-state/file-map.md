@@ -38,6 +38,7 @@ path/to/file.ext — one-line description of what it does
 - `.prettierrc.json` — Prettier + `prettier-plugin-tailwindcss`
 - `.prettierignore` — excludes deps/build/lockfile/PDF/Markdown
 - `components.json` — shadcn/ui config (radix lib, Nova preset, neutral, Lucide)
+- `vitest.config.ts` — Vitest config (Phase 1.04): node env, `@/` alias, `src/**/*.test.ts`
 
 **Docs:**
 - `docs/design-handovers/.gitkeep` — reserved for Design handovers
@@ -79,11 +80,35 @@ path/to/file.ext — one-line description of what it does
 **Lib (`src/lib/`):**
 - `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe
 - `pentagon.ts` — pure framework-agnostic pentagon geometry (shared by web + future PDF)
+- `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
 
+**Task bank — versioned config (`src/content/tasks/`) (Phase 1.04):**
+- `version.ts` — `TASK_BANK_VERSION` ("1.0.0"); stored with every anonymous record
+- `levels.ts` — per-domain level 1→10 difficulty tables + accessors (the single place difficulty is tuned)
+- `index.ts` — barrel (version + level tables)
+
+**Task bank — generators (`src/features/tasks/`) (Phase 1.04) — pure data/geometry, no React:**
+- `types.ts` — the `Item` contract: `Signal`, per-family stimulus/answer types, `GenerateOpts`; documents Attention's intentional absence
+- `shared.ts` — `makeBase` + coordinate geometry (rotate/reflect/recenter/`samePointSet`)
+- `gf.ts` — Logic: matrix reasoning + numeric series (rules stored for re-derivation)
+- `gv.ts` — Spatial: mental rotation + odd-one-out (chiral polygon geometry)
+- `gsm.ts` — Memory: Corsi span over a fixed 6-tile board (caller passes length/direction)
+- `gs.ts` — Processing speed: symbol-search grid + target-cell answer key
+- `ef.ts` — Planning: Tower of London with BFS-verified `minMoves` + optimal path
+- `glr.ts` — Learning: paired-associate study set + recall round
+- `ct.ts` — STEM: sequence / debug / loop / condition / maze (all symbol-based, zero text)
+- `guards.ts` — type guards (`isGfMatrix`, `isCt`, …) for narrowing `Item`
+- `registry.ts` — signal→generator map, `generateItem(...)`, `generatePractice(...)`
+- `index.ts` — public barrel (entry points + types + guards + version)
+- `__tests__/{prng,determinism,coverage,answer-key,distractors,purity}.test.ts` — Vitest suite (41 tests)
+
 **Reserved feature/content folders (empty until their phase):**
-- `src/features/{assessment,tasks,scoring,report}/.gitkeep`
-- `src/content/{tasks,modules,norms}/.gitkeep`
+- `src/features/{assessment,scoring,report}/.gitkeep`
+- `src/content/{modules,norms}/.gitkeep`
+
+**Scripts:**
+- `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)
 
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
@@ -97,3 +122,4 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-01-Completion.md` — Phase 1.01 (scaffold) report
 - `completions/Part-1-Phase-02-Completion.md` — Phase 1.02 (design system) report (relocated from repo root, D-042)
 - `completions/Part-1-Phase-03-Completion.md` — Phase 1.03 (base UI kit) report
+- `completions/Part-1-Phase-04-Completion.md` — Phase 1.04 (task bank + generators) report

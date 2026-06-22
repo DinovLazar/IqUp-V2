@@ -112,6 +112,20 @@
 
 **D-047 · Built `IndexBandBar` (handover §4.2) as a reusable composition part** alongside the required band-label/confidence; **deferred** the other §4.2 components (reward badge, answer option, idle nudge) to their consuming screen phases (1.06/1.07). *Why: the brief's in-scope list and DoD name only the core kit + band-label + confidence; the band bar is a pure report-bound part worth having now, but the screen-specific extras are best built with their screens.*
 
+### Phase 1.04 — on-the-fly decisions (Claude Code, 2026-06-22)
+
+**D-048 · Test runner = Vitest, pinned `4.1.9` (exact).** The brief allowed adding Vitest if no runner existed; none did. *Why: TS-native, near-zero config, fast; reuses the `@/` alias via a 12-line `vitest.config.ts`. **Downside:** Vitest pulls Vite + esbuild/swc into devDeps (install-script warnings noted), and test files are inside `tsconfig` `include`, so `tsc`/`next build` also type-check them — kept clean rather than excluded so the build catches test rot.*
+
+**D-049 · CT "Debug" uses an objective "first illegal move" answer key, not "differs from the intended solution."** The bug = the first arrow that drives the robot off the grid; everything before it is legal. *Why: "which step differs from the optimal path" is ambiguous (multiple optimal paths exist); "first off-grid step" is unique, provable, and child-legible ("tap the arrow that hits the wall"). The intended legal continuation still defines the displayed `goal`.*
+
+**D-050 · Gv distractors are all reflections or different shapes — never a same-shape rotation at a "wrong angle."** Spec A.2 lists "wrong angle" as a distractor, but for the task "find the rotation of the prompt," ANY rotation is correct, so a wrong-angle same-shape option would be a second valid answer. *Why: guarantees a unique key. Realised the "wrong angle" idea as a mirror at a different angle; chirality of the base (verified at generation) ensures no reflection ever coincides with a rotation.*
+
+**D-051 · `count` is the only numeric matrix attribute and its rules are range-bounded (base ≤ 2, single-axis step 1); shape/colour/rotation are cyclic.** *Why: an additive `count` progression could exceed the 1–6 render range and get clamped mid-pattern, silently breaking the rule (and the answer key). Bounding it keeps every cell in range with no clamp; categorical attrs wrap cleanly so they need no bound.*
+
+**D-052 · Gsm bridges the uniform `(level, seed)` registry and the spec's `(length, direction)` interface via a level→length default table, with `opts.length`/`opts.direction` overrides.** *Why: the brief says the caller passes length+direction (adaptive logic is 1.05), but `generateItem` must also produce a valid item for "every level 1–10"; the table gives a sensible default while leaving the real control to 1.06/1.05.*
+
+**D-053 · CT generators emit ZERO text (not even i18n keys).** All five sub-types are pure symbol/grid data; instructions are entirely the renderer's job (1.06) via next-intl. *Why: satisfies language-neutrality maximally — a purity test asserts no emitted string contains Cyrillic or whitespace — and avoids guessing key names before the screens exist. If a future item genuinely needs in-data text, it must be an i18n key, never a literal (spec Дел 17).*
+
 ## Decision-log conventions
 
 - **Append, don't edit.** Existing entries are never changed or removed.
