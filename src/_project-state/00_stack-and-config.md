@@ -71,3 +71,17 @@
   - **Fonts:** placeholder uses a system sans stack (covers Macedonian Cyrillic); Montserrat (Cyrillic + Latin) lands in 1.02/1.03. Geist boilerplate fonts removed.
 
   **Verification:** `npm run build` ✓, `npm run lint` ✓, `npm run typecheck` ✓, `npm run format:check` ✓; dev server serves `/` (HTTP 200) with `<html lang="mk">` and the MK strings rendered.
+
+- **2026-06-22 · Phase 1.03 — base UI kit; brand theme + fonts.**
+
+  **No new dependencies.** The whole kit is built on the already-pinned stack (Tailwind v4, shadcn/Radix `radix-ui`, Motion, Lucide). Montserrat ships via Next's built-in `next/font/google` (part of `next` 16.2.9) — no package added.
+
+  **Config decisions / deviations:**
+  - **`src/app/globals.css` rewritten brand-first (D-043).** All design tokens (handover §1 / spec App. G) live in a single `@theme` block; the shadcn/Radix semantic tokens (`--color-primary`, `--color-background`, …) are mapped to brand values in the same block (so future `shadcn add` components are on-brand). Removed: the scaffold's `.dark` block, `@custom-variant dark`, the neutral oklch palette, and the unused `chart-*`/`sidebar-*` tokens. Kept `@import "shadcn/tailwind.css"` (it provides Radix-state custom variants `data-checked`/`data-disabled`/… used by the form components).
+  - **Type roles** are exposed as Tailwind v4 paired-token utilities `text-display|subhead|label|body` (each carries size + line-height + letter-spacing + weight). Standalone `--font-weight-*` tokens kept per the handover.
+  - **Fonts:** Montserrat via `next/font/google`, subsets `["latin","cyrillic"]`, weights `400/500/600/700/800`, `display:"swap"`, exposed as `--font-montserrat` → fed into `--font-sans`. Self-hosted at build time (no runtime Google call → privacy/self-host rule). `public/fonts/` left clean for a future `next/font/local` swap if Cowork ships brand woff2s.
+  - **Gradients** (`--grad-brand`, `--grad-wash`) are `:root` custom props + `@utility bg-grad-brand|bg-grad-wash` (they're images, not colors). `--shadow-pop` is the only shadow token (→ `shadow-pop`), reserved for popover/modal.
+  - **Kit gallery route = `src/app/kit/` (D-044)** — not `_kit` (underscore folders are private/non-routing in the App Router). Dev/preview only (404 on `VERCEL_ENV==="production"`), `noindex`.
+  - **`.claude/` gitignored** — local agent/editor tooling (preview `launch.json`), not project source.
+
+  **Verification:** `npm run build` ✓ (routes `/`, `/_not-found`, `/kit`), `npm run lint` ✓ (0 problems), `npm run typecheck` ✓; dev server serves `/` and `/kit` (HTTP 200); `/kit` visually verified — Montserrat Cyrillic, palette hex, pentagon geometry, and the puzzle-brain assembly (incl. 40px chip) all render correctly.

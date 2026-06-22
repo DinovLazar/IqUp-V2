@@ -1,0 +1,26 @@
+"use client";
+
+import * as React from "react";
+import { Label as LabelPrimitive } from "radix-ui";
+
+import { cn } from "@/lib/utils";
+
+// Form label (Radix Label). Label type role; ties to its control via htmlFor.
+function Label({
+  className,
+  ...props
+}: React.ComponentProps<typeof LabelPrimitive.Root>) {
+  return (
+    <LabelPrimitive.Root
+      data-slot="label"
+      className={cn(
+        "flex items-center gap-2 text-label text-ink select-none",
+        "peer-disabled:cursor-not-allowed peer-disabled:text-disabled-fg",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Label };

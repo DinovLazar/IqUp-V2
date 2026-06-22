@@ -41,6 +41,7 @@ path/to/file.ext — one-line description of what it does
 
 **Docs:**
 - `docs/design-handovers/.gitkeep` — reserved for Design handovers
+- `docs/design-handovers/Part-1-Phase-02-Handover.md` — 1.02 design handover (visual source of truth for 1.03/1.06/1.07)
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
@@ -48,18 +49,37 @@ path/to/file.ext — one-line description of what it does
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
-- `src/app/layout.tsx` — root layout; sets `<html lang>`, wraps app in `NextIntlClientProvider`
-- `src/app/globals.css` — Tailwind v4 entry + shadcn theme tokens (`@theme`)
+- `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
+- `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
 - `src/app/(site)/page.tsx` — placeholder landing; reads MK strings + renders Button
 - `src/app/(site)/{procena,za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
+- `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
+- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
 - `src/app/api/.gitkeep` — reserved serverless backend (lead/report/score)
 
-**Components & lib:**
-- `src/components/ui/button.tsx` — shadcn Button (base component)
-- `src/lib/utils.ts` — `cn()` className helper
+**Components (`src/components/ui/`) — brand kit on shadcn/Radix:**
+- `button.tsx` — Button: primary / secondary / ghost, full state set
+- `card.tsx` — Card (default + emphasis) + Header/Title/Description/Content/Footer
+- `badge.tsx` — 30px explorer/reward pill (filled + soft)
+- `progress.tsx` — word-labelled track with `--grad-brand` fill (Radix Progress)
+- `input.tsx` — text input with focus + error states
+- `label.tsx` — form label (Radix Label)
+- `field.tsx` — Field wrapper + FieldHelpText + FieldError (no form logic)
+- `checkbox.tsx` — consent checkbox (never pre-ticked; error-ready) (Radix Checkbox)
+- `select.tsx` — Select trigger/content/item/etc. (Radix Select; popover uses `--shadow-pop`)
+- `band-label.tsx` — index band-label: word + indicative range only (no number)
+- `confidence-label.tsx` — висока/средна/ниска chip + signal glyph
+- `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + range
+- `pentagon.tsx` — web SVG pentagon over the geometry module
+- `puzzle-brain.tsx` — Motion puzzle-brain assembly (+ chip variant; reduced-motion fallback)
+
+**Lib (`src/lib/`):**
+- `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe
+- `pentagon.ts` — pure framework-agnostic pentagon geometry (shared by web + future PDF)
+- `utils.ts` — `cn()` className helper
 
 **Reserved feature/content folders (empty until their phase):**
 - `src/features/{assessment,tasks,scoring,report}/.gitkeep`
@@ -74,4 +94,6 @@ path/to/file.ext — one-line description of what it does
 - `file-map.md` — this file
 - `00_stack-and-config.md` — append-only stack + config log
 - `completions/_TEMPLATE.md` — completion-report template
-- `completions/Part-1-Phase-01-Completion.md` — this phase's report
+- `completions/Part-1-Phase-01-Completion.md` — Phase 1.01 (scaffold) report
+- `completions/Part-1-Phase-02-Completion.md` — Phase 1.02 (design system) report (relocated from repo root, D-042)
+- `completions/Part-1-Phase-03-Completion.md` — Phase 1.03 (base UI kit) report
