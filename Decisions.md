@@ -126,6 +126,42 @@
 
 **D-053 · CT generators emit ZERO text (not even i18n keys).** All five sub-types are pure symbol/grid data; instructions are entirely the renderer's job (1.06) via next-intl. *Why: satisfies language-neutrality maximally — a purity test asserts no emitted string contains Cyrillic or whitespace — and avoids guessing key names before the screens exist. If a future item genuinely needs in-data text, it must be an i18n key, never a literal (spec Дел 17).*
 
+### Phase 1.05 — on-the-fly decisions (Claude Code, 2026-06-22)
+
+> All numeric values below are **seed / initial reference values** (spec Дел 6.6) carried in the result as `normsStage: "seed"` and centralised in `src/content/norms/seed-norms.ts` for recalibration from pilot + anonymous data. `SCORING_VERSION` / `NORMS_VERSION` start at `1.0.0`.
+
+**D-054 · The Gf start-level-by-age table is reused as the shared start default for ALL laddered domains (Gv, EF, CT), not just Gf.** *Why: the spec only tabulates Gf; one curve is a defensible MVP seed. Flagged in code as a seed assumption — per-domain start curves should split out once pilot data shows the domains diverge.*
+
+**D-055 · The half-step expected-forward-span bands (Прилог B.1, e.g. 6→"4–5") are resolved DOWN to the lower integer.** *Why: the brief asked to pick one value and note it; the lower end keeps the seed expectation safely attainable so pre-calibration results don't systematically read as "below typical" (which would be discouraging and unfair). Recalibrate from data.*
+
+**D-056 · Item caps per laddered domain by age cluster (young 5–6 / mid 7–9 / older 10–13); lone-signal domains (Gf, Gv) capped one higher than shared-index domains (EF, CT).** Caps: lone {5,6,6}, shared {4,5,5}. *Why: realises the Дел 5 battery-length rule (target 4–6) and Дел 3.2's stability boost for indices that rest on a single signal.*
+
+**D-057 · Gs grid level and Glr difficulty level are picked by age from the existing 1.04 level tables (cells 18→28, pairs 4→8); Glr recall rounds = 2 under age 9, 3 from age 9.** *Why: Gs/Glr are fixed (not laddered), so age selects one row; reusing the 1.04 tables avoids a parallel difficulty system. Round count seeds the 2–3 spec range.*
+
+**D-058 · Domain administration order = gf, gsm, gv, gs, ef, glr, ct.** *Why: the spec leaves order open; this interleaves heavy reasoning (Gf) with lighter memory/spatial/speed beats so fatigue isn't front-loaded. Tunable; deterministic regardless.*
+
+**D-059 · Idle-gap exclusion threshold = 30 s.** A gap longer than this is excluded from a task's effective time and counts toward the idle-pause flag. *Why: the spec excludes a pause only if inactivity "continues past" the ~20–25 s gentle-nudge window (Дел 8 rule 3), so the formal-exclusion threshold sits above the nudge.*
+
+**D-060 · EF, Glr and Attention are mapped to the accuracy index family.** EF feeds its planning-efficiency ratio (mean `minMoves/moves` over solved items, 0–1), Glr its mean recall accuracy (0–1), Attention its 0–1 score. *Why: the spec gives these as 0–1-shaped scores without their own norm family; the accuracy family (`20 + x·75`) is the natural fit. Marked seed.*
+
+**D-061 · Gs `expected` throughput is seeded as net (correct − 0.5·errors) per MINUTE, by age (8→20).** *Why: the spec defines the Gs raw score `(correct − 0.5·errors)/time` but tabulates no expected rate; per-minute units keep the spec's ×6 speed multiplier in a sensible range. Whole table is a seed to recalibrate.*
+
+**D-062 · Confidence thresholds (Дел 6.5): laddered/Corsi evidence high ≥4 items, medium 3, low ≤2; Glr high ≥3 rounds, medium 2; a composite is only as confident as its weakest contributing signal; random-level accuracy forces that signal low; a strong session verdict forces every index low.** *Why: seeds the "items + consistency + validity" rule; the min-over-contributors rule keeps a composite honest when one input is thin.*
+
+**D-063 · Validity thresholds (Дел 7.1): too-fast = RT < 500 ms, >30% of answers too-fast → STRONG; >60% same option position → flag; >3 excluded idle gaps → flag; Gs taps ≥90% of cells → Gs flag; a multiple-choice domain (≥3 items) within ±0.10 of chance (0.25) → random-level flag.** Verdict: any strong flag → `strong`; else any flag → `mild`; else `ok`. Same-position/idle/mashing/random are `mild`; too-fast is `strong`. *Why: seeds the spec's adjustable thresholds; only too-fast is severe enough alone to void the profile.*
+
+**D-064 · Gsm span fed to the index = forward span below age 8; from age 8, `(forward + (backward + 2)) / 2`.** *Why: normalises backward (expected ≈ forward − 2) onto the forward scale so a backward span at its own expectation is score-neutral, while a strong/weak backward moves the index. Seed; recalibrate.*
+
+**D-065 · EF ladders on goal-reached (solved), not on optimal solve; move-optimality feeds the raw efficiency score, not the ladder.** *Why: laddering on optimality would punish a correct-but-longer solution and stall the staircase; "did they reach the goal?" is the right basal/ceiling signal, and planning quality still differentiates via the efficiency raw score.*
+
+**D-066 · Extremes (Дел 7.3): floor = a domain with items administered but zero correct; ceiling = all items correct AND the ladder topped out at level 10 (or Corsi reached the max span).** *Why: "cannot do the easiest" ⇒ no evidence of ability ⇒ floor (gently framed by 1.07); "solves everything at the top" ⇒ ceiling. Mutually exclusive by construction.*
+
+**D-067 · Gsm per-direction trial backstop = 6.** *Why: the +1/−1 staircase with a 2-consecutive-error ceiling never terminates for a child sitting exactly at their span boundary (they oscillate pass/fail); the backstop caps a direction at 6 trials (worst case 6+6 from age 8).*
+
+**D-068 · The result is keyed to the LIVE UI-kit identity, overriding the brief's pseudo-types: index keys are `logic|spatial|memory|planning|stem` (not `memoryFocus|planningSpeed|learningStem`) and the band enum is `development|solid|strong|exceptional` (not `in_development`).** *Why: the DoD requires the result to feed `lib/indices.ts` + the 1.03 components with no adapter; "live code wins" (CLAUDE.md). Using the brief's names would have forced a glue layer.*
+
+**D-069 · Branched `phase-1.05-scoring` from `main`, not from `phase-1.04-task-bank` as the brief instructed.** *Why: reality diverged from the brief's note (and from D-041): `main` already contains the merged PRs #1–#3 (scaffold + UI kit + task bank) and the phase-1.0x branches no longer exist. Cutting from `main` is correct now; cutting from the named branch was impossible. Surfaced in the completion report.*
+
 ## Decision-log conventions
 
 - **Append, don't edit.** Existing entries are never changed or removed.
