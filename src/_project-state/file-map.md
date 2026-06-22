@@ -103,9 +103,33 @@ path/to/file.ext — one-line description of what it does
 - `index.ts` — public barrel (entry points + types + guards + version)
 - `__tests__/{prng,determinism,coverage,answer-key,distractors,purity}.test.ts` — Vitest suite (41 tests)
 
+**Seed norms — versioned config (`src/content/norms/`) (Phase 1.05) — pure data:**
+- `seed-norms.ts` — the single 1.05 tuning surface: start levels, span expectations, item caps, idle/validity/confidence thresholds, composite weights, raw→index formula constants, `SCORING_VERSION`/`NORMS_VERSION`; every value labeled seed
+- `index.ts` — barrel
+
+**Adaptive engine (`src/features/assessment/`) (Phase 1.05) — pure, deterministic state machine:**
+- `types.ts` — engine shapes: `RawResponse`, `GradedItem`, per-domain state (laddered/span/fixed), `SessionState`, `NextAction`
+- `engine.ts` — `startSession`/`nextAction`/`applyResponse`/`advanceDomain`/`runSession`; start-by-age, basal/ceiling, span +1/−1 + backward-from-8, fixed age-sized domains, `deriveSeed` per item
+- `fixtures.ts` — reusable scripted-session profiles (logic-strong / spatial-strong / flat / ceiling / strong-invalid) + `correctResponse`/`wrongResponse`/`scoreProfile` (also for 1.07)
+- `index.ts` — public barrel
+- `__tests__/{engine,determinism}.test.ts` — adaptive path, start levels, Gsm growth/ceiling/backward, determinism
+
+**Scoring layer (`src/features/scoring/`) (Phase 1.05) — raw → indices → bands/confidence/validity:**
+- `types.ts` — `AssessmentResult` + parts; `Band`/`Confidence` imported as TYPES from the 1.03 components so it feeds the UI kit with no adapter
+- `grade.ts` — grade a response against the item's verified answer key (correctness derived, never time-fed)
+- `time.ts` — time-rules math: `effectiveTime` (idle-gap exclusion), mean/stdDev/coefficient-of-variation
+- `raw.ts` — raw scores per signal (Дел 6.1) + extremes (ceiling/floor) helpers
+- `indices.ts` — raw→0–100 families (accuracy/span/speed), composites (Дел 6.3), bands (Дел 6.4)
+- `attention.ts` — derived attention (time variability + impulsive errors; no administered items)
+- `validity.ts` — validity flags + graduated verdict ok/mild/strong (Дел 7.1)
+- `confidence.ts` — per-index confidence high/medium/low (Дел 6.5)
+- `finalize.ts` — folds a completed session into the `AssessmentResult`
+- `index.ts` — public barrel
+- `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite
+
 **Reserved feature/content folders (empty until their phase):**
-- `src/features/{assessment,scoring,report}/.gitkeep`
-- `src/content/{modules,norms}/.gitkeep`
+- `src/features/report/.gitkeep`
+- `src/content/modules/.gitkeep`
 
 **Scripts:**
 - `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)
@@ -123,3 +147,4 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-02-Completion.md` — Phase 1.02 (design system) report (relocated from repo root, D-042)
 - `completions/Part-1-Phase-03-Completion.md` — Phase 1.03 (base UI kit) report
 - `completions/Part-1-Phase-04-Completion.md` — Phase 1.04 (task bank + generators) report
+- `completions/Part-1-Phase-05-Completion.md` — Phase 1.05 (adaptive engine + scoring + norms) report

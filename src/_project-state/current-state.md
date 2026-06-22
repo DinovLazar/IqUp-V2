@@ -4,11 +4,11 @@
 >
 > Lives at `src/_project-state/current-state.md`.
 
-**Last updated:** 2026-06-22 — end of Phase 1.04 (Task bank + procedural generators)
-**Current part / phase:** Part 1 · Phase 1.04 complete → next is **1.05 (Scoring & norms)**
-**Active branch:** `phase-1.04-task-bank` (PR into `main`)
+**Last updated:** 2026-06-22 — end of Phase 1.05 (Adaptive engine + scoring + norms)
+**Current part / phase:** Part 1 · Phase 1.05 complete → next is **1.06 (Assessment flow / screens)**
+**Active branch:** `phase-1.05-scoring` (PR into `main`)
 
-> ⚠️ **Branch note (D-041):** the 1.01 PR is **not yet merged** — `main` is still at the kickoff baseline and has none of the scaffold. The phase branches form a chain off `main`: `phase-1.01-scaffold` → `phase-1.03-ui-kit` → `phase-1.04-task-bank` (this branch is cut from 1.03, not bare `main`). Merge/rebase them onto `main` in order, oldest first.
+> ✅ **Branch note (supersedes D-041, see D-069):** the kickoff-baseline situation has resolved — `main` now contains the merged PRs **#1 (scaffold), #2 (UI kit), #3 (task bank)**, and the old `phase-1.0x-*` branches are gone. This phase was therefore cut from **`main`** (not from `phase-1.04-task-bank` as the brief assumed). Future phases branch from `main` normally.
 
 ## How to run it locally
 
@@ -16,7 +16,7 @@
 npm install
 npm run dev        # http://localhost:3000  → placeholder landing (MK)
                    # http://localhost:3000/kit → dev-only UI-kit gallery (every component + state)
-npm test           # Vitest: task-bank determinism + answer-key + distractor + purity suite
+npm test           # Vitest: task bank + adaptive engine + scoring suites (13 files, 101 tests)
 npx tsx scripts/dump-tasks.ts   # print sample generated items as JSON (eyeballing)
 ```
 
@@ -61,7 +61,17 @@ Deterministic, seedable procedural generators for the **7 testable signals**, em
 - **Generators** — `gf` (matrix + numeric series), `gv` (mental rotation + odd-one-out, chiral polygons), `gsm` (Corsi span, fixed 6-tile board, caller passes length/direction), `gs` (symbol-search grid + target-cell key), `ef` (Tower of London, BFS-verified `minMoves` + optimal path), `glr` (paired-associate study + recall), `ct` (5 sub-types: sequence/debug/loop/condition/maze, all symbol-based, zero text).
 - **Attention has NO generator** — it is a derived signal (timing variability + misses + impulsive errors) computed in 1.05 (spec Дел 3.1 #5 / Дел 4). Documented in `types.ts`.
 - **Tests** — Vitest suite under `__tests__/` (6 files, 41 tests): determinism, full level/subtype coverage, answer-key correctness (independent BFS for EF, rule re-derivation for Gf, congruence for Gv, maze-is-a-tree, etc.), distractor validity (unique key, matrix distractors differ by exactly one attribute), and a purity/language-neutrality scan.
-- **Out of scope (1.05/1.06):** scoring, norms, raw→0–100, basal/ceiling, confidence, validity flags, adaptive level selection, +1/−1 span growth, the age-8 backward rule, all timers/timing behaviour, and rendering.
+- **Out of scope (1.06):** all timers/timing *behaviour* (stopwatch, idle/tab-blur detection, the gentle nudge), practice-item administration, device calibration, and rendering — 1.05 consumes timing as passed-in data only.
+
+## Adaptive engine + scoring + seed norms (`src/features/assessment/`, `src/features/scoring/`, `src/content/norms/`) — Phase 1.05
+
+The **brain** of the assessment: a pure, deterministic, UI-free state machine + scoring layer that turns a child's responses into the five parent-facing indices with bands, confidence, validity, and extremes. No clock, no randomness beyond the seeded PRNG, no React — same `sessionSeed` + age + response/timing script → **deep-equal `AssessmentResult`**, always (purity- and determinism-tested, mirroring 1.04).
+
+- **`content/norms/seed-norms.ts`** — the **single tuning surface**: start-level-by-age, expected spans, item caps, the idle/validity/confidence thresholds, composite weights, and the raw→index formula constants. **Every value is a labeled seed** to recalibrate from pilot + anonymous data (Дел 6.6). `SCORING_VERSION` + `NORMS_VERSION` = `1.0.0`, carried in `result.meta` with `normsStage: "seed"`.
+- **`features/assessment/`** — `startSession` → `nextAction` (selector) → `applyResponse` (reducer) → `advanceDomain`, plus a `runSession` driver. Three control flows behind one interface: laddered basal/ceiling (Gf, Gv, EF, CT), span-adaptive Corsi (Gsm; +1/−1, backward only from age 8), and fixed age-sized (Gs, Glr). Per-item seeds via `deriveSeed`; each administered item comes from `generateItem`. Plus **`fixtures.ts`** — five reusable scripted profiles (logic-strong / spatial-strong / flat / ceiling / strong-invalid), reused by 1.07.
+- **`features/scoring/`** — grade (correctness derived from the item's own key, never from time) → raw scores (Дел 6.1) → derived **attention** (variability + impulsive errors; no task) → raw→0–100 (3 families) → composites (Дел 6.3) → bands (Дел 6.4) → confidence (Дел 6.5) → validity flags + verdict (Дел 7.1) → extremes (Дел 7.3), assembled by `finalize`. **Slow ≠ wrong** is structural: only Gs scoring sees time.
+- **Output feeds the UI kit with no adapter** — `AssessmentResult.indices` is keyed by the `lib/indices` `IndexKey` and the band/confidence enums are imported *as types* straight from the 1.03 components (so any drift breaks the build).
+- **Tests** — 7 new Vitest files (engine path, determinism, formulas, confidence/validity/extremes, attention + slow≠wrong, five-profiles/UI-shape, purity). One bug caught by an adversarial review pass (Gsm floor/ceiling mutual-exclusivity) was fixed + regression-tested.
 
 ## Design tokens
 
@@ -79,8 +89,8 @@ None yet (all stubbed until Part 2).
 
 ## Open carryover items
 
-- [ ] **Merge the 1.01 PR first**, then merge/rebase this 1.03 PR after it (D-041).
-- [ ] **Connect the CodeRabbit + Codex GitHub Apps** to `DinovLazar` → `docs/ai-review-setup.md`. Until done, PRs get no automated review.
+- [x] ~~Merge the 1.01 PR first (D-041)~~ — **resolved:** PRs #1–#3 are merged into `main`; the chain is collapsed (see D-069).
+- [ ] **Connect the CodeRabbit + Codex GitHub Apps** to `DinovLazar` → `docs/ai-review-setup.md`. Until done, PRs get no automated review (this 1.05 PR included — self-reviewed + an internal adversarial review pass instead).
 - [ ] **Ratify D-027** (Code kept on-disk `CLAUDE.md`/`AGENTS.md`/`Decisions.md` over the Appendix drafts).
 - [ ] **Brand assets pending (Cowork):** real IQ UP! class photo(s) (dashed placeholders in place); optional self-hosted Montserrat woff2 (currently `next/font/google` — clean swap path to `next/font/local`).
 - [ ] **§4.2 extras deferred (D-047):** reward badge, answer option, idle nudge → built with their screens (1.06/1.07).

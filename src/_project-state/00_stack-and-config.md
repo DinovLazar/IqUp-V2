@@ -103,3 +103,18 @@
   - **Test files are inside the tsconfig `include`** (`**/*.ts`), so `tsc` and `next build` type-check them too; kept clean rather than excluded. See D-048…D-053.
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (unchanged routes), `npm test` ✓ (6 files, 41 tests), `npm run format:check` ✓. EF `minMoves` hits the configured target 400/400 across levels 1–10 × 40 seeds.
+
+- **2026-06-22 · Phase 1.05 — adaptive engine + scoring + seed norms.**
+
+  **No new dependencies.** Pure TypeScript on top of the existing PRNG + task bank; tests on the already-pinned Vitest `4.1.9`. (The brief expected no new runtime deps; none were added.)
+
+  **New modules:** `src/content/norms/` (seed config), `src/features/assessment/` (adaptive state machine + scripted fixtures), `src/features/scoring/` (grading → indices → bands/confidence/validity → `finalize`). 7 new Vitest files (101 tests total across the repo).
+
+  **Config decisions / deviations:**
+  - **`SCORING_VERSION` + `NORMS_VERSION` = `1.0.0`** live in `src/content/norms/seed-norms.ts`, carried in every `AssessmentResult.meta` alongside `taskBankVersion` and `normsStage: "seed"` — so results are honestly labeled as seed-norm reference values, not measured norms (spec Дел 6.6).
+  - **One seed-norms tuning surface.** Every tunable (start levels, span expectations, item caps, composite weights, raw→index constants, time/validity/confidence thresholds) lives in one file, each labeled a seed to recalibrate. Decisions D-054…D-069.
+  - **Purity enforced** by a static-scan test over `src/features/assessment`, `src/features/scoring`, `src/content/norms`: no `Math.random`/`Date`/`Date.now`/`performance.now`/`setTimeout`/`setInterval`/`requestAnimationFrame`/`window`/`process.env`, and no runtime React import. Timing enters only as passed-in data; **slow ≠ wrong** is structural (non-Gs scoring functions never receive time).
+  - **Output keyed to the live UI kit** (D-068): `AssessmentResult.indices` uses the `lib/indices` `IndexKey`; `Band`/`Confidence` are imported *as types* from the 1.03 components, so enum drift breaks the build. Overrides the brief's `memoryFocus`/`in_development` pseudo-types ("live code wins").
+  - **No automated AI review yet** (CodeRabbit/Codex pending) — substituted an internal multi-agent adversarial review pass; it found one real bug (Gsm floor/ceiling mutual-exclusivity), fixed + regression-tested before close-out.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (unchanged routes `/`, `/_not-found`, `/kit`), `npm test` ✓ (13 files, 101 tests), `npm run format:check` ✓. Five scripted profiles produce five visibly distinct index profiles; a strong-invalid session is gated `strong` with all-low confidence.
