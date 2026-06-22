@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit auto-reviews every pull request. This file is committed so the
+# config is live the moment the CodeRabbit GitHub App is connected to the repo
+# (one-time browser step — see docs/ai-review-setup.md). Until then it is inert.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_filters:
+    - "!**/package-lock.json"
+    - "!**/*.pdf"
+  # Project-specific review guidance — the non-negotiables from CLAUDE.md.
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,jsx,css,json,yaml,yml}"
+      instructions: >-
+        Public repo: flag any hardcoded secret, API key, or token — these must
+        live only in Vercel env, server-side. Flag any PII (child name, parent
+        surname) or any code that could join the anonymous-scores store to the
+        leads store. Parent/child-facing copy must be plain Macedonian with no
+        jargon and must never imply a clinical IQ number, a diagnosis, or a
+        deficit/"weakness". Run-time must stay deterministic — no AI calls in
+        the assessment, scoring, or report paths. Accessibility: keyboard +
+        visible focus, contrast >= 4.5:1, tap targets >= 44px, respect
+        prefers-reduced-motion.
+chat:
+  auto_reply: true

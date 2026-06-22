@@ -1,0 +1,91 @@
+# IqUp-V2 — Decisions
+
+> **Append-only log of project decisions.** Seeded by Claude Chat during intake and planning. Claude Code adds a new entry every time it makes a decision on the fly during a phase. **Never edit or delete an existing entry** — if a decision is reversed, add a *new* entry that links back to the old one (see conventions at the bottom).
+>
+> The product source of truth is `IQ_UP_Specifikacija_v1_2_FINAL.pdf`. The entries here are the **build decisions** layered on top of it.
+
+---
+
+## Decisions
+
+**D-001 · Project / repo name = `IqUp-V2`** — under GitHub owner `DinovLazar`, **public**. Local folder `/Users/lazar/Projects/IqUp-V2` (macOS). *Why: Lazar's choice.*
+
+**D-002 · Lazar is the contractor; IQ UP! is the client.** Accounts, brand assets, the booking page, contact details, and the legal review are all client-provided. *Why: ownership model — Lazar builds; the client supplies and approves.*
+
+**D-003 · App home = `iq.iqup.mk`.** This replaces the spec's example subdomain `procena.iqup.mk`. *Why: Lazar's preferred subdomain.*
+
+**D-004 · Hosting = Vercel; upgrade Hobby → Pro before launch.** *Why: the free Hobby tier has an unclear commercial-use status and this is a paying client project. Pro ≈ $20/mo. Upgrade happens in Phase 3.05.*
+
+**D-005 · DNS / CDN = Cloudflare, DNS-only record to Vercel (not proxied).** *Why: a proxied (orange-cloud) record in front of Vercel can cause conflicts; DNS-only avoids them.*
+
+**D-006 · Public repo → no secrets in code, ever.** All API keys live only in Vercel's environment settings, server-side. *Why: the repo is public, and the spec mandates no keys on the client + no PII in logs.*
+
+**D-007 · All paths are macOS-style** (`/Users/lazar/Projects/IqUp-V2`). *Why: Lazar works on a Mac; the master prompt's Windows path examples don't apply.*
+
+**D-008 · No owner notifications on new leads.** Leads are visible in Brevo and the admin panel only. *Why: Lazar's choice — no Telegram/Slack/email ping needed.*
+
+**D-009 · Quality bar = Lighthouse 95+ (mobile + desktop), WCAG 2.2 AA, first load < 2.5s on 4G, passes iOS Safari + Android Chrome.** *Why: confirmed defaults; the spec already requires WCAG AA and a fast load.*
+
+**D-010 · Three-part build** — Part 1 local build → Part 2 integrations + Vercel preview → Part 3 polish + production cutover. Ships the **Macedonian MVP**. *Why: large custom app; the spec's later product phases (SR/HR/EN, verbal index, causal-reasoning domain) are out of scope for this build.*
+
+**D-011 · Framework = Next.js (App Router) + TypeScript.** *Why: React-based to match the spec's SPA idea; runs natively on Vercel; its backend routes give us the light backend in one project; TypeScript guards the scoring engine.*
+
+**D-012 · Front-end stack** — Tailwind CSS (styling), shadcn/ui on Radix (components, fully restyled), Motion / Framer Motion (animation), Lucide (UI icons), **custom SVG** for the pentagon and all test visuals. *Why: full brand control + accessibility + a light bundle; no charting dependency so the app and PDF render identically.*
+
+**D-013 · Lead form = React Hook Form + Zod.** *Why: reliable validation including the required consents; the same Zod rules are reused server-side.*
+
+**D-014 · Internationalization = next-intl; Macedonian at launch; no RTL.** *Why: clean per-language message files; visual tasks are language-neutral, only instructions/UI/CT-text localize; SR/HR/EN add later as more files.*
+
+**D-015 · PDF report = @react-pdf/renderer, generated server-side.** *Why: lets us build the branded report (pentagon, bands, colors) as components that render identically on Vercel's serverless backend.*
+
+**D-016 · Database = Supabase (Postgres, EU region) for the anonymous-scores store; Supabase Auth (with 2FA) for the admin login.** *Why: EU hosting for GDPR; simple to write to from Vercel; already connected; one vendor for DB + auth. Alternative considered: Vercel Postgres + Auth.js — not chosen, to keep one EU vendor.*
+
+**D-017 · Email + CRM = Brevo (EU).** Stores leads, sends the transactional PDF email, runs email/SMS-by-city campaigns. *Why: spec-mandated; EU/GDPR-friendly.*
+
+**D-018 · Analytics = GA4 + Meta Pixel + Conversions API (server-side, deduped via `event_id`).** *Why: spec-mandated funnel events; the server-side Meta Lead is reliable and ad-blocker-resistant.*
+
+**D-019 · No AI at run-time.** The report's personalization is a deterministic module-assembly engine, not an LLM. *Why: hard spec rule — central to the product's credibility and legal posture.*
+
+**D-020 · Booking is external / out of scope.** The CTA links to the client's existing booking page with the city attached: `{{BOOKING_URL}}?grad={city}`. *Why: the booking page already exists and isn't part of this build.*
+
+**D-021 · Legal pages = hand-built + lawyer-reviewed** (not iubenda). *Why: the spec already provides the consent copy and a lawyer sign-off is required regardless; hand-built keeps cost and full control. iubenda was the paid turnkey alternative.*
+
+**D-022 · Microsoft Clarity skipped for the MVP.** *Why: keeps the cookie-consent surface minimal under GDPR; can be added later if wanted.*
+
+**D-023 · Dark mode out of scope for the MVP.** *Why: not needed for a fixed-palette children's assessment; revisit only if requested.*
+
+**D-024 · Repo & branching follow the house bootstrap conventions, applied at Phase 1.01** — single branch `main` (= production), Vercel auto-previews every other branch / PR, branch protection on `main`, AI code review via CodeRabbit (auto on every PR) + Codex (assigned on architectural PRs), set up with the `gh` CLI. *Why: blends the house repo-bootstrap skill with Vercel's built-in preview model; no separate `development` branch needed.*
+
+**D-025 · Project doc & state system follows the master prompt** (`docs/design-handovers/` + `src/_project-state/` with `current-state.md`, `file-map.md`, `00_stack-and-config.md`, and `completions/`) rather than the Kolekt `briefs/` / `reports/` / `status/` layout. *Why: the master prompt is the project-specific instruction; running one state system avoids two competing ones.*
+
+**D-026 · Owner = `DinovLazar` (overrides the bootstrap skill's example owners).** The repo-bootstrap house skill lists example owners `Goran-Din` / `vertexmk-systems` / `north37-llc`; Lazar specified `DinovLazar`. *Why: Lazar's explicit instruction wins over the skill's examples.*
+
+---
+
+### Phase 1.01 — on-the-fly decisions (Claude Code, 2026-06-21)
+
+**D-027 · Kept the existing on-disk `CLAUDE.md` / `AGENTS.md` / `Decisions.md`; did NOT overwrite them with the phase prompt's Appendix drafts.** The Phase 1.01 prompt told Code to place these three files "using the exact content in the Appendices." On disk, Chat had already placed richer, more current versions — the live `Decisions.md` holds D-001…D-026, whereas the Appendix draft only went to D-010; the live `CLAUDE.md`/`AGENTS.md` are fuller. *Why: the project's prime directive is "where a doc and the live code disagree, the live code wins — surface the mismatch." Overwriting would have destroyed 16 logged decisions and downgraded the rule files. **Surfaced for Chat/Lazar to ratify** — if the Appendix text was actually intended to supersede, say so and I'll reconcile.*
+
+**D-028 · Package manager = npm.** pnpm/yarn are not installed on the machine; the phase says "pnpm if available, otherwise npm." Lockfile `package-lock.json` committed. *Why: use what's present; one lockfile, reproducible installs.*
+
+**D-029 · Adopted current stable majors: Next 16, React 19, Tailwind v4 — which changes the plan tree.** Tailwind v4 is CSS-first, so there is **no `tailwind.config.ts`** (theme tokens live in `globals.css` `@theme`, brand theme done in 1.03), and config is **`next.config.ts`** (TS) not `next.config.js`. *Why: the phase says "use the latest stable… do not guess versions"; v4's CSS-first model supersedes the plan.md §7 filenames. Recorded in `00_stack-and-config.md`.*
+
+**D-030 · next-intl set up "without i18n routing" (single MVP locale).** `src/i18n/request.ts` returns `locale: "mk"` + `messages/mk.json`; root layout consumes it and sets `<html lang="mk">`. A `[locale]` segment + middleware is the documented next step for SR/HR/EN. *Why: simplest correct pattern for an MK-at-root MVP that stays locale-ready; no RTL.*
+
+**D-031 · Animation library installed as `motion` (v12), not the legacy `framer-motion` package.** Same library, current name; import from `motion/react`. *Why: `motion` is the maintained successor; the stack doc says "Motion (Framer Motion)".*
+
+**D-032 · shadcn/ui initialised with the `radix` component library + `Nova` preset, neutral base color, Lucide icons.** Only `Button` was added (pipeline check). The `shadcn` npm package is a runtime dependency because `globals.css` imports `shadcn/tailwind.css`. *Why: spec is shadcn-on-Radix; neutral placeholder is fine until the 1.03 brand restyle.*
+
+**D-033 · Renamed the completion-report template `Part-X-Phase-YY-Completion.md` → `_TEMPLATE.md`.** *Why: the phase step F asks for `_TEMPLATE.md`; a literal-placeholder filename in `completions/` reads like a malformed report. Per-phase reports keep the `Part-X-Phase-YY-Completion.md` name.*
+
+**D-034 · Public pages sit under a `(site)` route group; placeholder landing at `src/app/(site)/page.tsx`.** Next.js boilerplate removed (root `page.tsx`, demo SVGs, Geist fonts, the create-next-app dark-mode CSS block). The placeholder uses a system font stack (covers Cyrillic) pending Montserrat in 1.03. *Why: matches plan.md §7's `(site)` group; keeps the scaffold clean for reviewers.*
+
+**D-035 · Branch protection on `main`: PR required + no direct pushes + `enforce_admins`, but `required_approving_review_count = 0`.** The bootstrap skill flags that requiring 1 approval bricks a solo operator (can't approve your own PR). The phase requires only "a PR before merging; no direct pushes" — which 0 approvals satisfies. *Why: keeps the solo PR→merge workflow usable while still enforcing no-direct-push; CodeRabbit (not a human gate) provides the review. **Surfaced** — raise the count later if a second reviewer joins.*
+
+## Decision-log conventions
+
+- **Append, don't edit.** Existing entries are never changed or removed.
+- **Reversals get a new entry.** If a decision changes, add a new `D-NNN` entry that states the new decision and references the one it supersedes (e.g. "supersedes D-021"). The old entry stays in place.
+- **Number sequentially** — `D-001`, `D-002`, … Don't reuse numbers.
+- **One line of "why" per entry**, in plain language.
+- **Who appends:** Chat seeds and adds decisions made in chat; Code adds decisions it had to make on its own during a phase (and surfaces them in its completion report so Chat can flag them to Lazar).
