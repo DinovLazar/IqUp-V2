@@ -82,6 +82,36 @@
 
 **D-035 · Branch protection on `main`: PR required + no direct pushes + `enforce_admins`, but `required_approving_review_count = 0`.** The bootstrap skill flags that requiring 1 approval bricks a solo operator (can't approve your own PR). The phase requires only "a PR before merging; no direct pushes" — which 0 approvals satisfies. *Why: keeps the solo PR→merge workflow usable while still enforcing no-direct-push; CodeRabbit (not a human gate) provides the review. **Surfaced** — raise the count later if a second reviewer joins.*
 
+### Phase 1.02 — Design decisions (made by Design; logged by Code in 1.03)
+
+> Design could not commit to the repo, so these five accepted on-the-fly decisions from the 1.02 completion report are recorded here now that Code can. All five are **implemented in 1.03**.
+
+**D-036 · Accessible `*-ink` index-text tokens** (`--color-mag-ink` etc.). The raw index hues fail 4.5:1 as text, but band labels need colored text; the darkened variants keep the index→color association while passing AA. *Why: WCAG 2.2 AA + the "never color-only" rule.*
+
+**D-037 · A single `--shadow-pop` elevation token, scoped to modal/popover only.** *Why: honors the "no shadow-on-everything" rule while still giving floating UI one intentional lift.*
+
+**D-038 · Puzzle-brain built as a clipped silhouette with 5 region paths** (not free-floating tiles). *Why: reads unmistakably as a brain even at the ~40px chip size and stays legible in the reduced-motion snap state.*
+
+**D-039 · Band word-labels decoupled from the numeric §6.4 bands.** Parents see Во развој / Солидно / Силно / Исклучително + an indicative range only; the numbers stay internal to scoring. *Why: enforces the "no hard number" rule at the component level.*
+
+**D-040 · Photo placeholders rendered as clearly-marked dashed blocks** ("PLACEHOLDER · Cowork asset"). *Why: zero ambiguity about where the real class photo drops in.*
+
+### Phase 1.03 — on-the-fly decisions (Claude Code, 2026-06-22)
+
+**D-041 · Branched `phase-1.03-ui-kit` off `phase-1.01-scaffold`, not bare `main`.** The 1.01 PR is **not yet merged** — `main` is still at the kickoff baseline (`8402953`) and lacks the entire scaffold. Branching off `main` as the brief literally says would have dropped 1.01. *Why: live-code-wins / don't lose work. **Surfaced** — when 1.01 merges, this PR should be merged/rebased after it so history is clean.*
+
+**D-042 · Relocated the 1.02 handover + completion from the repo root into their proper homes** (`docs/design-handovers/Part-1-Phase-02-Handover.md`, `src/_project-state/completions/Part-1-Phase-02-Completion.md`). They were dropped at root (untracked) because Design can't commit. *Why: closes the loop the brief asked for, matches the brief's read-order paths and the 1.02 report's own "Files written" claims.*
+
+**D-043 · `globals.css` rewritten brand-first.** Brand tokens **and** the shadcn/Radix semantic tokens (`--color-primary`, `--color-background`, …) now live in one `@theme` block, mapped to brand values, so future `shadcn add` components are on-brand with no second token system. Removed dark mode (the `.dark` block + `@custom-variant dark`), the unused neutral oklch palette, and the unused `chart-*`/`sidebar-*` tokens. *Why: implements no-dark-mode (D-023) and reconciles the inert `.dark` block flagged in `current-state.md`; one clean token layer.*
+
+**D-044 · Kit gallery lives at `src/app/kit/`, not `src/app/_kit/`.** In the Next.js App Router an underscore-prefixed folder is a **private folder excluded from routing**, so `/_kit` (the brief's example) never resolves. Renamed to `kit`; gated to dev/preview only (404 when `VERCEL_ENV === "production"`) and marked `noindex`. *Why: the route must actually render for QA (DoD) — framework reality over the example path; live code wins.*
+
+**D-045 · The puzzle-brain SVG is an original interpretation of handover §2.** The 1.02 mockup (`IQ UP Phase 1-02 Design System.dc.html`) was delivered as a streaming component and is **not in the repo**, so no exact path data existed. The silhouette + 5 region paths are structured so the mockup's exact geometry can be swapped in later without changing the component API. *Why: §2 specifies the structure (clipped silhouette + 5 regions), which is faithfully implemented; only the precise path curves are original.*
+
+**D-046 · Confidence "висока" uses the brand teal-ink** (`#007D75`); средна = orange-ink, ниска = muted grey. *Why: the handover says "green," but the fixed brand palette has no separate green — teal is the brand's positive hue, and all three pass AA as text. Meaning is also carried by the bar count + word, never color alone.*
+
+**D-047 · Built `IndexBandBar` (handover §4.2) as a reusable composition part** alongside the required band-label/confidence; **deferred** the other §4.2 components (reward badge, answer option, idle nudge) to their consuming screen phases (1.06/1.07). *Why: the brief's in-scope list and DoD name only the core kit + band-label + confidence; the band bar is a pure report-bound part worth having now, but the screen-specific extras are best built with their screens.*
+
 ## Decision-log conventions
 
 - **Append, don't edit.** Existing entries are never changed or removed.

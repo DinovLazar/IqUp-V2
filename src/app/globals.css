@@ -2,135 +2,171 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+  IqUp-V2 brand theme — Phase 1.03.
+  Single source of design tokens (handover §1 / spec App. G), implemented
+  brand-first in one @theme block. shadcn/Radix semantic tokens (--color-primary,
+  --color-background, …) are mapped to brand values in the SAME block, so any
+  future `shadcn add` component renders on-brand without a second token system.
+  No dark mode (D-023): the neutral oklch palette + `.dark` block from the
+  scaffold are intentionally removed and reconciled here.
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  /* Neutral system stack for the scaffold — Montserrat (Cyrillic + Latin)
-     replaces this as the brand theme in Phase 1.03. System fonts cover
-     Macedonian Cyrillic so the placeholder renders correctly. */
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+@theme {
+  /* ===== Index → color (fixed everywhere: screen, pentagon, PDF) ===== */
+  --color-mag: #ec008c; /* Логичко мислење — Logic            */
+  --color-pur: #762d90; /* Primary action (buttons, key UI)    */
+  --color-blu: #00b6f1; /* Просторно — Spatial                 */
+  --color-blu2: #6fd0f6; /* Blue support / tints               */
+  --color-teal: #00b9ad; /* Меморија и фокус — Memory & focus  */
+  --color-org: #f7941d; /* Планирање и брзина — Planning/speed */
+  --color-yel: #ffc20e; /* Учење и STEM — Learning & STEM      */
+  --color-grey: #999999; /* Neutral                            */
+
+  /* ===== Soft tints — pentagon fills, band-bar tracks, surfaces ===== */
+  --color-mag-soft: #fce0f1;
+  --color-blu-soft: #d6f2fd;
+  --color-teal-soft: #d2f3f0;
+  --color-org-soft: #fdebd3;
+  --color-yel-soft: #fff2cc;
+
+  /* ===== Index colors as ACCESSIBLE TEXT (darkened — band labels only, ≥4.5:1) ===== */
+  --color-mag-ink: #b0067a;
+  --color-blu-ink: #0090c4;
+  --color-teal-ink: #007d75;
+  --color-org-ink: #9a6200;
+  --color-yel-ink: #9a7400;
+
+  /* ===== Text (all ≥4.5:1 on light bg) ===== */
+  --color-ink: #231f26; /* body / headings  ~13:1 */
+  --color-muted: #5e5862; /* helper / secondary ~7:1 */
+
+  /* ===== Surfaces & lines ===== */
+  --color-bg: #faf8f4; /* app base */
+  --color-surface: #ffffff;
+  --color-tint-pur: #f4eff7; /* emphasis surface */
+  --color-border: #eae6e0;
+  --color-border-pur: #e4d7ec;
+
+  /* ===== Focus + interaction states ===== */
+  --color-focus: rgba(118, 45, 144, 0.45); /* 3px ring */
+  --color-pur-hover: #651e80; /* −8% L */
+  --color-pur-active: #54186b;
+  --color-disabled-bg: #ede9f0;
+  --color-disabled-fg: #a99cb3;
+
+  /* ===== Form error (handover §4.1) ===== */
+  --color-error: #c0392b; /* helper text */
+  --color-error-border: #e0b4ae;
+
+  /* ===== shadcn/Radix semantic tokens → mapped to brand ===== */
+  --color-background: #faf8f4;
+  --color-foreground: #231f26;
+  --color-card: #ffffff;
+  --color-card-foreground: #231f26;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #231f26;
+  --color-primary: #762d90;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #ffffff;
+  --color-secondary-foreground: #762d90;
+  --color-muted-foreground: #5e5862;
+  --color-accent: #f4eff7;
+  --color-accent-foreground: #762d90;
+  --color-destructive: #c0392b;
+  --color-destructive-foreground: #ffffff;
+  --color-input: #eae6e0;
+  --color-ring: #762d90;
+
+  /* ===== Elevation — the ONLY shadow token; modal/popover only ===== */
+  --shadow-pop: 0 6px 20px -10px rgba(60, 40, 80, 0.28);
+
+  /* ===== Typography — Montserrat (Cyrillic + Latin); --font-montserrat set by next/font ===== */
+  --font-sans: var(--font-montserrat), system-ui, sans-serif;
+
+  /* Four type-scale roles. `text-display|subhead|label|body` apply size +
+     line-height + tracking + weight together (Tailwind v4 paired tokens). */
+  --text-display: clamp(1.75rem, 1.35rem + 1.9vw, 2.125rem); /* 28–34px */
+  --text-display--line-height: 1.12;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 800;
+
+  --text-subhead: clamp(1.125rem, 1rem + 0.6vw, 1.375rem); /* 18–22px */
+  --text-subhead--line-height: 1.3;
+  --text-subhead--letter-spacing: -0.01em;
+  --text-subhead--font-weight: 700;
+
+  --text-label: clamp(0.875rem, 0.82rem + 0.25vw, 1rem); /* 14–16px */
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.01em;
+  --text-label--font-weight: 600;
+
+  --text-body: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem); /* 15–16px */
+  --text-body--line-height: 1.6;
+  --text-body--font-weight: 500;
+
+  /* Standalone weight tokens (handover §1.2) → font-display|subhead|label|body */
+  --font-weight-display: 800;
+  --font-weight-subhead: 700;
+  --font-weight-label: 600;
+  --font-weight-body: 500;
+
+  /* ===== Spacing, radius, sizing ===== */
+  --spacing: 0.25rem; /* 4px base → scale 4/8/12/16/24/32 = 1/2/3/4/6/8 */
+
+  --radius: 0.6875rem; /* 11px — shadcn primitives + field default */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: 14px; /* cards 12–18px */
+  --radius-card-lg: 18px;
+  --radius-badge: 30px; /* explorer pill badges */
+  --radius-field: 11px;
+
+  --size-tap-min: 44px; /* every tappable target ≥ 44px */
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Gradients are images, not colors → plain custom props (used via the
+     bg-grad-* utilities below or inline). */
+  --grad-brand: linear-gradient(90deg, #ec008c 0%, #762d90 100%);
+  --grad-wash: linear-gradient(150deg, #fbf2f8 0%, #eaf6fe 100%);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@utility bg-grad-brand {
+  background-image: var(--grad-brand);
+}
+
+@utility bg-grad-wash {
+  background-image: var(--grad-wash);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
+    border-color: var(--color-border);
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-size: var(--text-body);
+    line-height: 1.6;
+  }
+  /* Respect reduced-motion globally (brand §8). Components that animate
+     meaningfully (puzzle-brain) also branch in JS via useReducedMotion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
