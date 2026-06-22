@@ -6,8 +6,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-22
 **Branch:** `phase-1.03-ui-kit` (off `phase-1.01-scaffold` — see D-041)
-**Commits:** _(filled at PR time)_
-**PR:** _(filled at PR time)_
+**Commits:** `98e8f34` (+ this docs touch-up)
+**PR:** [#2](https://github.com/DinovLazar/IqUp-V2/pull/2)
 
 ## What shipped
 
