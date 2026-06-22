@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-22
 **Branch:** `phase-1.05-scoring` (cut from `main` — see D-069)
-**Commits:** _(filled after push)_
-**PR:** _(filled after open)_
+**Commits:** `1413524` (phase work) + a docs commit filling these refs
+**PR:** [#4](https://github.com/DinovLazar/IqUp-V2/pull/4)
 
 ## What shipped
 
