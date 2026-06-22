@@ -85,3 +85,21 @@
   - **`.claude/` gitignored** — local agent/editor tooling (preview `launch.json`), not project source.
 
   **Verification:** `npm run build` ✓ (routes `/`, `/_not-found`, `/kit`), `npm run lint` ✓ (0 problems), `npm run typecheck` ✓; dev server serves `/` and `/kit` (HTTP 200); `/kit` visually verified — Montserrat Cyrillic, palette hex, pentagon geometry, and the puzzle-brain assembly (incl. 40px chip) all render correctly.
+
+- **2026-06-22 · Phase 1.04 — task bank + procedural generators; Vitest added.**
+
+  **New dependency (pinned exact, D-048):**
+  | Package | Version | Role |
+  |---|---|---|
+  | vitest | 4.1.9 | Test runner (devDependency); pinned exact (no caret). |
+
+  Adds scripts `test` (`vitest run`) and `test:watch` (`vitest`). New `vitest.config.ts`: node environment, `@/` alias mirroring tsconfig, includes `src/**/*.test.ts`. *(Vitest pulls Vite + esbuild/swc + a few native deps with install scripts — npm prints `allow-scripts` warnings; harmless for local dev/CI.)*
+
+  **Config decisions / deviations:**
+  - **No `Math.random`, `Date`, or env reads** anywhere in `src/features/tasks`, `src/content/tasks`, or `src/lib/prng.ts` — enforced by a static-scan purity test. All randomness flows from `makeRng(seed)` (mulberry32 + FNV-1a) with deterministic sub-seeds via `deriveSeed`.
+  - **Generators emit pure data / coordinate geometry only** — no React, no `.tsx`, no SVG/markup, no CSS (mirrors `pentagon.ts`). Rendering is 1.06; scoring/norms/adaptive logic are 1.05.
+  - **`TASK_BANK_VERSION = "1.0.0"`** lives in `src/content/tasks/version.ts`, stored with each record (spec Дел 19.4).
+  - **Attention has no generator** (spec signal #5 is derived in 1.05) — documented in `types.ts` + the completion report.
+  - **Test files are inside the tsconfig `include`** (`**/*.ts`), so `tsc` and `next build` type-check them too; kept clean rather than excluded. See D-048…D-053.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (unchanged routes), `npm test` ✓ (6 files, 41 tests), `npm run format:check` ✓. EF `minMoves` hits the configured target 400/400 across levels 1–10 × 40 seeds.
