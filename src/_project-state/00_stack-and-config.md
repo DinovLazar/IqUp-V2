@@ -152,3 +152,32 @@
   - **Disclaimer left to 1.10** — not built or embedded in `ReportModel`; the `/kit` preview shows the canonical Прилог D.4 text once, as a static placeholder.
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `/`, `/procena`, `/kit`, `/_not-found`), `npm test` ✓ (23 files, 169 tests), `npm run format:check` ✓. Browser-verified at `/kit`: five fixtures → five visibly distinct reports (pentagon + word/range bands, no number), the ceiling fixture shows the „го достигна врвот…" copy, strong-invalid shows the graceful-retry card; `{child}` resolves to „Вашето дете"; no console errors.
+
+- **2026-06-23 · Phase 1.08 — lead form + confirmation screen; React Hook Form + Zod added.**
+
+  **New dependencies (pinned EXACT, no caret — D-084…D-091 + the gap-fills below):**
+  | Package | Version | Role |
+  |---|---|---|
+  | zod | 4.4.3 | Shared, framework-free validation schema (reused server-side in Part 2) |
+  | react-hook-form | 7.80.0 | Form state + submission |
+  | @hookform/resolvers | 5.4.0 | Zod resolver bridge (peer `react-hook-form ^7.55`; supports Zod 4) |
+  | jsdom | 29.1.1 | **devDependency** — DOM env for the React component tests |
+  | @testing-library/react | 16.3.2 | **devDependency** — render + query (React 19 compatible) |
+  | @testing-library/dom | 10.4.1 | **devDependency** — RTL peer (queries) |
+  | @testing-library/user-event | 14.6.1 | **devDependency** — (installed; the 1.08 tests use `fireEvent` for Radix robustness) |
+
+  Resolver/Zod compatibility verified: `@hookform/resolvers` 5.4.0 peers `react-hook-form ^7.55.0` (satisfied by 7.80.0) and works with Zod 4; `zodResolver` imported from `@hookform/resolvers/zod`.
+
+  **Config decisions / deviations:**
+  - **Branched `phase-1.08-lead-form` from `main`, not from `phase-1.07-report-engine`** (D-092): PR #6 (the 1.07 branch) is already merged into `main` (commit `00beacf`), so the brief's "cut from `phase-1.07-report-engine`" fallback applied — cut from updated `main`.
+  - **Required consents modeled as `z.boolean().refine(v => v === true)`** (D-093) rather than `z.literal(true)` — keeps the input type `boolean` so an un-ticked checkbox (`false`) is a valid default while the schema still rejects `false`/absent. Enforced in the schema, not only the UI.
+  - **Schema error messages are stable TOKENS** (D-094) (e.g. `emailInvalid`, `consentServiceRequired`), mapped to MK in the form via `messages/mk.json`. Keeps the schema framework-free + server-reusable and all parent-facing copy in one place.
+  - **`runLeadSubmit` is a pure, dependency-injected pipeline** (D-096) the form delegates to (persist → `lead_submit` → advance), so the submit ordering/args are Node-testable without a DOM — the 1.06 pure-core / thin-React split.
+  - **First DOM tests in the repo** (D-095): `vitest.config.ts` now includes `*.test.tsx`; the global env stays `node`; the two React tests opt into `jsdom` per-file via a `// @vitest-environment jsdom` docblock (the pure suite stays Node-only). `@testing-library/react` + `jsdom` pinned; `fireEvent` used over `user-event` to avoid Radix pointer-capture machinery in jsdom (a few `Element.prototype` stubs guard the Radix primitives).
+  - **`NEXT_PUBLIC_BOOKING_URL`** documented in `.env.local.example`; non-secret placeholder default `https://booking.example.invalid` lives in `src/features/lead/cta.ts` (resolved-decision 6). Real URL is a pending Cowork asset.
+  - **Verbatim Прилог D copy** in `messages/mk.json` under a shared `legal` namespace (§D.2 data note + §D.4 disclaimer) + `leadForm` consents; the privacy-policy link inside `consent_service` renders via `t.rich` to `/politika-za-privatnost`.
+  - **No real network in Part 1** — `submitLead`/`trackEvent` are inert seams; the engine/scoring/report modules are untouched (consumed read-only).
+
+  - **Adversarial review pass** (automated review still unconnected): a multi-agent review of the diff surfaced 7 confirmed should-fix items; the substantive ones were fixed + regression-tested — submit guarded with RHF `isSubmitting` + try/catch + an MK `submitFailed` line (recoverable on a Part-2 network failure), field ids namespaced via `useId` (no collisions across the 3 `/kit` forms — verified 0 duplicate ids), the consent privacy-link `stopPropagation`s so it never toggles the consent, the end-phase render switch extracted to a testable `EndPhaseView`, and the retry confirmation branch added to the no-number guard. The privacy-link 404 (the `/politika-za-privatnost` page is a `.gitkeep` until 3.03) is by phase design — the link is correct + verbatim, left as carryover.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `/`, `/procena`, `/kit`, `/_not-found`), `npm test` ✓ (**30 files, 209 tests**), `npm run format:check` ✓. Browser-verified at `/kit`: the form (empty / validation-error / missing-consent — required-consent failures show inline; 0 duplicate ids across the 3 instances) and the confirmation (pentagon + word/range bands, **no number**, booking href `…?grad=%D0%A1%D0%BA%D0%BE%D0%BF%D1%98%D0%B5`), graceful-retry variant; no console errors.

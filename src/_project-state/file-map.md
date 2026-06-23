@@ -27,7 +27,7 @@ path/to/file.ext — one-line description of what it does
 **Root config & housekeeping (Phase 1.01):**
 - `README.md` — short project readme + how to run locally
 - `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store`
-- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel
+- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08, non-secret placeholder)
 - `.coderabbit.yaml` — CodeRabbit auto-review config (live once the app is connected)
 - `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format)
 - `tsconfig.json` — TypeScript config (strict)
@@ -38,7 +38,8 @@ path/to/file.ext — one-line description of what it does
 - `.prettierrc.json` — Prettier + `prettier-plugin-tailwindcss`
 - `.prettierignore` — excludes deps/build/lockfile/PDF/Markdown
 - `components.json` — shadcn/ui config (radix lib, Nova preset, neutral, Lucide)
-- `vitest.config.ts` — Vitest config (Phase 1.04): node env, `@/` alias, `src/**/*.test.ts`
+- `vitest.config.ts` — Vitest config: node env (default) + `@/` alias; includes `src/**/*.test.ts` **and** `*.test.tsx` (1.08 jsdom tests opt in per-file via a `@vitest-environment jsdom` docblock); `setupFiles: vitest.setup.ts`
+- `vitest.setup.ts` — env-guarded jsdom polyfills for Radix (ResizeObserver / pointer-capture / scrollIntoView); no-op under the Node suites (1.08)
 
 **Docs:**
 - `docs/design-handovers/.gitkeep` — reserved for Design handovers
@@ -46,7 +47,7 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings (starter set)
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
@@ -55,14 +56,19 @@ path/to/file.ext — one-line description of what it does
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
 - `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`, inline "informative, not diagnostic" footnote
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
-- `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion; session seed + `parentAssistMode` (inert) (1.06)
+- `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once; session seed + `parentAssistMode` (inert); nothing persisted (1.06/1.08)
 - `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
 - `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox + inline disclaimer (1.06)
-- `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge (1.06)
+- `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge; +1.08: optional `onProceed` primary button to the lead form
+- `src/app/(site)/procena/lead-form.tsx` — **lead form (1.08)**: RHF + Zod resolver over the 1.03 primitives; 8 fields (first name only), 3 separate never-pre-ticked consents, inline errors, `form_view` on mount; `CityField` swap-seam; preview seams (`autoValidate`/`defaultValues`)
+- `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, §D.4 disclaimer placeholder, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant
+- `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable
+- `src/app/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
 - `src/app/(site)/{za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
-- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; **+1.07: the report-engine preview section**
+- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**
 - `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
+- `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
 - `src/app/api/.gitkeep` — reserved serverless backend (lead/report/score)
@@ -91,6 +97,7 @@ path/to/file.ext — one-line description of what it does
 - `pentagon.ts` — pure framework-agnostic pentagon geometry (shared by web + future PDF)
 - `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
+- `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
 
 **Task bank — versioned config (`src/content/tasks/`) (Phase 1.04):**
 - `version.ts` — `TASK_BANK_VERSION` ("1.0.0"); stored with every anonymous record
@@ -154,9 +161,10 @@ path/to/file.ext — one-line description of what it does
 - `index.ts` — barrel
 - `__tests__/responses.test.ts` — response→answer-key mapping per signal, slow≠wrong, Gv render determinism
 
-**Flow controller (`src/features/assessment/`) (Phase 1.06):**
-- `flow.ts` — pure running-phase logic on the 1.05 engine: `settle` past domainComplete, `nextStep` (practice/real), 5 index-group progress
+**Flow controller (`src/features/assessment/`) (Phase 1.06 + 1.08):**
+- `flow.ts` — pure running-phase logic on the 1.05 engine: `settle` past domainComplete, `nextStep` (practice/real), 5 index-group progress; +1.08: the `advanceEndPhase` end-phase controller (completion → form → confirmation)
 - `__tests__/flow.test.ts` — flow over the 5 fixture profiles (reproduces the engine path), determinism, one practice per task type
+- `__tests__/end-phase.test.ts` — `advanceEndPhase` walks completion → form → confirmation and rests at confirmation (1.08)
 
 **Report engine (`src/features/report/`) (Phase 1.07) — pure, deterministic; reads 1.05 read-only:**
 - `types.ts` — the engine contract: `DerivedFeatures`, the `ReportModule` schema (Дел 9.2), `ReportModel` (single render contract for 1.08 + 1.09), `ReportSummary`, `REPORT_ENGINE_VERSION`
@@ -167,6 +175,13 @@ path/to/file.ext — one-line description of what it does
 - `select.ts` — `selectReportSummary` — the Дел 10.1 on-screen subset (pentagon + 5 bands + top strength + CTA)
 - `index.ts` — public barrel
 - `__tests__/{determinism,purity,profiles,validity-extremes,coverage,voice,text}.test.ts` — Vitest suite (36 tests)
+
+**Lead feature (`src/features/lead/`) (Phase 1.08) — shared schema + stubbed seams (framework-free):**
+- `schema.ts` — the shared Zod `leadSchema` (8 fields, first-name-only, permissive phone via `isPlausiblePhone`, two required consents enforced true, error TOKENS) + `LeadFormValues`; reused unchanged by the Part-2 API route
+- `submit.ts` — `submitLead` (Part-1 inert stub + documented Part-2 contract incl. the separate non-joinable score write) + `runLeadSubmit` (pure DI pipeline: persist → `lead_submit` → advance)
+- `cta.ts` — pure `buildBookingHref(url, city)` (`?grad=` URL-encoded) + `resolveBookingUrl` (`NEXT_PUBLIC_BOOKING_URL` or placeholder) + `BOOKING_URL_PLACEHOLDER`
+- `index.ts` — public barrel
+- `__tests__/{schema,cta,submit}.test.ts` — Vitest: field rules + consent-true enforcement, href encoding, pipeline ordering/args
 
 **Report module library — versioned MK content (`src/content/modules/`) (Phase 1.07) — pure data:**
 - `version.ts` — `MODULE_LIBRARY_VERSION` ("1.0.0"); stored in `ReportModel.meta`
@@ -199,3 +214,6 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-03-Completion.md` — Phase 1.03 (base UI kit) report
 - `completions/Part-1-Phase-04-Completion.md` — Phase 1.04 (task bank + generators) report
 - `completions/Part-1-Phase-05-Completion.md` — Phase 1.05 (adaptive engine + scoring + norms) report
+- `completions/Part-1-Phase-06-Completion.md` — Phase 1.06 (assessment flow UI) report
+- `completions/Part-1-Phase-07-Completion.md` — Phase 1.07 (report engine) report
+- `completions/Part-1-Phase-08-Completion.md` — Phase 1.08 (lead form + confirmation) report

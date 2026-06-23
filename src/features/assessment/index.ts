@@ -24,7 +24,10 @@ export {
   nextStep,
   groupsCompleted,
   sectionOfSignal,
+  advanceEndPhase,
   INDEX_GROUPS,
   SECTION_TOTAL,
+  END_PHASE_ORDER,
   type FlowStep,
+  type EndPhase,
 } from "./flow";

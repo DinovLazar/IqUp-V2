@@ -75,6 +75,28 @@ export type FlowStep =
   | { kind: "complete" };
 
 /**
+ * The post-assessment screen sequence (Phase 1.08): after the engine reaches
+ * `complete`, the flow shows completion → form → confirmation. Modeled here as a
+ * tiny pure controller (no React) so the transition is node-testable and the
+ * 1.06 pure-core / thin-React split is preserved (resolved-decision 1). The
+ * `Assessment` machine drives it; nothing is persisted between phases.
+ */
+export type EndPhase = "completion" | "form" | "confirmation";
+
+export const END_PHASE_ORDER: readonly EndPhase[] = [
+  "completion",
+  "form",
+  "confirmation",
+];
+
+/** Advance to the next end-phase. The last phase (confirmation) is terminal. */
+export function advanceEndPhase(phase: EndPhase): EndPhase {
+  const i = END_PHASE_ORDER.indexOf(phase);
+  if (i < 0 || i === END_PHASE_ORDER.length - 1) return phase;
+  return END_PHASE_ORDER[i + 1];
+}
+
+/**
  * The next thing to show, given the settled engine state + which task types have
  * already had their practice example. Practice precedes the first real item of
  * each domain and is skippable (the caller just records the signal as shown).

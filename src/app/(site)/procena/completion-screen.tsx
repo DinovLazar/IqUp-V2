@@ -4,11 +4,13 @@ import { useTranslations } from "next-intl";
 
 import { PuzzleBrain } from "@/components/ui/puzzle-brain";
 import { RewardBadge } from "@/components/ui/reward-badge";
+import { Button } from "@/components/ui/button";
 
 // Completion — the whole puzzle-brain assembled + the "IQ UP! Истражувач" reward
-// (handover §4.2 / §2). This phase ends here: NOTHING is persisted before the
-// (not-yet-built) lead form (1.08); the report itself is 1.07.
-export function CompletionScreen() {
+// (handover §4.2 / §2). The child's badge stays as-is; `onProceed` adds the
+// parent-facing affordance to continue to the lead form (Phase 1.08,
+// resolved-decision 2). NOTHING is persisted before the form.
+export function CompletionScreen({ onProceed }: { onProceed?: () => void }) {
   const t = useTranslations("complete");
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
@@ -22,6 +24,11 @@ export function CompletionScreen() {
         line={t("rewardLine")}
         className="w-full max-w-xs"
       />
+      {onProceed && (
+        <Button size="lg" onClick={onProceed} className="w-full max-w-xs">
+          {t("toForm")}
+        </Button>
+      )}
     </div>
   );
 }

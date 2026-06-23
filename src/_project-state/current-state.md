@@ -4,19 +4,19 @@
 >
 > Lives at `src/_project-state/current-state.md`.
 
-**Last updated:** 2026-06-23 — end of Phase 1.07 (Report engine)
-**Current part / phase:** Part 1 · Phase 1.07 complete → next is **1.08 (Confirmation screen + lead form)**
-**Active branch:** `phase-1.07-report-engine` → [PR #6](https://github.com/DinovLazar/IqUp-V2/pull/6) into `main` (awaiting Lazar's merge)
+**Last updated:** 2026-06-23 — end of Phase 1.08 (Lead form + confirmation screen)
+**Current part / phase:** Part 1 · Phase 1.08 complete → next is **1.09 (PDF report)**
+**Active branch:** `phase-1.08-lead-form` → PR into `main` (awaiting Lazar's merge)
 
-> The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge. **1.07 adds the report engine:** the 1.05 `AssessmentResult` is turned into a deterministic, parent-facing `ReportModel` (top strength + growth + solving style + STEM bridge + positioning + dynamic CTA), assembled from a versioned MK module library with no AI. Five fixtures → five visibly distinct reports, viewable at `/kit`. Nothing is persisted before the (1.08) form.
+> The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge → **lead form → confirmation**. **1.08 closes the visible flow:** the parent fills one short form (first name only, email, phone, city, optional child gender, three separate never-pre-ticked consents) validated by a shared, server-reusable Zod schema; a successful submit fires the stubbed `submitLead` + `lead_submit`, then the confirmation renders `selectReportSummary` (pentagon + 5 word/range bands + top strength — **no number**), the „report sent to email" line, the §D.2 data note, the §D.4 disclaimer placeholder, and the booking CTA (`?grad={city}`). All integrations are inert seams; **nothing is persisted** (browser-memory only). 1.07's report engine still feeds the screen read-only.
 
 ## How to run it locally
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000  → real landing (MK) → /procena runs the assessment
-                   # http://localhost:3000/kit → dev-only UI-kit gallery (every component + every task renderer)
-npm test           # Vitest: task bank + engine + scoring + timing + renderers + flow + report (23 files, 169 tests)
+npm run dev        # http://localhost:3000  → real landing (MK) → /procena runs the assessment → form → confirmation
+                   # http://localhost:3000/kit → dev-only UI-kit gallery (every component + every task renderer + report + lead-form/confirmation preview)
+npm test           # Vitest: task bank + engine + scoring + timing + renderers + flow + report + lead/schema/cta/submit + jsdom form/confirmation/end-phase (30 files, 209 tests)
 npx tsx scripts/dump-tasks.ts   # print sample generated items as JSON (eyeballing)
 ```
 
@@ -24,13 +24,13 @@ Quality scripts: `npm run build` · `npm run lint` · `npm run typecheck` · `np
 
 ## Tech stack (current — installed & pinned)
 
-Next.js 16 (App Router, Turbopack) + React 19 + TypeScript (strict) · Tailwind CSS v4 (CSS-first; brand `@theme` in `globals.css`) · shadcn/ui on Radix (`radix-ui`), fully **restyled to brand** · Motion (`motion` v12, LazyMotion) · Lucide · next-intl 4 (MK at root) · **Montserrat via `next/font/google`** (latin + cyrillic) · **Vitest 4.1.9** (test runner, added 1.04) · Prettier + ESLint. Exact versions and config notes: `00_stack-and-config.md`. **Deferred** (added in their phase): React Hook Form + Zod (1.08), @react-pdf/renderer (1.09), Supabase/Brevo/Meta/GA4 (Part 2).
+Next.js 16 (App Router, Turbopack) + React 19 + TypeScript (strict) · Tailwind CSS v4 (CSS-first; brand `@theme` in `globals.css`) · shadcn/ui on Radix (`radix-ui`), fully **restyled to brand** · Motion (`motion` v12, LazyMotion) · Lucide · next-intl 4 (MK at root) · **Montserrat via `next/font/google`** (latin + cyrillic) · **React Hook Form 7.80.0 + Zod 4.4.3 + @hookform/resolvers 5.4.0** (forms, added 1.08) · **Vitest 4.1.9** (+ jsdom 29 / @testing-library/react 16 for the 1.08 DOM tests). Prettier + ESLint. Exact versions and config notes: `00_stack-and-config.md`. **Deferred** (added in their phase): @react-pdf/renderer (1.09), Supabase/Brevo/Meta/GA4 (Part 2).
 
 ## Pages built
 
 - `/` — **real landing** at `src/app/(site)/page.tsx` (1.06): brand hero, value message, MK/EN switch (MK active, EN inert), dashed class-photo placeholders (Cowork swaps in later), "Започни проценка" → `/procena`, inline "informative, not diagnostic" footnote, puzzle-brain accent.
-- `/procena` — **the assessment flow** (1.06): setup (age 5–13; <5/>13 blocked; no child name) → pre-start (instructions + mandatory 5–7 parent confirm + inline disclaimer) → practice/real on the 1.05 engine → completion + reward badge. Browser-memory only; nothing persisted.
-- `/kit` — **dev-only UI-kit gallery** at `src/app/kit/`. Every component + state, pentagon, puzzle-brain, every 1.06 task renderer (live), answer-option states, idle nudge, reward badge, **+ the 1.07 report preview: all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + strength/growth/style/activities + Part Б + positioning + CTA; strong-invalid → graceful-retry; ceiling → ceiling copy; static Прилог D.4 disclaimer placeholder).** `noindex`; 404s on real production; not linked from nav.
+- `/procena` — **the assessment flow** (1.06 + 1.08): setup (age 5–13; <5/>13 blocked; no child name) → pre-start (instructions + mandatory 5–7 parent confirm + inline disclaimer) → practice/real on the 1.05 engine → completion + reward badge → **lead form → confirmation**. The end-phase switch (`EndPhaseView`) renders each screen; the result is finalized once + the report assembled once. Browser-memory only; nothing persisted.
+- `/kit` — **dev-only UI-kit gallery** at `src/app/kit/`. Every component + state, pentagon, puzzle-brain, every 1.06 task renderer (live), answer-option states, idle nudge, reward badge, the 1.07 report preview (all five `fixtures.ts` profiles through `assembleReport`), **+ the 1.08 lead-form preview (empty / validation-error / missing-consent) + confirmation from a profile (+ graceful-retry).** `noindex`; 404s on real production; not linked from nav.
 - Reserved (empty `.gitkeep` route folders): `(site)/za-testot`, `(site)/politika-za-privatnost`, `(site)/uslovi`, `admin`, `embed`, `api`.
 
 ## Components built (`src/components/ui/`)
@@ -55,6 +55,7 @@ Full brand kit on shadcn/Radix + Tailwind v4, each with its complete state set:
 - `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks). Imported by pentagon, band bars, confidence, brain — and PDF-safe for 1.09.
 - `pentagon.ts` — **pure, framework-agnostic** pentagon geometry (vertices/profile/rings/spokes/labels). One module feeds both the web component and the future `@react-pdf` report (1.09).
 - `utils.ts` — `cn()` helper (unchanged).
+- `analytics.ts` — **1.08** typed `trackEvent` no-op seam (Прилог F events; GA4 + Meta in 2.03; no PII).
 
 ## Task bank (`src/features/tasks/`, `src/content/tasks/`, `src/lib/prng.ts`) — Phase 1.04
 
@@ -95,13 +96,22 @@ The piece that turns the five computed indices into a **personalized, determinis
 - **Validity branch** — a **strong** flag yields `variant: "retry"` (the graceful retry message + a „Повтори" affordance, **no confident profile**, Дел 7.1); **mild** keeps the full profile and appends the soft note; **ceiling** shows the positive „го достигна врвот…" copy.
 - **Tests** — 7 new Vitest files (36 tests): determinism (deep-equal), purity scan (no clock/random/env in `report/` + `modules/`), **five profiles → five distinct reports**, validity + extremes (strong→retry, mild note, ceiling copy), per-index activity coverage + non-empty Part А/Б/positioning/CTA, the **voice lint** (banned-token substring check, „IQ UP!" allow-listed, D-082), and the `{child}` resolver. Repo total: **23 files, 169 tests.**
 
+## Lead form + confirmation (`src/features/lead/`, `src/app/(site)/procena/`, `src/lib/analytics.ts`) — Phase 1.08
+
+The visible end of the flow: the assessment turns into a lead. Built on the same pure-core / thin-React split.
+
+- **`features/lead/`** — the shared, **framework-free** Zod `leadSchema` (the single validation source, reused verbatim by the Part-2 API route): 8 fields — `parentFirstName` (first name only, no surname/child name), `email` (Zod email), `phone` (permissive: allowed glyphs + 6–15 digits, no MK normalization), `city` (required free-text), optional `childGender` enum, two required consents (`consentService`/`consentParent`, enforced **true in the schema** via `refine`, D-093) + optional `consentMarketing`; errors are stable TOKENS mapped to MK in the form (D-094). Plus the stubbed seams: `submitLead` (Part-1 inert + documented Part-2 contract incl. the separate non-joinable score write) + the pure DI `runLeadSubmit` pipeline (D-096), and the pure `buildBookingHref(url, city)` → `?grad=` URL-encoded (+ `resolveBookingUrl`/`NEXT_PUBLIC_BOOKING_URL` placeholder).
+- **`lib/analytics.ts`** — the typed no-op `trackEvent` seam (Прилог F): `form_view` (mount), `lead_submit` (`{ city }`, on success), `cta_booking_click` (`{ city, source }`, on CTA click). City only — no PII. GA4 + Meta land in 2.03.
+- **Screens (`procena/`)** — `lead-form.tsx` (RHF + Zod resolver over the existing 1.03 `Field`/`Input`/`Label`/`Select`/`Checkbox` — no new primitive; `useId`-namespaced ids; inline `FieldError`s; consents never pre-ticked; the privacy link → `/politika-za-privatnost`; a `CityField` swap-seam for the Part-2 centers `<select>`), `confirmation.tsx` (renders `selectReportSummary` — pentagon + 5 word/range bands + top strength, **no number** — + the email-sent line, §D.2 data note, §D.4 disclaimer placeholder, booking CTA; graceful-retry variant), and `end-phase-view.tsx` (the testable completion → form → confirmation switch). The verbatim Прилог D copy lives in `messages/mk.json` (`leadForm` + shared `legal`).
+- **Tests** — 6 new Vitest files (30 files / **209 tests** total): pure Node — schema (each field rule + both consents-must-be-true + optional fields), `buildBookingHref` (space + Cyrillic encoding), `runLeadSubmit`/`submitLead` (ordering + args), `advanceEndPhase`; jsdom + Testing Library — the form (`form_view` on mount, inline + missing-consent errors, valid-submit seam wiring), the confirmation (summary render + no-number on both variants + CTA href/`cta_booking_click`), and the `EndPhaseView` screen-wiring guards. One adversarial review pass (7 confirmed should-fix items) fixed + regression-tested.
+
 ## Design tokens
 
 All handover §1 / spec App. G tokens are in the Tailwind v4 `@theme` (`src/app/globals.css`): 8 palette colors + per-index soft tints + `*-ink` text variants, gradients, surface/border/focus/state tokens, the four Montserrat type roles, the 4/8/12/16/24/32 spacing scale, 12–18/30/11px radii, ≥44px tap minimum, and the single `--shadow-pop`. No dark mode.
 
 ## Integrations wired
 
-None yet (all stubbed until Part 2).
+None live yet. **1.08 adds the inert seams** (no network, no keys): `submitLead` (Brevo/Meta/GA4/score-write — Part 2), `trackEvent` (GA4 + Meta — 2.03), and the booking CTA via `NEXT_PUBLIC_BOOKING_URL` (placeholder until the real URL lands).
 
 ## Repo / infra
 
@@ -117,8 +127,11 @@ None yet (all stubbed until Part 2).
 - [ ] **Brand assets pending (Cowork):** real IQ UP! class photo(s) (dashed placeholders in place); optional self-hosted Montserrat woff2 (currently `next/font/google` — clean swap path to `next/font/local`).
 - [x] ~~**§4.2 extras deferred (D-047):** reward badge, answer option, idle nudge~~ — **built in 1.06** (`reward-badge.tsx`, `answer-option.tsx`, `idle-nudge.tsx`).
 - [ ] **Timing-shape mismatch flagged (D-071):** the 1.05 `ResponseTiming` has no calibration field; the device baseline is captured at session level (inert) for 3.01 to consume. Decide in 3.01 whether to extend the contract.
-- [ ] **Booking URL still a pending Cowork asset (1.08/1.09).** The report engine carries CTA **text only**; the booking URL + `?grad={city}` are assembled downstream once the URL lands.
-- [ ] **Disclaimer left to 1.10.** 1.07 did not build the shared „informative, not diagnostic" component or embed it in `ReportModel`; the `/kit` preview shows the canonical Прилог D.4 text once, as a static placeholder.
+- [ ] **Real booking URL still a pending Cowork asset.** 1.08 wired the CTA via `NEXT_PUBLIC_BOOKING_URL` with a non-secret placeholder (`https://booking.example.invalid`) + the pure `buildBookingHref` (`?grad={city}`); swap in the real URL (env only) before launch.
+- [ ] **Centers-by-city `<select>` is a Part-2 Cowork deliverable.** City is free-text for now; the `CityField` swap-seam localizes the change to one component.
+- [ ] **`/politika-za-privatnost` page lands in 3.03.** The consent link is real + verbatim (spec Прилог D) but the route is still a `.gitkeep` shell, so it 404s until 3.03 (same for `/uslovi`, `/za-testot`). Flagged by the 1.08 review; by phase design.
+- [ ] **Disclaimer left to 1.10.** No shared „informative, not diagnostic" component yet; the confirmation (and `/kit`) show the canonical Прилог D.4 text as a static placeholder. 1.10 builds the shared component + audits all 7 placements.
+- [ ] **PDF report is Phase 1.09.** The confirmation says „report sent to email" (production copy) but no PDF is generated and no email is sent in Part 1.
 - [ ] `notion-checklist.md` referenced in planning docs but not in the repo (owned by Chat).
 
 ## Known issues

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import type { Signal } from "@/features/tasks";
 import {
+  advanceEndPhase,
   applyResponse,
   groupsCompleted,
   nextStep,
@@ -12,6 +13,7 @@ import {
   settle,
   startFlow,
   SECTION_TOTAL,
+  type EndPhase,
   type RawResponse,
   type SessionState,
 } from "@/features/assessment";
@@ -20,16 +22,21 @@ import {
   instructionKey,
   showsNoRush,
 } from "@/features/assessment/tasks";
+import { finalize, type AssessmentResult } from "@/features/scoring";
+import type { LeadFormValues } from "@/features/lead";
 import type { DeviceCalibration } from "@/features/timing";
 import { SetupScreen } from "./setup-screen";
 import { PrestartScreen } from "./prestart-screen";
 import { CompletionScreen } from "./completion-screen";
+import { EndPhaseView } from "./end-phase-view";
 
-// The in-memory assessment state machine (Phase 1.06): setup → pre-start →
+// The in-memory assessment state machine (Phase 1.06 + 1.08): setup → pre-start →
 // practice/real (driven by the 1.05 engine via the pure flow controller) →
-// completion + reward. NOTHING is persisted before the (1.08) form. The session
-// master seed fans out to per-item seeds inside the engine (`deriveSeed`);
-// `parentAssistMode` is plumbed but inert (Phase 3.01).
+// completion + reward → lead form → confirmation. The end-phase sequence is the
+// pure `advanceEndPhase` controller (resolved-decision 1). NOTHING is persisted —
+// the validated form values + the scored result are held in browser memory only.
+// The session master seed fans out to per-item seeds inside the engine
+// (`deriveSeed`); `parentAssistMode` is plumbed but inert (Phase 3.01).
 
 function makeSessionSeed(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -51,13 +58,32 @@ export function Assessment() {
   const [practiceShown, setPracticeShown] = React.useState<ReadonlySet<Signal>>(
     new Set(),
   );
+  // End-phase sequence (1.08): completion → form → confirmation. The scored
+  // result + validated form values ride in memory only (nothing persisted).
+  const [endPhase, setEndPhase] = React.useState<EndPhase>("completion");
+  const [result, setResult] = React.useState<AssessmentResult | null>(null);
+  const [leadValues, setLeadValues] = React.useState<LeadFormValues | null>(
+    null,
+  );
 
   const beginSession = (parentAssist: boolean) => {
     setParentAssistMode(parentAssist);
     setCalibrated(false);
     setState(startFlow({ sessionSeed: makeSessionSeed(), age }));
     setPracticeShown(new Set());
+    setEndPhase("completion");
+    setResult(null);
+    setLeadValues(null);
     setPhase("running");
+  };
+
+  const restart = () => {
+    setState(null);
+    setPracticeShown(new Set());
+    setEndPhase("completion");
+    setResult(null);
+    setLeadValues(null);
+    setPhase("setup");
   };
 
   const shell = (content: React.ReactNode) => (
@@ -83,7 +109,27 @@ export function Assessment() {
   // running
   if (!state) return shell(<CompletionScreen />);
   const step = nextStep(state, practiceShown);
-  if (step.kind === "complete") return shell(<CompletionScreen />);
+  if (step.kind === "complete") {
+    // End of the engine. Walk completion → form → confirmation. The result is
+    // finalized once on leaving completion and reused (assembleReport is
+    // deterministic — resolved-decision 2).
+    return shell(
+      <EndPhaseView
+        endPhase={endPhase}
+        result={result}
+        leadValues={leadValues}
+        onProceed={() => {
+          setResult(finalize(state));
+          setEndPhase(advanceEndPhase("completion")); // → form
+        }}
+        onSubmitted={(values) => {
+          setLeadValues(values);
+          setEndPhase(advanceEndPhase("form")); // → confirmation
+        }}
+        onRestart={restart}
+      />,
+    );
+  }
 
   const item = step.kind === "practice" ? step.item : step.action.item;
   const signal = step.kind === "practice" ? step.signal : step.action.signal;
