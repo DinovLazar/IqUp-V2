@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-23
 **Branch:** `phase-1.06-assessment-flow`
-**Commits:** `<fill>` (see PR)
-**PR:** [#<NN>](<link>)
+**Commits:** `4dec370` (implementation) + a follow-up doc commit backfilling these refs
+**PR:** [#5](https://github.com/DinovLazar/IqUp-V2/pull/5)
 
 ## What shipped
 

@@ -6,7 +6,7 @@
 
 **Last updated:** 2026-06-23 — end of Phase 1.06 (Assessment flow UI)
 **Current part / phase:** Part 1 · Phase 1.06 complete → next is **1.07 (Report engine + results content)**
-**Active branch:** `phase-1.06-assessment-flow` (PR into `main`)
+**Active branch:** `phase-1.06-assessment-flow` → [PR #5](https://github.com/DinovLazar/IqUp-V2/pull/5) into `main` (awaiting Lazar's merge)
 
 > The assessment now runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge. Nothing is persisted before the (1.08) form.
 
