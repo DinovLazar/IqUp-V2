@@ -10,7 +10,9 @@ import { ConfidenceLabel, type Confidence } from "./confidence-label";
 // range caption (+ optional confidence chip). The track length is an INDICATIVE
 // shape mapped from the band, not a numeric value — no hard number ever appears.
 
-const BAND_FILL: Record<Band, number> = {
+// Indicative bar fill per band — the single source reused by the PDF report (1.09)
+// via `@/features/report/pdf/theme` (a sync-guard test asserts the two stay equal).
+export const BAND_FILL: Record<Band, number> = {
   development: 0.28,
   solid: 0.52,
   strong: 0.74,

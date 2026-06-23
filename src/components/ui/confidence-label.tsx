@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils";
 
 export type Confidence = "high" | "medium" | "low";
 
-const CONFIDENCE: Record<
+// Confidence word + signal bars + ink color. The {bars,color} pair is the single
+// source reused by the PDF report (1.09) via `@/features/report/pdf/theme` (a
+// sync-guard test asserts the two stay equal; the PDF gets the word from i18n).
+export const CONFIDENCE: Record<
   Confidence,
   { word: string; bars: number; color: string }
 > = {

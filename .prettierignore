@@ -9,3 +9,8 @@ package-lock.json
 # Markdown is owned by Chat/Code by hand; keep it out of the formatter.
 *.pdf
 **/*.md
+
+# PDF fonts (binary TTF + OFL license text) + local PDF QA output (1.09)
+*.ttf
+src/features/report/pdf/fonts/OFL.txt
+/tmp

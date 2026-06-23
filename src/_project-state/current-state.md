@@ -4,11 +4,11 @@
 >
 > Lives at `src/_project-state/current-state.md`.
 
-**Last updated:** 2026-06-23 — end of Phase 1.08 (Lead form + confirmation screen)
-**Current part / phase:** Part 1 · Phase 1.08 complete → next is **1.09 (PDF report)**
-**Active branch:** `phase-1.08-lead-form` → [PR #7](https://github.com/DinovLazar/IqUp-V2/pull/7) into `main` (awaiting Lazar's merge)
+**Last updated:** 2026-06-23 — end of Phase 1.09 (Branded PDF report)
+**Current part / phase:** Part 1 · Phase 1.09 complete → next is **1.10 (shared disclaimer component + 7-placement audit)**
+**Active branch:** `phase-1.09-pdf-report` → [PR #8](https://github.com/DinovLazar/IqUp-V2/pull/8) into `main` (awaiting Lazar's merge)
 
-> The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge → **lead form → confirmation**. **1.08 closes the visible flow:** the parent fills one short form (first name only, email, phone, city, optional child gender, three separate never-pre-ticked consents) validated by a shared, server-reusable Zod schema; a successful submit fires the stubbed `submitLead` + `lead_submit`, then the confirmation renders `selectReportSummary` (pentagon + 5 word/range bands + top strength — **no number**), the „report sent to email" line, the §D.2 data note, the §D.4 disclaimer placeholder, and the booking CTA (`?grad={city}`). All integrations are inert seams; **nothing is persisted** (browser-memory only). 1.07's report engine still feeds the screen read-only.
+> The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge → **lead form → confirmation**. **1.08 closes the visible flow:** the parent fills one short form (first name only, email, phone, city, optional child gender, three separate never-pre-ticked consents) validated by a shared, server-reusable Zod schema; a successful submit fires the stubbed `submitLead` + `lead_submit`, then the confirmation renders `selectReportSummary` (pentagon + 5 word/range bands + top strength — **no number**), the „report sent to email" line, the §D.2 data note, the §D.4 disclaimer placeholder, and the booking CTA (`?grad={city}`). All integrations are inert seams; **nothing is persisted** (browser-memory only). 1.07's report engine still feeds the screen read-only. **1.09 builds the emailed payoff:** a pure, deterministic `@react-pdf` document builder renders the FULL `ReportModel` (Дел 10.3) into a branded A4 PDF — puzzle-brain header, color-coded pentagon, five word/range bands + confidence, strength/growth/style, per-index home activities, Part Б, positioning, clickable CTA, §D.4 top + footer, and the graceful-retry variant — via `renderReportPdf(model, { city }): Promise<Buffer>` (the 2.02 `/api/report` seam). **Sending is still stubbed** (Brevo = 2.02); this phase only generates the document.
 
 ## How to run it locally
 
@@ -16,15 +16,16 @@
 npm install
 npm run dev        # http://localhost:3000  → real landing (MK) → /procena runs the assessment → form → confirmation
                    # http://localhost:3000/kit → dev-only UI-kit gallery (every component + every task renderer + report + lead-form/confirmation preview)
-npm test           # Vitest: task bank + engine + scoring + timing + renderers + flow + report + lead/schema/cta/submit + jsdom form/confirmation/end-phase (30 files, 209 tests)
-npx tsx scripts/dump-tasks.ts   # print sample generated items as JSON (eyeballing)
+npm test           # Vitest: + report/pdf (document tree / render buffers / font coverage / theme sync / purity) — 35 files, 232 tests
+npx tsx scripts/dump-tasks.ts        # print sample generated items as JSON (eyeballing)
+npx tsx scripts/dump-report-pdf.ts   # render all 5 fixtures → PDF into gitignored ./tmp/ (visual QA)
 ```
 
 Quality scripts: `npm run build` · `npm run lint` · `npm run typecheck` · `npm test` · `npm run format` / `format:check`. All pass as of this phase.
 
 ## Tech stack (current — installed & pinned)
 
-Next.js 16 (App Router, Turbopack) + React 19 + TypeScript (strict) · Tailwind CSS v4 (CSS-first; brand `@theme` in `globals.css`) · shadcn/ui on Radix (`radix-ui`), fully **restyled to brand** · Motion (`motion` v12, LazyMotion) · Lucide · next-intl 4 (MK at root) · **Montserrat via `next/font/google`** (latin + cyrillic) · **React Hook Form 7.80.0 + Zod 4.4.3 + @hookform/resolvers 5.4.0** (forms, added 1.08) · **Vitest 4.1.9** (+ jsdom 29 / @testing-library/react 16 for the 1.08 DOM tests). Prettier + ESLint. Exact versions and config notes: `00_stack-and-config.md`. **Deferred** (added in their phase): @react-pdf/renderer (1.09), Supabase/Brevo/Meta/GA4 (Part 2).
+Next.js 16 (App Router, Turbopack) + React 19 + TypeScript (strict) · Tailwind CSS v4 (CSS-first; brand `@theme` in `globals.css`) · shadcn/ui on Radix (`radix-ui`), fully **restyled to brand** · Motion (`motion` v12, LazyMotion) · Lucide · next-intl 4 (MK at root) · **Montserrat via `next/font/google`** (latin + cyrillic) · **React Hook Form 7.80.0 + Zod 4.4.3 + @hookform/resolvers 5.4.0** (forms, added 1.08) · **Vitest 4.1.9** (+ jsdom 29 / @testing-library/react 16 for the 1.08 DOM tests). Prettier + ESLint. Exact versions and config notes: `00_stack-and-config.md`. **PDF** (added 1.09): **@react-pdf/renderer 4.5.1** (server-side report PDF) + bundled OFL Montserrat static TTFs. **Deferred**: Supabase/Brevo/Meta/GA4 (Part 2).
 
 ## Pages built
 
@@ -105,13 +106,23 @@ The visible end of the flow: the assessment turns into a lead. Built on the same
 - **Screens (`procena/`)** — `lead-form.tsx` (RHF + Zod resolver over the existing 1.03 `Field`/`Input`/`Label`/`Select`/`Checkbox` — no new primitive; `useId`-namespaced ids; inline `FieldError`s; consents never pre-ticked; the privacy link → `/politika-za-privatnost`; a `CityField` swap-seam for the Part-2 centers `<select>`), `confirmation.tsx` (renders `selectReportSummary` — pentagon + 5 word/range bands + top strength, **no number** — + the email-sent line, §D.2 data note, §D.4 disclaimer placeholder, booking CTA; graceful-retry variant), and `end-phase-view.tsx` (the testable completion → form → confirmation switch). The verbatim Прилог D copy lives in `messages/mk.json` (`leadForm` + shared `legal`).
 - **Tests** — 6 new Vitest files (30 files / **209 tests** total): pure Node — schema (each field rule + both consents-must-be-true + optional fields), `buildBookingHref` (space + Cyrillic encoding), `runLeadSubmit`/`submitLead` (ordering + args), `advanceEndPhase`; jsdom + Testing Library — the form (`form_view` on mount, inline + missing-consent errors, valid-submit seam wiring), the confirmation (summary render + no-number on both variants + CTA href/`cta_booking_click`), and the `EndPhaseView` screen-wiring guards. One adversarial review pass (7 confirmed should-fix items) fixed + regression-tested.
 
+## Report PDF (`src/features/report/pdf/`, `scripts/dump-report-pdf.ts`) — Phase 1.09
+
+The emailed payoff: the on-screen profile rendered as a branded, shareable A4 PDF. Built on the same pure-core / thin-IO split as the rest of the repo, and on `@react-pdf/renderer` 4.5.1.
+
+- **Pure builder** — `buildReportDocument(model, { bookingHref })` is a pure function of the 1.07 `ReportModel` (purity-scanned: no clock/random/env/IO). It renders the **full** report (spec Дел 10.3): a branded **puzzle-brain** header (the same §2 silhouette/regions as the web motif) + IQ UP! wordmark + a 5-index color rule; **Part А** — the **pentagon** (`@react-pdf` SVG over the shared `@/lib/pentagon` geometry, color-coded per `@/lib/indices`) + the five per-index bands (**word label + indicative range, never a number**) + per-index **confidence** (висока/средна/ниска) + top strength + growth area + solving style + per-index **home activities**; **Part Б** — STEM readiness + the STEM bridge; the IQ UP! **positioning** + program name (the internal `programHook` is never printed); the **CTA** „Закажи демо час" as a clickable link to `buildBookingHref(resolveBookingUrl(), city)` (`?grad={city}`); the **§D.4 disclaimer** at the **top** + a `fixed` footer on every page **bottom**, plus the §D.2 data note. The **retry variant** (strong validity flag) renders the graceful-retry message with **no pentagon / no confident profile** (dim brain).
+- **IO seams** — `fonts.ts` registers the bundled OFL **Montserrat** static TTFs (400/500/600/700/800, Cyrillic + Latin) with `@react-pdf` (idempotent; path via `process.cwd()`). `render.ts` exposes **`renderReportPdf(model, { city }): Promise<Buffer>`** (via `renderToBuffer`) — the documented 2.02 `/api/report` contract; the PDF is **never stored**. `messages/mk.json` gains a `reportPdf` namespace (chrome strings), imported statically into the pure builder, reusing the shared `legal` copy.
+- **Two-register + no-number** preserved: the parent sees words + indicative ranges; the numeric index value reaches the page only as pentagon geometry; internal version metadata + `programHook` are never printed.
+- **Dev tooling** — `scripts/dump-report-pdf.ts` renders all five `fixtures.ts` profiles → gitignored `./tmp/` (mirrors `dump-tasks.ts`). **Not wired into any route or `/kit`** — generation only (sending/Brevo is 2.02). `next.config.ts` declares `@react-pdf/renderer` in `serverExternalPackages` for the 2.02 route.
+- **Tests** — 5 new Vitest files (35 files / **232 tests** total): the document **element-tree** assertions (no-number invariant + determinism + every required section present + retry has no pentagon — asserts on the pure tree, not bytes), non-empty PDF buffers + the `?grad=` link for all five fixtures, Macedonian glyph coverage via `fontkit`, a **theme sync-guard** (PDF band/confidence maps must equal the on-screen components' exported values), and a purity scan over the PDF module. An internal multi-agent adversarial review pass (5 dimensions, adversarially verified) found **no must-fix items**; the confirmed should-fix items (footer clearance, font glyph coverage, the map sync-guard) were fixed + regression-tested.
+
 ## Design tokens
 
 All handover §1 / spec App. G tokens are in the Tailwind v4 `@theme` (`src/app/globals.css`): 8 palette colors + per-index soft tints + `*-ink` text variants, gradients, surface/border/focus/state tokens, the four Montserrat type roles, the 4/8/12/16/24/32 spacing scale, 12–18/30/11px radii, ≥44px tap minimum, and the single `--shadow-pop`. No dark mode.
 
 ## Integrations wired
 
-None live yet. **1.08 adds the inert seams** (no network, no keys): `submitLead` (Brevo/Meta/GA4/score-write — Part 2), `trackEvent` (GA4 + Meta — 2.03), and the booking CTA via `NEXT_PUBLIC_BOOKING_URL` (placeholder until the real URL lands).
+None live yet. **1.08 adds the inert seams** (no network, no keys): `submitLead` (Brevo/Meta/GA4/score-write — Part 2), `trackEvent` (GA4 + Meta — 2.03), and the booking CTA via `NEXT_PUBLIC_BOOKING_URL` (placeholder until the real URL lands). **1.09 adds `renderReportPdf(model, { city })`** — the PDF is generated on demand and returned as a `Buffer`; the 2.02 `/api/report` route will import it unchanged to email the attachment (never stored).
 
 ## Repo / infra
 
@@ -131,7 +142,7 @@ None live yet. **1.08 adds the inert seams** (no network, no keys): `submitLead`
 - [ ] **Centers-by-city `<select>` is a Part-2 Cowork deliverable.** City is free-text for now; the `CityField` swap-seam localizes the change to one component.
 - [ ] **`/politika-za-privatnost` page lands in 3.03.** The consent link is real + verbatim (spec Прилог D) but the route is still a `.gitkeep` shell, so it 404s until 3.03 (same for `/uslovi`, `/za-testot`). Flagged by the 1.08 review; by phase design.
 - [ ] **Disclaimer left to 1.10.** No shared „informative, not diagnostic" component yet; the confirmation (and `/kit`) show the canonical Прилог D.4 text as a static placeholder. 1.10 builds the shared component + audits all 7 placements.
-- [ ] **PDF report is Phase 1.09.** The confirmation says „report sent to email" (production copy) but no PDF is generated and no email is sent in Part 1.
+- [x] ~~**PDF report is Phase 1.09.**~~ — **done in 1.09:** `renderReportPdf(model, { city })` generates the branded PDF from the `ReportModel`. **Sending the PDF/email (Brevo) is still Part 2.02** — the confirmation's „report sent to email" copy is production, but no email is sent in Part 1.
 - [ ] `notion-checklist.md` referenced in planning docs but not in the repo (owned by Chat).
 
 ## Known issues
