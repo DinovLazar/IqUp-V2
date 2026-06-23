@@ -58,12 +58,13 @@ describe("Confirmation — profile variant", () => {
     expect(screen.getByText("Најсилна страна")).toBeTruthy();
   });
 
-  it("shows the §D.2 data note and the §D.4 disclaimer placeholder", () => {
-    renderConfirmation();
+  it("shows the §D.2 data note and the §D.4 disclaimer (shared full component, 1.10)", () => {
+    const { container } = renderConfirmation();
     expect(screen.getByText(/Не ги чуваме резултатите од тестот/)).toBeTruthy();
+    // The §D.4 disclaimer is the shared <Disclaimer variant="full"/> (placement #3).
     expect(
-      screen.getByText(/не дава дијагноза ниту официјален IQ резултат/),
-    ).toBeTruthy();
+      container.querySelector("[data-disclaimer='full']")?.textContent,
+    ).toBe(messages.legal.disclaimer);
   });
 
   it("shows NO hard number anywhere (word bands + ranges only, Дел 10.2)", () => {
@@ -95,6 +96,10 @@ describe("Confirmation — graceful-retry variant", () => {
     expect(screen.queryByRole("img", { name: "Когнитивен профил" })).toBeNull();
     // The retry branch must also stay free of any hard number (Дел 10.2).
     expect(/\d/.test(container.textContent ?? "")).toBe(false);
+    // Placement #3 also covers the retry branch — the full §D.4 disclaimer renders.
+    expect(
+      container.querySelector("[data-disclaimer='full']")?.textContent,
+    ).toBe(messages.legal.disclaimer);
 
     const retry = screen.getByRole("button", { name: /Повтори/ });
     fireEvent.click(retry);

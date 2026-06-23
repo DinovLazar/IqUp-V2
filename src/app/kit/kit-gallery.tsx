@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { BandLabel, BAND_ORDER, BANDS } from "@/components/ui/band-label";
 import { ConfidenceLabel } from "@/components/ui/confidence-label";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { IndexBandBar } from "@/components/ui/index-band-bar";
 import { Pentagon } from "@/components/ui/pentagon";
 import { PuzzleBrain } from "@/components/ui/puzzle-brain";
@@ -496,6 +497,30 @@ export function KitGallery() {
         desc="Секој извештај е склопен детерминистички од fixtures.ts преку assembleReport. strong-invalid го прикажува graceful-retry, ceiling ја прикажува копијата за таван. Дисклејмерот е статичен placeholder (1.10)."
       >
         <ReportPreview />
+      </Section>
+
+      {/* DISCLAIMER (Phase 1.10) — the single §16.1 source, two registers */}
+      <Section
+        title="Дисклејмер (1.10) — „информативен, не дијагностички“"
+        desc="Една споделена компонента, два регистри: short (footnote линија) и full (целосниот §D.4 пасус). Сета копија доаѓа од messages/mk.json (legal namespace) — ништо не е тврдо кодирано. PDF-извештајот ги повторува истите клучеви (top = full, footer = short), врзани со copy-parity тест."
+      >
+        <div className="flex max-w-xl flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-label font-normal text-muted">
+              short (footnote)
+            </span>
+            <Disclaimer variant="short" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-label font-normal text-muted">
+              full (§D.4)
+            </span>
+            <Disclaimer
+              variant="full"
+              className="rounded-field border border-border bg-bg p-3"
+            />
+          </div>
+        </div>
       </Section>
 
       {/* LEAD FORM + CONFIRMATION (Phase 1.08) */}

@@ -13,13 +13,15 @@ import {
 } from "@/features/lead";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { IndexBandBar } from "@/components/ui/index-band-bar";
 import { Pentagon } from "@/components/ui/pentagon";
 
 // Confirmation (Phase 1.08) — the final flow phase, spec Дел 10.1. It renders the
 // ON-SCREEN SUMMARY ONLY (pentagon + the five band rows + the top strength), the
-// "report sent to email" line, the §D.2 data note, the §D.4 disclaimer
-// placeholder, and the booking CTA with `?grad={city}`. NO hard number anywhere —
+// "report sent to email" line, the §D.2 data note, the shared §D.4 disclaimer
+// (§16.1 placement #3 — the full `Disclaimer`, 1.10), and the booking CTA with
+// `?grad={city}`. NO hard number anywhere —
 // word bands + indicative ranges only (Дел 10.2). The full report (growth,
 // activities, STEM bridge, positioning) lives only in the emailed PDF (1.09).
 //
@@ -51,7 +53,6 @@ export function Confirmation({ result, city, onRestart }: ConfirmationProps) {
         title={t("retryTitle")}
         note={summary.validity.note ?? t("retryNote")}
         retryLabel={t("retry")}
-        disclaimer={tl("disclaimer")}
         onRestart={onRestart}
       />
     );
@@ -125,8 +126,8 @@ export function Confirmation({ result, city, onRestart }: ConfirmationProps) {
         </div>
       </div>
 
-      {/* §D.4 disclaimer placeholder — the shared 7-placement component is 1.10. */}
-      <p className="text-label font-normal text-muted">{tl("disclaimer")}</p>
+      {/* §16.1 placement #3 — the results/confirmation screen (shared, full). */}
+      <Disclaimer variant="full" />
     </div>
   );
 }
@@ -136,13 +137,11 @@ function RetryView({
   title,
   note,
   retryLabel,
-  disclaimer,
   onRestart,
 }: {
   title: string;
   note: string;
   retryLabel: string;
-  disclaimer: string;
   onRestart?: () => void;
 }) {
   return (
@@ -158,7 +157,8 @@ function RetryView({
           </div>
         )}
       </div>
-      <p className="text-label font-normal text-muted">{disclaimer}</p>
+      {/* §16.1 placement #3 also covers the retry branch of the results screen. */}
+      <Disclaimer variant="full" />
     </div>
   );
 }

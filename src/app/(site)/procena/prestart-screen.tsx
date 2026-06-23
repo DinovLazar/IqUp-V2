@@ -7,12 +7,14 @@ import { Clock, Lightbulb, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { Label } from "@/components/ui/label";
 
 // Pre-start — brief instructions + the MANDATORY 5–7 parent screen (technical
-// help, not solving) with its confirmation checkbox, and the inline "informative,
-// not diagnostic" line. Returns `parentAssistMode` (true for 5–7) — plumbed
-// through the flow but inert this phase (pacing/thresholds are Phase 3.01).
+// help, not solving) with its confirmation checkbox, and the shared "informative,
+// not diagnostic" line (§16.1 placement #2 — the short `Disclaimer`). Returns
+// `parentAssistMode` (true for 5–7) — plumbed through the flow but inert this
+// phase (pacing/thresholds are Phase 3.01).
 export function PrestartScreen({
   age,
   onStart,
@@ -74,7 +76,8 @@ export function PrestartScreen({
         </Card>
       )}
 
-      <p className="text-label font-normal text-muted">{t("disclaimer")}</p>
+      {/* §16.1 placement #2 — the pre-start screen (shared component, short). */}
+      <Disclaimer variant="short" />
 
       <Button
         size="lg"

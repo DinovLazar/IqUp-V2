@@ -17,6 +17,7 @@ import { Pentagon } from "@/components/ui/pentagon";
 import { IndexBandBar } from "@/components/ui/index-band-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Disclaimer } from "@/components/ui/disclaimer";
 
 /**
  * Dev-only report preview (Phase 1.07). Renders all five `fixtures.ts` profiles
@@ -27,12 +28,9 @@ import { Badge } from "@/components/ui/badge";
  *
  * MK section headings are hard-coded here (matching the rest of /kit) — the
  * PRODUCTION 1.08 screen routes this chrome through next-intl (resolved-decision 6).
- * The disclaimer is the canonical Прилог D.4 text shown ONCE, as a static
- * placeholder; the real reusable component + its 7 placements are Phase 1.10.
+ * The disclaimer now uses the shared `Disclaimer` component (Phase 1.10, full
+ * variant) — the single §16.1 source — shown once so the preview stays honest.
  */
-
-const DISCLAIMER =
-  "Оваа проценка е едукативен, информативен скрининг наменет за родители. Не е клинички тест, не дава дијагноза ниту официјален IQ резултат, и не заменува проценка од лиценциран психолог. Резултатите се индикативни и нормирани по возраст. Ако имате загриженост за развојот на вашето дете, обратете се кај стручно лице.";
 
 function Heading({ children }: { children: React.ReactNode }) {
   return (
@@ -200,11 +198,12 @@ export function ReportPreview() {
         );
       })}
 
-      {/* Static placeholder — canonical Прилог D.4. The shared component + its 7
-          placements are Phase 1.10; shown once here so the preview is honest. */}
-      <p className="rounded-field border border-border bg-bg p-3 text-label font-normal text-muted">
-        {DISCLAIMER}
-      </p>
+      {/* Shared §16.1 disclaimer (full) — the single source; shown once here so
+          the report preview stays honest. */}
+      <Disclaimer
+        variant="full"
+        className="rounded-field border border-border bg-bg p-3"
+      />
     </div>
   );
 }

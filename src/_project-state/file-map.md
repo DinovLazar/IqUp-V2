@@ -47,24 +47,30 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`)
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
 - `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
-- `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`, inline "informative, not diagnostic" footnote
+- `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
 - `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once; session seed + `parentAssistMode` (inert); nothing persisted (1.06/1.08)
 - `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
-- `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox + inline disclaimer (1.06)
+- `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox; +1.10: the shared `<Disclaimer variant="short">` (§16.1 placement #2)
 - `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge; +1.08: optional `onProceed` primary button to the lead form
 - `src/app/(site)/procena/lead-form.tsx` — **lead form (1.08)**: RHF + Zod resolver over the 1.03 primitives; 8 fields (first name only), 3 separate never-pre-ticked consents, inline errors, `form_view` on mount; `CityField` swap-seam; preview seams (`autoValidate`/`defaultValues`)
-- `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, §D.4 disclaimer placeholder, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant
+- `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant; +1.10: §D.4 = the shared `<Disclaimer variant="full">` (§16.1 placement #3, both branches)
 - `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable
 - `src/app/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
-- `src/app/(site)/{za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
+- `src/app/(site)/page-shell.tsx` — shared chrome for the static pages (1.10): wordmark + back-to-home header + centered content column (sync Server Component)
+- `src/app/(site)/za-testot/page.tsx` — **About-the-test (1.10)**: §16.1 placement #6 — §1.1 "what it is / what it isn't" + the FULL shared `Disclaimer`; MK `metadata` + H1
+- `src/app/(site)/politika-za-privatnost/page.tsx` — **Privacy (1.10)**: routable shell (resolves the consent link); H1 + "pending legal review" placeholder (final copy = Phase 3.03)
+- `src/app/(site)/uslovi/page.tsx` — **Terms (1.10)**: routable shell; H1 + "pending legal review" placeholder (final copy = Phase 3.03)
+- `src/app/(site)/__tests__/static-pages.test.tsx` — jsdom (1.10): each static page renders its H1 + content; About shows the full §D.4 disclaimer
+- `src/app/(site)/__tests__/disclaimer-single-source.test.ts` — node (1.10): no production `.ts/.tsx` hardcodes the disclaimer copy; each canonical string appears once in `mk.json`
+- `src/app/(site)/__tests__/disclaimer-placements.test.tsx` — jsdom (1.10): placement #2 (pre-start) render guard + placement #1 (async landing RSC) source-wiring guard
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
 - `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**
 - `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
@@ -91,6 +97,8 @@ path/to/file.ext — one-line description of what it does
 - `answer-option.tsx` — shared task-agnostic answer option (select + check disc + feedback states) (1.06, D-047)
 - `idle-nudge.tsx` — gentle idle nudge ("Сè е во ред?" + Продолжи), overlay/inline, no timer/penalty (1.06, D-047)
 - `reward-badge.tsx` — "IQ UP! Истражувач" celebratory tile + custom yellow star SVG (1.06, D-047)
+- `disclaimer.tsx` — **shared §16.1 "informative, not diagnostic" component (1.10)**: full/short registers from `messages/mk.json` `legal`; isomorphic (no `"use client"`); exports `DISCLAIMER_KEYS` (the PDF copy-parity guard's key map)
+- `__tests__/disclaimer.test.tsx` — jsdom (1.10): both registers render verbatim from mk.json; `DISCLAIMER_KEYS` resolve
 
 **Lib (`src/lib/`):**
 - `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe
@@ -191,7 +199,8 @@ path/to/file.ext — one-line description of what it does
 - `render.ts` — IO seam: `renderReportPdf(model, { city })` → `Promise<Buffer>` via `renderToBuffer` (the 2.02 `/api/report` contract; PDF never stored)
 - `index.ts` — public barrel (`buildReportDocument`, `renderReportPdf`, `registerPdfFonts`, `PentagonPdf`)
 - `fonts/Montserrat-{Regular,Medium,SemiBold,Bold,ExtraBold}.ttf` + `fonts/OFL.txt` — bundled OFL static TTFs (Cyrillic + Latin), independent of the web `next/font` pipeline
-- `__tests__/{document,render,fonts,theme,purity}.test.ts` — Vitest: element-tree no-number + determinism + section-presence + retry (renders the pure component tree, not bytes); non-empty Buffer for all 5 fixtures + `?grad=` link; Macedonian glyph coverage via `fontkit`; theme sync-guard (PDF maps == components' exported `BAND_FILL`/`BANDS`/`CONFIDENCE`); purity scan
+- `__tests__/{document,render,fonts,theme,purity}.test.ts` — Vitest: element-tree no-number + determinism + section-presence + retry (renders the pure component tree, not bytes); non-empty Buffer for all 5 fixtures + `?grad=` link; Macedonian glyph coverage via `fontkit`; theme sync-guard (PDF maps == components' exported `BAND_FILL`/`BANDS`/`CONFIDENCE`); purity scan; +1.10: `document.test.ts` asserts top=full/footer=short
+- `__tests__/disclaimer-parity.test.ts` — Vitest (1.10): the PDF top (full) + footer (short) === `mk.legal[DISCLAIMER_KEYS.*]` for every fixture (PDF ↔ shared-component keys ↔ mk.json)
 
 **Report module library — versioned MK content (`src/content/modules/`) (Phase 1.07) — pure data:**
 - `version.ts` — `MODULE_LIBRARY_VERSION` ("1.0.0"); stored in `ReportModel.meta`
@@ -231,3 +240,5 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-06-Completion.md` — Phase 1.06 (assessment flow UI) report
 - `completions/Part-1-Phase-07-Completion.md` — Phase 1.07 (report engine) report
 - `completions/Part-1-Phase-08-Completion.md` — Phase 1.08 (lead form + confirmation) report
+- `completions/Part-1-Phase-09-Completion.md` — Phase 1.09 (branded PDF report) report
+- `completions/Part-1-Phase-10-Completion.md` — Phase 1.10 (shared disclaimer + static page shells + 7-placement audit) report
