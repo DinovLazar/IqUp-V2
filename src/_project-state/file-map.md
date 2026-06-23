@@ -61,7 +61,8 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge (1.06)
 - `src/app/(site)/{za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
-- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; **+1.06: every task renderer (live), answer-option states, idle nudge, reward badge**
+- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; **+1.07: the report-engine preview section**
+- `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
 - `src/app/api/.gitkeep` — reserved serverless backend (lead/report/score)
@@ -157,9 +158,29 @@ path/to/file.ext — one-line description of what it does
 - `flow.ts` — pure running-phase logic on the 1.05 engine: `settle` past domainComplete, `nextStep` (practice/real), 5 index-group progress
 - `__tests__/flow.test.ts` — flow over the 5 fixture profiles (reproduces the engine path), determinism, one practice per task type
 
-**Reserved feature/content folders (empty until their phase):**
-- `src/features/report/.gitkeep`
-- `src/content/modules/.gitkeep`
+**Report engine (`src/features/report/`) (Phase 1.07) — pure, deterministic; reads 1.05 read-only:**
+- `types.ts` — the engine contract: `DerivedFeatures`, the `ReportModule` schema (Дел 9.2), `ReportModel` (single render contract for 1.08 + 1.09), `ReportSummary`, `REPORT_ENGINE_VERSION`
+- `features.ts` — layer 2 (Дел 9.1): `deriveFeatures` — profile shape, top-strength/growth, behaviour-only solving style, memory asymmetry, learning slope, extremes, STEM lead, positioning tier (report-local narrative seeds)
+- `text.ts` — pure `{child}` → „вашето дете" resolver (+ sentence-initial „Вашето дете") and `resolveText`/`resolveTexts`
+- `program.ts` — Дел 11 / Прилог E age + strength → IQ UP! program key (shared by positioning triggers + the assembler)
+- `assemble.ts` — layer 3 (Дел 9.3): `assembleReport` — slot selection with total-order tie-break (priority → index order → id), validity branch (strong → retry variant)
+- `select.ts` — `selectReportSummary` — the Дел 10.1 on-screen subset (pentagon + 5 bands + top strength + CTA)
+- `index.ts` — public barrel
+- `__tests__/{determinism,purity,profiles,validity-extremes,coverage,voice,text}.test.ts` — Vitest suite (36 tests)
+
+**Report module library — versioned MK content (`src/content/modules/`) (Phase 1.07) — pure data:**
+- `version.ts` — `MODULE_LIBRARY_VERSION` ("1.0.0"); stored in `ReportModel.meta`
+- `ranges.ts` — indicative range caption per band (Дел 10.2 — never a number)
+- `strengths.ts` — strength modules (per index × band) + fallback
+- `growth.ts` — growth modules (no-attack frame) + „all strong" variant + fallback
+- `styles.ts` — solving-style modules (slow+accurate / fast+accurate / fast+errors / balanced)
+- `stem.ts` — STEM readiness (by band) + STEM bridge (spatial/logic/CT-led, broader than coding)
+- `activities.ts` — per-index home activities (every index, not just the growth zone)
+- `positioning.ts` — IQ UP! positioning (5 programs + fallback; program name shown, age→program logic internal as `programHook`)
+- `cta.ts` — dynamic demo-class CTA copy (by growth zone) + fallback
+- `extremes.ts` — ceiling (positive) + floor (gentle) copy
+- `validity.ts` — mild soft-note + strong graceful-retry copy
+- `index.ts` — barrel: `MODULE_LIBRARY` (flat) + per-category arrays + `modulesOf(category)`
 
 **Scripts:**
 - `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)

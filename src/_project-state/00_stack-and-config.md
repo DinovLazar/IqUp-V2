@@ -134,3 +134,21 @@
   - **Dev preview config** added at `.claude/launch.json` (`npm run dev`, autoPort) for the in-loop browser verification — tooling only.
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `/`, `/procena`, `/kit`, `/_not-found`), `npm test` ✓ (16 files, 133 tests), `npm run format:check` ✓. End-to-end walked in-browser: landing → age gate (3/4 blocked with MK message, 8/6 pass) → 5–7 parent confirm gates start → gf practice (series) → real (matrix) → all renderers eyeballed in `/kit` (Gv polygons, Corsi board, Gs grid + orange timer ring + auto-submit, EF tower, CT maze d-pad, condition arrows, idle nudge, reward badge).
+
+- **2026-06-23 · Phase 1.07 — report engine (derived features + MK module library + assembly).**
+
+  **No new dependencies.** Pure TypeScript on top of the existing 1.05 output + 1.03 UI kit; the dev preview reuses the already-built components (pentagon / band bar). The brief expected none; none were added.
+
+  **New modules:** `src/features/report/` (pure derived-features → assembly → `ReportModel` + `selectReportSummary` + `{child}` resolver + Дел 11 program mapping), `src/content/modules/` (versioned MK module library, 11 files), the `/kit` report preview (`src/app/kit/report-preview.tsx`), and 7 new Vitest files (23 files / 169 tests total across the repo).
+
+  **Config decisions / deviations:**
+  - **`MODULE_LIBRARY_VERSION` = `1.0.0`** lives in `src/content/modules/version.ts`; **`REPORT_ENGINE_VERSION` = `1.0.0`** in `src/features/report/types.ts`. Both are carried in `ReportModel.meta` alongside the scoring / norms / task-bank versions and `normsStage` (threaded through from 1.05) — so every report is reproducible from a known content + engine version.
+  - **Input contract — no widening of 1.05** (D-080): the report reads the per-item signals 1.05 already exposes (`SignalResult.perItem` + aggregates); option (a)/(b) from the brief was unnecessary.
+  - **Read-only consumption** (resolved-decision 5): the engine never recomputes indices / bands / confidence / validity; narrative thresholds for style / shape / STEM-lead are report-local seeds in `features.ts`, never added to `seed-norms` (D-081).
+  - **No child name → `{child}` token** resolving to „вашето дете" (D-078); module text is MK-only, multilingual-ready by schema (D-079).
+  - **Voice lint** = a strict case-insensitive substring check over all parent-facing module text; copy authored to avoid every banned substring (incl. positive uses of „проблем"), brand „IQ UP!" allow-listed, internal `programHook` excluded (D-082).
+  - **`ReportModel` is the single render contract** for 1.08 + 1.09; `IndexPresentation` carries the numeric index `value` for pentagon GEOMETRY only, never rendered as text (D-083). CTA carries **text only** (booking URL + `?grad=` are downstream).
+  - **Purity enforced** by a static scan over `src/features/report` + `src/content/modules` (same forbidden set as 1.04/1.05). The MK module text uses the repo quote convention („ U+201E open · " U+201C close, matching `mk.json`); the spec's straight-quote closings were normalized.
+  - **Disclaimer left to 1.10** — not built or embedded in `ReportModel`; the `/kit` preview shows the canonical Прилог D.4 text once, as a static placeholder.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `/`, `/procena`, `/kit`, `/_not-found`), `npm test` ✓ (23 files, 169 tests), `npm run format:check` ✓. Browser-verified at `/kit`: five fixtures → five visibly distinct reports (pentagon + word/range bands, no number), the ceiling fixture shows the „го достигна врвот…" copy, strong-invalid shows the graceful-retry card; `{child}` resolves to „Вашето дете"; no console errors.
