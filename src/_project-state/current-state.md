@@ -6,7 +6,7 @@
 
 **Last updated:** 2026-06-23 — end of Phase 1.08 (Lead form + confirmation screen)
 **Current part / phase:** Part 1 · Phase 1.08 complete → next is **1.09 (PDF report)**
-**Active branch:** `phase-1.08-lead-form` → PR into `main` (awaiting Lazar's merge)
+**Active branch:** `phase-1.08-lead-form` → [PR #7](https://github.com/DinovLazar/IqUp-V2/pull/7) into `main` (awaiting Lazar's merge)
 
 > The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge → **lead form → confirmation**. **1.08 closes the visible flow:** the parent fills one short form (first name only, email, phone, city, optional child gender, three separate never-pre-ticked consents) validated by a shared, server-reusable Zod schema; a successful submit fires the stubbed `submitLead` + `lead_submit`, then the confirmation renders `selectReportSummary` (pentagon + 5 word/range bands + top strength — **no number**), the „report sent to email" line, the §D.2 data note, the §D.4 disclaimer placeholder, and the booking CTA (`?grad={city}`). All integrations are inert seams; **nothing is persisted** (browser-memory only). 1.07's report engine still feeds the screen read-only.
 

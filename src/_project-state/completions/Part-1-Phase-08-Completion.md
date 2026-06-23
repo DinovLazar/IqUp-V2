@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-23
 **Branch:** `phase-1.08-lead-form` (cut from `main`; PR #6 / 1.07 already merged — D-092)
-**Commits:** see PR
-**PR:** into `main` (awaiting Lazar's merge — nobody merges their own PR)
+**Commits:** `c1a4685` (+ this docs backfill)
+**PR:** [#7](https://github.com/DinovLazar/IqUp-V2/pull/7) into `main` (awaiting Lazar's merge — nobody merges their own PR)
 
 ## What shipped
 
