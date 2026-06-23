@@ -4,6 +4,11 @@ import * as React from "react";
 import { Star, Sparkles, ArrowRight } from "lucide-react";
 
 import { INDICES, INDEX_ORDER } from "@/lib/indices";
+import { generateItem, type Item } from "@/features/tasks";
+import { TaskRenderer, type ResponseFields } from "@/features/assessment/tasks";
+import { AnswerOption } from "@/components/ui/answer-option";
+import { IdleNudge } from "@/components/ui/idle-nudge";
+import { RewardBadge } from "@/components/ui/reward-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -79,6 +84,139 @@ function PhotoPlaceholder({
     <div className="flex aspect-[4/3] w-full max-w-sm items-center justify-center rounded-card border-2 border-dashed border-border-pur bg-tint-pur/50">
       <span className="text-label font-normal text-muted">{label}</span>
     </div>
+  );
+}
+
+// ── task-renderer demos (Phase 1.06) ──────────────────────────────────────────
+
+const SAMPLES: { label: string; item: Item; rounds?: number }[] = [
+  {
+    label: "Gf · матрица",
+    item: generateItem({
+      signal: "gf",
+      level: 4,
+      seed: "kit-gf-m",
+      family: "matrix",
+    }),
+  },
+  {
+    label: "Gf · низа",
+    item: generateItem({
+      signal: "gf",
+      level: 3,
+      seed: "kit-gf-s",
+      family: "series",
+    }),
+  },
+  {
+    label: "Gv · ротација",
+    item: generateItem({
+      signal: "gv",
+      level: 4,
+      seed: "kit-gv-r",
+      family: "rotation",
+    }),
+  },
+  {
+    label: "Gv · вишок",
+    item: generateItem({
+      signal: "gv",
+      level: 5,
+      seed: "kit-gv-o",
+      family: "oddOneOut",
+    }),
+  },
+  {
+    label: "Gsm · Корси",
+    item: generateItem({ signal: "gsm", level: 3, seed: "kit-gsm" }),
+  },
+  {
+    label: "Gs · брзина (тајмер)",
+    item: generateItem({ signal: "gs", level: 4, seed: "kit-gs" }),
+  },
+  {
+    label: "EF · кула",
+    item: generateItem({ signal: "ef", level: 4, seed: "kit-ef" }),
+  },
+  {
+    label: "Glr · парови",
+    item: generateItem({ signal: "glr", level: 3, seed: "kit-glr" }),
+    rounds: 2,
+  },
+  {
+    label: "CT · секвенца",
+    item: generateItem({
+      signal: "ct",
+      level: 3,
+      seed: "kit-ct-seq",
+      subtype: "sequence",
+    }),
+  },
+  {
+    label: "CT · дебаг",
+    item: generateItem({
+      signal: "ct",
+      level: 3,
+      seed: "kit-ct-dbg",
+      subtype: "debug",
+    }),
+  },
+  {
+    label: "CT · циклус",
+    item: generateItem({
+      signal: "ct",
+      level: 4,
+      seed: "kit-ct-loop",
+      subtype: "loop",
+    }),
+  },
+  {
+    label: "CT · услов",
+    item: generateItem({
+      signal: "ct",
+      level: 4,
+      seed: "kit-ct-cond",
+      subtype: "condition",
+    }),
+  },
+  {
+    label: "CT · лавиринт",
+    item: generateItem({
+      signal: "ct",
+      level: 3,
+      seed: "kit-ct-maze",
+      subtype: "maze",
+    }),
+  },
+];
+
+function TaskDemo({
+  label,
+  item,
+  rounds,
+}: {
+  label: string;
+  item: Item;
+  rounds?: number;
+}) {
+  const [answer, setAnswer] = React.useState<ResponseFields | null>(null);
+  return (
+    <Card className="gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-label text-pur">{label}</span>
+        <span className="text-label font-normal text-muted">
+          {answer ? "одговор фатен ✓" : "—"}
+        </span>
+      </div>
+      <div className="flex justify-center py-2">
+        <TaskRenderer item={item} rounds={rounds} onAnswer={setAnswer} />
+      </div>
+      {answer && (
+        <pre className="overflow-x-auto rounded-md bg-tint-pur/50 p-2 text-[11px] text-muted">
+          {JSON.stringify(answer)}
+        </pre>
+      )}
+    </Card>
   );
 }
 
@@ -404,6 +542,74 @@ export function KitGallery() {
         desc="Испрекината рамка таму каде што доаѓа вистинска фотографија (Cowork asset)."
       >
         <PhotoPlaceholder />
+      </Section>
+
+      {/* ANSWER OPTION (1.06) */}
+      <Section
+        title="Answer option (1.06)"
+        desc="Споделена контрола за задачите со избор: default / избрано / feedback состојби."
+      >
+        <Row>
+          <AnswerOption aria-label="default">
+            <span className="text-2xl font-bold text-ink">A</span>
+          </AnswerOption>
+          <AnswerOption selected aria-label="selected">
+            <span className="text-2xl font-bold text-ink">B</span>
+          </AnswerOption>
+          <AnswerOption state="correct" aria-label="correct">
+            <span className="text-2xl font-bold text-ink">C</span>
+          </AnswerOption>
+          <AnswerOption state="incorrect" aria-label="incorrect">
+            <span className="text-2xl font-bold text-ink">D</span>
+          </AnswerOption>
+        </Row>
+      </Section>
+
+      {/* IDLE NUDGE (1.06) */}
+      <Section
+        title="Idle nudge (1.06)"
+        desc="Се појавува по ~20–25 с неактивност. Без тајмер, без казна."
+      >
+        <IdleNudge
+          inline
+          open
+          title="Сè е во ред?"
+          body="Тука сме ако ти треба помош."
+          resumeLabel="Продолжи"
+          onResume={() => {}}
+        />
+      </Section>
+
+      {/* REWARD BADGE (1.06) */}
+      <Section
+        title="Reward badge (1.06)"
+        desc="Се појавува на крајниот екран, врзан со склопениот мозок-сложувалка."
+      >
+        <div className="flex flex-col items-center gap-4">
+          <PuzzleBrain completed={5} showTrack={false} size={120} />
+          <RewardBadge
+            title="IQ UP! Истражувач"
+            line="Ја заврши целата авантура. Капа долу!"
+            className="max-w-xs"
+          />
+        </div>
+      </Section>
+
+      {/* TASK RENDERERS (1.06) */}
+      <Section
+        title="Task renderers (1.06)"
+        desc="Жива инстанца од секој renderer (чист приказ на generateItem). Интеракцијата фаќа одговор во обликот што го очекува applyResponse."
+      >
+        <div className="grid gap-4">
+          {SAMPLES.map((s) => (
+            <TaskDemo
+              key={s.label}
+              label={s.label}
+              item={s.item}
+              rounds={s.rounds}
+            />
+          ))}
+        </div>
       </Section>
     </main>
   );

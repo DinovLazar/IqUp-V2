@@ -18,3 +18,13 @@ export {
   type StartSessionArgs,
   type ResponseScript,
 } from "./engine";
+export {
+  startFlow,
+  settle,
+  nextStep,
+  groupsCompleted,
+  sectionOfSignal,
+  INDEX_GROUPS,
+  SECTION_TOTAL,
+  type FlowStep,
+} from "./flow";

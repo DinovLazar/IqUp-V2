@@ -118,3 +118,19 @@
   - **No automated AI review yet** (CodeRabbit/Codex pending) — substituted an internal multi-agent adversarial review pass; it found one real bug (Gsm floor/ceiling mutual-exclusivity), fixed + regression-tested before close-out.
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (unchanged routes `/`, `/_not-found`, `/kit`), `npm test` ✓ (13 files, 101 tests), `npm run format:check` ✓. Five scripted profiles produce five visibly distinct index profiles; a strong-invalid session is gated `strong` with all-low confidence.
+
+- **2026-06-23 · Phase 1.06 — assessment flow UI (task renderers + timing + flow + landing).**
+
+  **No new dependencies.** All built on the already-installed stack (Next 16 / React 19, Tailwind v4, Motion + Lucide, next-intl, Vitest). The brief expected none; none were added.
+
+  **New modules:** `src/features/timing/` (pure stopwatch + calibration + one React hook), `src/features/assessment/tasks/` (7 renderers + pure `view.ts` + shared `glyphs.tsx` + `task-screen.tsx`), `src/features/assessment/flow.ts`, the `/procena` flow screens, the real `/` landing, and 3 kit components (`answer-option`/`idle-nudge`/`reward-badge`). 3 new Vitest files (16 files / 133 tests total).
+
+  **Config decisions / deviations:**
+  - **Timing layer outside `src/features/assessment`** (D-070): the 1.05 purity test scans that tree's `.ts` files for a live clock; the timing hook (the app's only `performance.now`) is `.ts`, so it lives in `src/features/timing/` to keep the scan green. Pure cores (`stopwatch.ts`/`calibration.ts`) are node-tested; the renderers are `.tsx` (exempt) and browser-verified.
+  - **Timing-shape contract flagged, not changed** (D-071): captured per-item timing is exactly the 1.05 `ResponseTiming` (`{ elapsedMs, idleGaps? }`); the device-calibration baseline has no field there, so it is captured at session level (inert, like `parentAssistMode`) for 3.01. The 1.05 layer is untouched.
+  - **UI timing constants in `src/features/timing/constants.ts`** (D-072), re-exporting `IDLE_GAP_EXCLUDE_MS`/`TOO_FAST_MS` from the norms (single source of truth). Idle nudge at 22 s, suppressed during Gs.
+  - **`noValidate` on the setup form** (D-075): native `min`/`max` constraint validation was silently blocking out-of-range submits (so the MK age-range message never showed); the app now governs the range check.
+  - **next-intl client usage**: renderers/screens use `useTranslations` (client) under the existing root `NextIntlClientProvider`; the landing/route use `getTranslations` (server). All new parent/child copy added to `messages/mk.json` (plain MK, no jargon; child = encouragement only).
+  - **Dev preview config** added at `.claude/launch.json` (`npm run dev`, autoPort) for the in-loop browser verification — tooling only.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `/`, `/procena`, `/kit`, `/_not-found`), `npm test` ✓ (16 files, 133 tests), `npm run format:check` ✓. End-to-end walked in-browser: landing → age gate (3/4 blocked with MK message, 8/6 pass) → 5–7 parent confirm gates start → gf practice (series) → real (matrix) → all renderers eyeballed in `/kit` (Gv polygons, Corsi board, Gs grid + orange timer ring + auto-submit, EF tower, CT maze d-pad, condition arrows, idle nudge, reward badge).

@@ -4,19 +4,19 @@
 >
 > Lives at `src/_project-state/current-state.md`.
 
-**Last updated:** 2026-06-22 — end of Phase 1.05 (Adaptive engine + scoring + norms)
-**Current part / phase:** Part 1 · Phase 1.05 complete → next is **1.06 (Assessment flow / screens)**
-**Active branch:** `phase-1.05-scoring` (PR into `main`)
+**Last updated:** 2026-06-23 — end of Phase 1.06 (Assessment flow UI)
+**Current part / phase:** Part 1 · Phase 1.06 complete → next is **1.07 (Report engine + results content)**
+**Active branch:** `phase-1.06-assessment-flow` → [PR #5](https://github.com/DinovLazar/IqUp-V2/pull/5) into `main` (awaiting Lazar's merge)
 
-> ✅ **Branch note (supersedes D-041, see D-069):** the kickoff-baseline situation has resolved — `main` now contains the merged PRs **#1 (scaffold), #2 (UI kit), #3 (task bank)**, and the old `phase-1.0x-*` branches are gone. This phase was therefore cut from **`main`** (not from `phase-1.04-task-bank` as the brief assumed). Future phases branch from `main` normally.
+> The assessment now runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge. Nothing is persisted before the (1.08) form.
 
 ## How to run it locally
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000  → placeholder landing (MK)
-                   # http://localhost:3000/kit → dev-only UI-kit gallery (every component + state)
-npm test           # Vitest: task bank + adaptive engine + scoring suites (13 files, 101 tests)
+npm run dev        # http://localhost:3000  → real landing (MK) → /procena runs the assessment
+                   # http://localhost:3000/kit → dev-only UI-kit gallery (every component + every task renderer)
+npm test           # Vitest: task bank + engine + scoring + timing + renderers + flow (16 files, 133 tests)
 npx tsx scripts/dump-tasks.ts   # print sample generated items as JSON (eyeballing)
 ```
 
@@ -28,9 +28,10 @@ Next.js 16 (App Router, Turbopack) + React 19 + TypeScript (strict) · Tailwind 
 
 ## Pages built
 
-- `/` — **placeholder landing** at `src/app/(site)/page.tsx`. Reads MK strings; renders the (now brand) Button. Real landing is 1.06.
-- `/kit` — **dev-only UI-kit gallery** at `src/app/kit/`. Renders every component + every state, the pentagon at sample profiles, and the puzzle-brain across progress values. `noindex`; 404s on real production (`VERCEL_ENV==="production"`); not linked from any nav. Verification surface for the kit.
-- Reserved (empty `.gitkeep` route folders): `(site)/procena`, `(site)/za-testot`, `(site)/politika-za-privatnost`, `(site)/uslovi`, `admin`, `embed`, `api`.
+- `/` — **real landing** at `src/app/(site)/page.tsx` (1.06): brand hero, value message, MK/EN switch (MK active, EN inert), dashed class-photo placeholders (Cowork swaps in later), "Започни проценка" → `/procena`, inline "informative, not diagnostic" footnote, puzzle-brain accent.
+- `/procena` — **the assessment flow** (1.06): setup (age 5–13; <5/>13 blocked; no child name) → pre-start (instructions + mandatory 5–7 parent confirm + inline disclaimer) → practice/real on the 1.05 engine → completion + reward badge. Browser-memory only; nothing persisted.
+- `/kit` — **dev-only UI-kit gallery** at `src/app/kit/`. Every component + state, pentagon, puzzle-brain, **+ every 1.06 task renderer (live), answer-option states, idle nudge, reward badge.** `noindex`; 404s on real production; not linked from nav.
+- Reserved (empty `.gitkeep` route folders): `(site)/za-testot`, `(site)/politika-za-privatnost`, `(site)/uslovi`, `admin`, `embed`, `api`.
 
 ## Components built (`src/components/ui/`)
 
@@ -46,6 +47,9 @@ Full brand kit on shadcn/Radix + Tailwind v4, each with its complete state set:
 - `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + indicative range (+ optional confidence).
 - `pentagon.tsx` — web SVG over the pure geometry module; color dots + MK vertex labels; PDF-safe primitives.
 - `puzzle-brain.tsx` — Motion (LazyMotion) clipped-silhouette + 5 region assembly from a `completed` (0–5) prop; reduced-motion snap fallback; ~40px chip variant; optional word-labelled track.
+- **`answer-option.tsx`** (1.06, D-047) — shared task-agnostic option control: select + violet check disc + correct/incorrect feedback; ≥64px square.
+- **`idle-nudge.tsx`** (1.06, D-047) — gentle "Сè е во ред?" prompt + Продолжи; overlay or inline; light-blue, no timer/penalty.
+- **`reward-badge.tsx`** (1.06, D-047) — "IQ UP! Истражувач" violet tile + custom yellow-star SVG + child-facing line.
 
 **Shared lib (`src/lib/`):**
 - `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks). Imported by pentagon, band bars, confidence, brain — and PDF-safe for 1.09.
@@ -73,6 +77,15 @@ The **brain** of the assessment: a pure, deterministic, UI-free state machine + 
 - **Output feeds the UI kit with no adapter** — `AssessmentResult.indices` is keyed by the `lib/indices` `IndexKey` and the band/confidence enums are imported *as types* straight from the 1.03 components (so any drift breaks the build).
 - **Tests** — 7 new Vitest files (engine path, determinism, formulas, confidence/validity/extremes, attention + slow≠wrong, five-profiles/UI-shape, purity). One bug caught by an adversarial review pass (Gsm floor/ceiling mutual-exclusivity) was fixed + regression-tested.
 
+## Assessment flow UI (`src/features/timing/`, `src/features/assessment/tasks/` + `flow.ts`, `src/app/(site)/procena/`) — Phase 1.06
+
+The test becomes something a child can take. Built on the same pure-core / thin-React split as `pentagon.ts` vs `pentagon.tsx`:
+
+- **Timing layer (`src/features/timing/`)** — a pure silent stopwatch + idle/tab-blur gap recorder over injected timestamps (`stopwatch.ts`, node-tested), pure device calibration (`calibration.ts`), and ONE React hook `use-item-timer.ts` that owns the app's only clock (`performance.now`). Output is the engine-shaped `{ elapsedMs, idleGaps? }` fed straight into `applyResponse`. Lives outside `src/features/assessment` so the hook's clock never trips the 1.05 purity scan (D-070). Nudge at 22 s, suppressed during Gs (D-072).
+- **Task renderers (`src/features/assessment/tasks/`)** — one per signal (Gf, Gv, Gsm/Corsi, Gs/speed-grid, EF/Tower-of-London, Glr/paired-associate, CT/5 sub-types), each a thin render of `generateItem` output over a pure `view.ts` (presenters + response builders + `instructionKey`). Shared SVG `glyphs.tsx`. `TaskRenderer` dispatches by signal; `TaskScreen` wraps any renderer with progress chrome + the silent stopwatch + the idle nudge. **Correctness derives from the answer key, never time** — only the Gs timer is visible (calm orange ring); no countdown anywhere else.
+- **Flow (`flow.ts` + `procena/`)** — a pure running-phase controller (`settle` past domainComplete, `nextStep` = practice/real, 5 index-group progress, D-073) and the React state machine (`assessment.tsx`): setup → pre-start → practice (one per task type, skippable; first calibrates) → adaptive sections → completion + reward. `parentAssistMode` plumbed but inert (3.01); device calibration captured but inert (no field in the 1.05 `ResponseTiming` — D-071, flagged not silently added).
+- **Tests** — 3 new Vitest files (32 tests): timing (idle/finish/calibration + scoring contract), response→answer-key per signal (slow≠wrong), and the flow over the 5 `fixtures.ts` profiles (reproduces the engine path, deterministic, one practice per task type). Repo total: **16 files, 133 tests.**
+
 ## Design tokens
 
 All handover §1 / spec App. G tokens are in the Tailwind v4 `@theme` (`src/app/globals.css`): 8 palette colors + per-index soft tints + `*-ink` text variants, gradients, surface/border/focus/state tokens, the four Montserrat type roles, the 4/8/12/16/24/32 spacing scale, 12–18/30/11px radii, ≥44px tap minimum, and the single `--shadow-pop`. No dark mode.
@@ -93,7 +106,8 @@ None yet (all stubbed until Part 2).
 - [ ] **Connect the CodeRabbit + Codex GitHub Apps** to `DinovLazar` → `docs/ai-review-setup.md`. Until done, PRs get no automated review (this 1.05 PR included — self-reviewed + an internal adversarial review pass instead).
 - [ ] **Ratify D-027** (Code kept on-disk `CLAUDE.md`/`AGENTS.md`/`Decisions.md` over the Appendix drafts).
 - [ ] **Brand assets pending (Cowork):** real IQ UP! class photo(s) (dashed placeholders in place); optional self-hosted Montserrat woff2 (currently `next/font/google` — clean swap path to `next/font/local`).
-- [ ] **§4.2 extras deferred (D-047):** reward badge, answer option, idle nudge → built with their screens (1.06/1.07).
+- [x] ~~**§4.2 extras deferred (D-047):** reward badge, answer option, idle nudge~~ — **built in 1.06** (`reward-badge.tsx`, `answer-option.tsx`, `idle-nudge.tsx`).
+- [ ] **Timing-shape mismatch flagged (D-071):** the 1.05 `ResponseTiming` has no calibration field; the device baseline is captured at session level (inert) for 3.01 to consume. Decide in 3.01 whether to extend the contract.
 - [ ] `notion-checklist.md` referenced in planning docs but not in the repo (owned by Chat).
 
 ## Known issues

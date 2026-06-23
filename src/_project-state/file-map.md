@@ -53,10 +53,15 @@ path/to/file.ext — one-line description of what it does
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
 - `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
-- `src/app/(site)/page.tsx` — placeholder landing; reads MK strings + renders Button
-- `src/app/(site)/{procena,za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
+- `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`, inline "informative, not diagnostic" footnote
+- `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
+- `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion; session seed + `parentAssistMode` (inert) (1.06)
+- `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
+- `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox + inline disclaimer (1.06)
+- `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge (1.06)
+- `src/app/(site)/{za-testot,politika-za-privatnost,uslovi}/.gitkeep` — reserved public pages
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
-- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress
+- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; **+1.06: every task renderer (live), answer-option states, idle nudge, reward badge**
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
 - `src/app/api/.gitkeep` — reserved serverless backend (lead/report/score)
@@ -76,6 +81,9 @@ path/to/file.ext — one-line description of what it does
 - `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + range
 - `pentagon.tsx` — web SVG pentagon over the geometry module
 - `puzzle-brain.tsx` — Motion puzzle-brain assembly (+ chip variant; reduced-motion fallback)
+- `answer-option.tsx` — shared task-agnostic answer option (select + check disc + feedback states) (1.06, D-047)
+- `idle-nudge.tsx` — gentle idle nudge ("Сè е во ред?" + Продолжи), overlay/inline, no timer/penalty (1.06, D-047)
+- `reward-badge.tsx` — "IQ UP! Истражувач" celebratory tile + custom yellow star SVG (1.06, D-047)
 
 **Lib (`src/lib/`):**
 - `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe
@@ -126,6 +134,28 @@ path/to/file.ext — one-line description of what it does
 - `finalize.ts` — folds a completed session into the `AssessmentResult`
 - `index.ts` — public barrel
 - `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite
+
+**Timing layer (`src/features/timing/`) (Phase 1.06) — pure stopwatch + one React hook:**
+- `constants.ts` — UI idle/timing constants (`IDLE_NUDGE_MS`=22 s, `IDLE_POLL_MS`); re-exports `IDLE_GAP_EXCLUDE_MS`/`TOO_FAST_MS` from norms
+- `types.ts` — `CapturedTiming` (= engine `ResponseTiming`), `ItemTimerState`, `DeviceCalibration`
+- `stopwatch.ts` — pure silent stopwatch + idle/tab-blur gap recording over injected timestamps (node-tested)
+- `calibration.ts` — pure device-baseline summary (median inter-tap, or first-tap latency)
+- `use-item-timer.ts` — React hook: the app's only clock (`performance.now`); idle watcher + visibility listener; `finish()` → `{ timing, calibration }`
+- `index.ts` — barrel
+- `__tests__/timing.test.ts` — stopwatch idle/finish, calibration, captured-timing↔scoring contract
+
+**Task renderers (`src/features/assessment/tasks/`) (Phase 1.06) — thin `.tsx` over a pure `.ts` core:**
+- `view.ts` — pure presenters + response builders (`buildGvView`, `correctFields`/`wrongFields`, `withTiming`, `instructionKey`); node-tested
+- `glyphs.tsx` — shared SVG glyphs: shapes (Gf), abstract symbols (Gs/Glr), move arrows + condition tokens (CT)
+- `gf-task.tsx` · `gv-task.tsx` · `gsm-task.tsx` · `gs-task.tsx` · `ef-task.tsx` · `glr-task.tsx` · `ct-task.tsx` — one renderer per signal
+- `task-renderer.tsx` — dispatch by signal (same guards as the scorer)
+- `task-screen.tsx` — shared chrome (progress + section + dots), silent stopwatch wiring, idle nudge, practice/real routing
+- `index.ts` — barrel
+- `__tests__/responses.test.ts` — response→answer-key mapping per signal, slow≠wrong, Gv render determinism
+
+**Flow controller (`src/features/assessment/`) (Phase 1.06):**
+- `flow.ts` — pure running-phase logic on the 1.05 engine: `settle` past domainComplete, `nextStep` (practice/real), 5 index-group progress
+- `__tests__/flow.test.ts` — flow over the 5 fixture profiles (reproduces the engine path), determinism, one practice per task type
 
 **Reserved feature/content folders (empty until their phase):**
 - `src/features/report/.gitkeep`
