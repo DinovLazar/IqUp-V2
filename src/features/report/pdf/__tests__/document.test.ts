@@ -66,7 +66,10 @@ function walk(model: ReturnType<typeof assembleReport>) {
     numericLeaves: out.leaves.filter((l) => typeof l === "number"),
     joined: texts.join("\n"),
     hasType: (t: unknown) => out.elements.some((e) => e.type === t),
-    disclaimerCount: texts.filter((x) => x === legal.disclaimer).length,
+    // §16.1 placement #4: the FULL §D.4 paragraph at the top, the SHORT line as
+    // the fixed footer (Phase 1.10). Counted separately so the split is asserted.
+    fullCount: texts.filter((x) => x === legal.disclaimer).length,
+    shortCount: texts.filter((x) => x === legal.disclaimerShort).length,
   };
 }
 
@@ -110,7 +113,7 @@ describe("PDF document tree — no-number invariant", () => {
 
 describe("PDF document tree — normal profile contains every Дел 10.3 section", () => {
   const model = assembleReport(scoreProfile(logicStrong));
-  const { joined, hasType, disclaimerCount } = walk(model);
+  const { joined, hasType, fullCount, shortCount } = walk(model);
   const t = messages.reportPdf;
 
   it("is a profile variant with a pentagon (Polygon present)", () => {
@@ -158,9 +161,10 @@ describe("PDF document tree — normal profile contains every Дел 10.3 sectio
     expect(joined).not.toContain(pos.programHook);
   });
 
-  it("shows the CTA text and the §D.4 disclaimer at top AND bottom", () => {
+  it("shows the CTA text and the §D.4 disclaimer at top (full) AND bottom (short)", () => {
     expect(joined).toContain(model.cta?.text ?? t.ctaFallback);
-    expect(disclaimerCount).toBeGreaterThanOrEqual(2);
+    expect(fullCount).toBe(1); // full §D.4 at the top only
+    expect(shortCount).toBe(1); // short line as the fixed footer
   });
 
   it("never prints internal version metadata (two-register rule)", () => {
@@ -176,7 +180,7 @@ describe("PDF document tree — normal profile contains every Дел 10.3 sectio
 
 describe("PDF document tree — retry variant", () => {
   const model = assembleReport(scoreProfile(strongInvalid));
-  const { joined, hasType, disclaimerCount } = walk(model);
+  const { joined, hasType, fullCount, shortCount } = walk(model);
 
   it("is the retry variant with no confident profile", () => {
     expect(model.variant).toBe("retry");
@@ -192,7 +196,8 @@ describe("PDF document tree — retry variant", () => {
     expect(hasType(Polygon)).toBe(false);
   });
 
-  it("still places the §D.4 disclaimer at top AND bottom", () => {
-    expect(disclaimerCount).toBeGreaterThanOrEqual(2);
+  it("still places the §D.4 disclaimer at top (full) AND bottom (short)", () => {
+    expect(fullCount).toBe(1);
+    expect(shortCount).toBe(1);
   });
 });

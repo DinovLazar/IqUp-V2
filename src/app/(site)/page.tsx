@@ -4,12 +4,14 @@ import { getTranslations } from "next-intl/server";
 import { ArrowRight, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Disclaimer } from "@/components/ui/disclaimer";
 import { PuzzleBrain } from "@/components/ui/puzzle-brain";
 
 // Real landing (handover §5.1) — photo-forward, brand hero, value message, an
 // MK/EN switch (MK only active for the MVP), the "Започни проценка" entry to
-// /procena, and the inline "informative, not diagnostic" footnote. Class photos
-// are dashed placeholders (Cowork delivers the real assets later — clean swap).
+// /procena, and the shared "informative, not diagnostic" footnote (§16.1
+// placement #1 — the short `Disclaimer`). Class photos are dashed placeholders
+// (Cowork delivers the real assets later — clean swap).
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("landing");
   return { title: "IQ UP!", description: t("subhead") };
@@ -89,9 +91,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer — placement #1 of the §16.1 disclaimer (shared component, short). */}
       <footer className="mx-auto w-full max-w-5xl px-5 py-6">
-        <p className="text-label font-normal text-muted">{t("disclaimer")}</p>
+        <Disclaimer variant="short" />
       </footer>
     </main>
   );

@@ -9,8 +9,12 @@
  * (`procena/confirmation.tsx`) but renders the FULL report (spec Дел 10.3): the
  * branded puzzle-brain header, Part А (pentagon + five word/range bands + per-index
  * confidence + top strength + growth area + solving style + home activities), Part Б
- * (STEM readiness + bridge), the IQ UP! positioning, the booking CTA, and the §D.4
- * disclaimer at the top and (as a fixed footer) the bottom.
+ * (STEM readiness + bridge), the IQ UP! positioning, the booking CTA, and the §16.1
+ * disclaimer — the FULL §D.4 paragraph at the top and the SHORT line as a fixed
+ * footer on every page. Both restate the same `messages/mk.json` `legal` keys the
+ * shared DOM `Disclaimer` component reads (Phase 1.10); a copy-parity guard test
+ * (`pdf/__tests__/disclaimer-parity`) keeps the two renderers tied to that one
+ * source.
  *
  * No hard number is ever drawn as text — only the band WORD + indicative range
  * (spec Дел 10.2). The numeric index value reaches the page only as pentagon
@@ -199,9 +203,10 @@ const s = StyleSheet.create({
     color: PDF_COLORS.ink,
     backgroundColor: PDF_COLORS.surface,
     paddingTop: 30,
-    // Reserve generous room for the fixed §D.4 footer (bottom:20 + a 3-line
-    // disclaimer ≈ 36pt) with buffer so a future copy/locale edit that wraps the
-    // disclaimer to a 4th line still can't draw over trailing flow content.
+    // Reserve room for the fixed footer (bottom:20 + the short §D.4 line). Since
+    // 1.10 the footer is the one-line `legal.disclaimerShort`, so 72 is generous
+    // headroom — a future copy/locale edit could wrap it to 2–3 lines and still
+    // not draw over trailing flow content.
     paddingBottom: 72,
     paddingHorizontal: 34,
   },
@@ -415,7 +420,7 @@ const s = StyleSheet.create({
     marginTop: 10,
   },
 
-  // Fixed bottom footer (the §D.4 disclaimer at the bottom of every page).
+  // Fixed bottom footer (the short §D.4 disclaimer line at the bottom of every page).
   footer: {
     position: "absolute",
     bottom: 20,
@@ -581,6 +586,7 @@ export function buildReportDocument(
     return (
       <Document>
         <Page size="A4" style={s.page}>
+          {/* §16.1 placement #4 — TOP (full §D.4). */}
           <Text style={s.disclaimerTop}>{legal.disclaimer}</Text>
           <Header assembled={false} />
           <View style={s.retryBox}>
@@ -589,8 +595,9 @@ export function buildReportDocument(
               {model.validity.note ?? mk.confirmation.retryNote}
             </Text>
           </View>
+          {/* §16.1 placement #4 — BOTTOM (short line), fixed on every page. */}
           <View style={s.footer} fixed>
-            <Text style={s.footerText}>{legal.disclaimer}</Text>
+            <Text style={s.footerText}>{legal.disclaimerShort}</Text>
           </View>
         </Page>
       </Document>
@@ -609,7 +616,7 @@ export function buildReportDocument(
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* §D.4 disclaimer — TOP placement (spec Дел 16.1). */}
+        {/* §16.1 placement #4 — TOP placement (full §D.4 paragraph). */}
         <Text style={s.disclaimerTop}>{legal.disclaimer}</Text>
 
         <Header assembled />
@@ -707,9 +714,9 @@ export function buildReportDocument(
         {/* §D.2 data note (reused legal copy). */}
         <Text style={s.dataNote}>{legal.dataNote}</Text>
 
-        {/* §D.4 disclaimer — BOTTOM placement, fixed footer on every page. */}
+        {/* §D.4 disclaimer — BOTTOM placement (short line), fixed footer on every page. */}
         <View style={s.footer} fixed>
-          <Text style={s.footerText}>{legal.disclaimer}</Text>
+          <Text style={s.footerText}>{legal.disclaimerShort}</Text>
         </View>
       </Page>
     </Document>
