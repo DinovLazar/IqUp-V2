@@ -2,8 +2,11 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
- * Vitest config for the task-bank test suite (Phase 1.04). Pure Node tests, no
- * DOM. The `@/*` alias mirrors tsconfig so tests import the same way as source.
+ * Vitest config. The default environment is Node (the pure cores: task bank,
+ * engine, scoring, report, lead schema/seams). React component tests (Phase 1.08)
+ * are `.test.tsx` files that opt into jsdom per-file via a `// @vitest-environment
+ * jsdom` docblock, so the pure suite stays Node-only. The `@/*` alias mirrors
+ * tsconfig so tests import the same way as source.
  */
 export default defineConfig({
   resolve: {
@@ -13,6 +16,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["./vitest.setup.ts"],
   },
 });

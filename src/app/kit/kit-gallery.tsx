@@ -36,6 +36,7 @@ import { IndexBandBar } from "@/components/ui/index-band-bar";
 import { Pentagon } from "@/components/ui/pentagon";
 import { PuzzleBrain } from "@/components/ui/puzzle-brain";
 import { ReportPreview } from "./report-preview";
+import { LeadPreview } from "./lead-preview";
 
 // ── small layout helpers ──────────────────────────────────────────────────────
 
@@ -495,6 +496,14 @@ export function KitGallery() {
         desc="Секој извештај е склопен детерминистички од fixtures.ts преку assembleReport. strong-invalid го прикажува graceful-retry, ceiling ја прикажува копијата за таван. Дисклејмерот е статичен placeholder (1.10)."
       >
         <ReportPreview />
+      </Section>
+
+      {/* LEAD FORM + CONFIRMATION (Phase 1.08) */}
+      <Section
+        title="Лид-форма + потврда (1.08)"
+        desc="Формата во три состојби (празна / грешки при валидација / без штиклирани согласности) и екранот за потврда од fixtures-профил (+ graceful-retry). Согласностите никогаш не се штиклирани однапред; задолжителните се валидираат во самата Zod-шема. Без број на екранот."
+      >
+        <LeadPreview />
       </Section>
 
       {/* PUZZLE-BRAIN */}
