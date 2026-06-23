@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-23
 **Branch:** `phase-1.10-disclaimer-static-pages` (cut from `main` — D-103)
-**Commits:** _this PR_
-**PR:** _to be backfilled_
+**Commits:** `11dda29` (+ this docs backfill)
+**PR:** [#9](https://github.com/DinovLazar/IqUp-V2/pull/9)
 
 ## What shipped
 
