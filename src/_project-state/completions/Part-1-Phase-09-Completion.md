@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-23
 **Branch:** `phase-1.09-pdf-report` (from `main`, PR #7 already merged — D-101)
-**Commits:** _(filled at PR open)_
-**PR:** _(filled at PR open)_
+**Commits:** `be46430` (+ this doc backfill)
+**PR:** [#8](https://github.com/DinovLazar/IqUp-V2/pull/8)
 
 ## What shipped
 
