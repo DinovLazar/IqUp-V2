@@ -35,6 +35,7 @@ import { ConfidenceLabel } from "@/components/ui/confidence-label";
 import { IndexBandBar } from "@/components/ui/index-band-bar";
 import { Pentagon } from "@/components/ui/pentagon";
 import { PuzzleBrain } from "@/components/ui/puzzle-brain";
+import { ReportPreview } from "./report-preview";
 
 // ── small layout helpers ──────────────────────────────────────────────────────
 
@@ -486,6 +487,14 @@ export function KitGallery() {
             <span className="text-label font-normal text-muted">compact</span>
           </div>
         </Row>
+      </Section>
+
+      {/* REPORT ENGINE (Phase 1.07) — 5 fixtures → 5 distinct assembled reports */}
+      <Section
+        title="Репорт-мотор (1.07) — 5 профили → 5 различни извештаи"
+        desc="Секој извештај е склопен детерминистички од fixtures.ts преку assembleReport. strong-invalid го прикажува graceful-retry, ceiling ја прикажува копијата за таван. Дисклејмерот е статичен placeholder (1.10)."
+      >
+        <ReportPreview />
       </Section>
 
       {/* PUZZLE-BRAIN */}
