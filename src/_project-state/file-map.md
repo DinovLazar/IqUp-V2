@@ -26,17 +26,17 @@ path/to/file.ext — one-line description of what it does
 
 **Root config & housekeeping (Phase 1.01):**
 - `README.md` — short project readme + how to run locally
-- `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store`
+- `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store` + `/tmp` (1.09 PDF QA output)
 - `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08, non-secret placeholder)
 - `.coderabbit.yaml` — CodeRabbit auto-review config (live once the app is connected)
 - `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format)
 - `tsconfig.json` — TypeScript config (strict)
-- `next.config.ts` — Next config wrapped with the next-intl plugin
+- `next.config.ts` — Next config wrapped with the next-intl plugin; +1.09: `serverExternalPackages: ["@react-pdf/renderer"]` for the 2.02 `/api/report` route
 - `next-env.d.ts` — Next-generated types (gitignored content; file tracked)
 - `postcss.config.mjs` — PostCSS → `@tailwindcss/postcss` (Tailwind v4)
 - `eslint.config.mjs` — ESLint flat config (Next core-web-vitals + TS)
 - `.prettierrc.json` — Prettier + `prettier-plugin-tailwindcss`
-- `.prettierignore` — excludes deps/build/lockfile/PDF/Markdown
+- `.prettierignore` — excludes deps/build/lockfile/PDF/Markdown; +1.09: `*.ttf`, the fonts `OFL.txt`, `/tmp`
 - `components.json` — shadcn/ui config (radix lib, Nova preset, neutral, Lucide)
 - `vitest.config.ts` — Vitest config: node env (default) + `@/` alias; includes `src/**/*.test.ts` **and** `*.test.tsx` (1.08 jsdom tests opt in per-file via a `@vitest-environment jsdom` docblock); `setupFiles: vitest.setup.ts`
 - `vitest.setup.ts` — env-guarded jsdom polyfills for Radix (ResizeObserver / pointer-capture / scrollIntoView); no-op under the Node suites (1.08)
@@ -47,7 +47,7 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`)
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
@@ -84,8 +84,8 @@ path/to/file.ext — one-line description of what it does
 - `checkbox.tsx` — consent checkbox (never pre-ticked; error-ready) (Radix Checkbox)
 - `select.tsx` — Select trigger/content/item/etc. (Radix Select; popover uses `--shadow-pop`)
 - `band-label.tsx` — index band-label: word + indicative range only (no number)
-- `confidence-label.tsx` — висока/средна/ниска chip + signal glyph
-- `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + range
+- `confidence-label.tsx` — висока/средна/ниска chip + signal glyph (+1.09: exports `CONFIDENCE` {bars,color} as the single source the PDF theme mirrors)
+- `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + range (+1.09: exports `BAND_FILL` as the single source the PDF theme mirrors)
 - `pentagon.tsx` — web SVG pentagon over the geometry module
 - `puzzle-brain.tsx` — Motion puzzle-brain assembly (+ chip variant; reduced-motion fallback)
 - `answer-option.tsx` — shared task-agnostic answer option (select + check disc + feedback states) (1.06, D-047)
@@ -183,6 +183,16 @@ path/to/file.ext — one-line description of what it does
 - `index.ts` — public barrel
 - `__tests__/{schema,cta,submit}.test.ts` — Vitest: field rules + consent-true enforcement, href encoding, pipeline ordering/args
 
+**Report PDF (`src/features/report/pdf/`) (Phase 1.09) — pure builder + IO seam; renders the 1.07 `ReportModel`:**
+- `theme.ts` — pure PDF tokens (literal-hex palette/surfaces mirroring `globals.css`, Montserrat family + weights, band fill/level + confidence bar maps)
+- `fonts.ts` — IO seam: `registerPdfFonts()` registers the bundled Montserrat TTFs with `@react-pdf` (idempotent; path via `process.cwd()`)
+- `pentagon-pdf.tsx` — pure `@react-pdf` SVG pentagon over the shared `@/lib/pentagon` geometry (identical shape to the web component; `SvgText` cast works around `@react-pdf`'s incomplete SVG `Text` types)
+- `document.tsx` — the pure `buildReportDocument(model, { bookingHref })`: branded puzzle-brain header, Part А (pentagon + 5 word/range bands + confidence + strength/growth/style + per-index activities), Part Б (readiness + STEM bridge), positioning + program name, clickable CTA, §D.4 disclaimer top + fixed footer; retry variant (dim brain, no pentagon)
+- `render.ts` — IO seam: `renderReportPdf(model, { city })` → `Promise<Buffer>` via `renderToBuffer` (the 2.02 `/api/report` contract; PDF never stored)
+- `index.ts` — public barrel (`buildReportDocument`, `renderReportPdf`, `registerPdfFonts`, `PentagonPdf`)
+- `fonts/Montserrat-{Regular,Medium,SemiBold,Bold,ExtraBold}.ttf` + `fonts/OFL.txt` — bundled OFL static TTFs (Cyrillic + Latin), independent of the web `next/font` pipeline
+- `__tests__/{document,render,fonts,theme,purity}.test.ts` — Vitest: element-tree no-number + determinism + section-presence + retry (renders the pure component tree, not bytes); non-empty Buffer for all 5 fixtures + `?grad=` link; Macedonian glyph coverage via `fontkit`; theme sync-guard (PDF maps == components' exported `BAND_FILL`/`BANDS`/`CONFIDENCE`); purity scan
+
 **Report module library — versioned MK content (`src/content/modules/`) (Phase 1.07) — pure data:**
 - `version.ts` — `MODULE_LIBRARY_VERSION` ("1.0.0"); stored in `ReportModel.meta`
 - `ranges.ts` — indicative range caption per band (Дел 10.2 — never a number)
@@ -197,8 +207,12 @@ path/to/file.ext — one-line description of what it does
 - `validity.ts` — mild soft-note + strong graceful-retry copy
 - `index.ts` — barrel: `MODULE_LIBRARY` (flat) + per-category arrays + `modulesOf(category)`
 
+**Lib types (`src/types/`):**
+- `fontkit.d.ts` — minimal ambient types for `fontkit` (transitive, untyped); used only by the 1.09 font-coverage test
+
 **Scripts:**
 - `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)
+- `scripts/dump-report-pdf.ts` — dev-only: render all 5 `fixtures.ts` profiles → PDF into gitignored `./tmp/` (`npx tsx scripts/dump-report-pdf.ts [city]`)
 
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
