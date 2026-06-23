@@ -6,7 +6,7 @@
 
 **Last updated:** 2026-06-23 — end of Phase 1.07 (Report engine)
 **Current part / phase:** Part 1 · Phase 1.07 complete → next is **1.08 (Confirmation screen + lead form)**
-**Active branch:** `phase-1.07-report-engine` → PR into `main` (awaiting Lazar's merge)
+**Active branch:** `phase-1.07-report-engine` → [PR #6](https://github.com/DinovLazar/IqUp-V2/pull/6) into `main` (awaiting Lazar's merge)
 
 > The assessment runs **end-to-end locally**: `/` → setup → pre-start → practice (with calibration) → all 7 task types adaptively (on the 1.05 engine) → completion + reward badge. **1.07 adds the report engine:** the 1.05 `AssessmentResult` is turned into a deterministic, parent-facing `ReportModel` (top strength + growth + solving style + STEM bridge + positioning + dynamic CTA), assembled from a versioned MK module library with no AI. Five fixtures → five visibly distinct reports, viewable at `/kit`. Nothing is persisted before the (1.08) form.
 

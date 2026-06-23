@@ -5,7 +5,7 @@
 **Date completed:** 2026-06-23
 **Branch:** `phase-1.07-report-engine` (cut from `main`; PR #5 / Phase 1.06 had merged)
 **Commits:** `fd3f346` (implementation + state + decisions) + the commit adding this report
-**PR:** opened from `phase-1.07-report-engine` into `main`
+**PR:** [#6](https://github.com/DinovLazar/IqUp-V2/pull/6) into `main`
 
 ## What shipped
 
