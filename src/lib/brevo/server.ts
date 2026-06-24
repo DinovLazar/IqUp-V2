@@ -19,6 +19,7 @@
 import "server-only";
 
 import { resolveEnvironment } from "@/lib/env";
+import type { AdminContact } from "@/features/admin";
 
 const BREVO_API_BASE = "https://api.brevo.com/v3";
 
@@ -52,6 +53,25 @@ export interface LeadContactAttributes {
   /** Consent date, server-set, `YYYY-MM-DD` (date-only). */
   CONSENT_DATE: string;
 }
+
+/**
+ * The locked Brevo attribute NAMES as a runtime constant (the single source the
+ * admin contacts reader uses to pull fields back out — brief Task 6). `satisfies
+ * Record<keyof LeadContactAttributes, string>` ties it to the upsert contract, so
+ * a renamed/typo'd/missing attribute fails to compile here instead of silently
+ * reading the wrong field.
+ */
+export const BREVO_CONTACT_ATTRIBUTES = {
+  FIRSTNAME: "FIRSTNAME",
+  PHONE: "PHONE",
+  CITY: "CITY",
+  CHILD_GENDER: "CHILD_GENDER",
+  LANGUAGE: "LANGUAGE",
+  CONSENT_SERVICE: "CONSENT_SERVICE",
+  CONSENT_PARENT: "CONSENT_PARENT",
+  CONSENT_MARKETING: "CONSENT_MARKETING",
+  CONSENT_DATE: "CONSENT_DATE",
+} as const satisfies Record<keyof LeadContactAttributes, string>;
 
 export interface UpsertLeadContactInput {
   email: string;
@@ -120,6 +140,33 @@ export function resolveBrevoListId(): number {
   return env === "production" ? DEFAULT_LIST_PRODUCTION : DEFAULT_LIST_TEST;
 }
 
+/** GET JSON from a Brevo endpoint; throw a PII-free `BrevoError` on a non-2xx response. */
+async function brevoGet<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${BREVO_API_BASE}${endpoint}`, {
+    method: "GET",
+    headers: {
+      "api-key": resolveApiKey(),
+      accept: "application/json",
+    },
+    // Admin reads must always be live (never cached): the contacts view is the
+    // source of truth synced from Brevo.
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let code: string | undefined;
+    try {
+      const parsed = (await response.json()) as { code?: unknown };
+      if (typeof parsed?.code === "string") code = parsed.code;
+    } catch {
+      // Non-JSON error body — keep just the status.
+    }
+    throw new BrevoError(endpoint, response.status, code);
+  }
+
+  return (await response.json()) as T;
+}
+
 /** POST JSON to a Brevo endpoint; throw a PII-free `BrevoError` on a non-2xx response. */
 async function brevoPost(endpoint: string, body: unknown): Promise<void> {
   const response = await fetch(`${BREVO_API_BASE}${endpoint}`, {
@@ -186,4 +233,121 @@ export async function sendReportEmail(
       },
     ],
   });
+}
+
+// ── Admin: read contacts from a Brevo list (Phase 2.04) ─────────────────────
+//
+// READ-ONLY (MVP is read + export only — no edit/delete from the admin). The
+// admin contacts view + CSV export read LIVE from the env-resolved list (prod →
+// 7, else → 8) so they are always in sync with Brevo. Only the DISPLAYED fields
+// are returned (decision 1: first name, email, phone, city, gender code, the
+// three consents, signup time) — NO age, NO score/result field. The Brevo key
+// stays server-side: the browser never talks to Brevo.
+
+/** Brevo's max page size for the list-contacts endpoint. */
+const BREVO_LIST_PAGE_SIZE = 500;
+
+/** Safety cap for a full-list fetch (filters/pagination run in memory server-side). */
+const BREVO_LIST_FETCH_CAP = 5000;
+
+/** Shape of one contact in Brevo's GET list-contacts response (only what we read). */
+interface BrevoListContact {
+  email?: string;
+  createdAt?: string;
+  attributes?: Record<string, unknown>;
+}
+interface BrevoListContactsResponse {
+  contacts?: BrevoListContact[];
+  count?: number;
+}
+
+/** Coerce a Brevo attribute value to boolean (it returns booleans, but be defensive). */
+function asBool(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  if (typeof value === "number") return value === 1;
+  return false;
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+/** Map a raw Brevo contact → the displayed-fields-only `AdminContact`. */
+function toAdminContact(raw: BrevoListContact): AdminContact {
+  const a = raw.attributes ?? {};
+  return {
+    firstName: asString(a[BREVO_CONTACT_ATTRIBUTES.FIRSTNAME]),
+    email: asString(raw.email),
+    phone: asString(a[BREVO_CONTACT_ATTRIBUTES.PHONE]),
+    city: asString(a[BREVO_CONTACT_ATTRIBUTES.CITY]),
+    gender: asString(a[BREVO_CONTACT_ATTRIBUTES.CHILD_GENDER]),
+    consentService: asBool(a[BREVO_CONTACT_ATTRIBUTES.CONSENT_SERVICE]),
+    consentParent: asBool(a[BREVO_CONTACT_ATTRIBUTES.CONSENT_PARENT]),
+    consentMarketing: asBool(a[BREVO_CONTACT_ATTRIBUTES.CONSENT_MARKETING]),
+    // DATE-ONLY (YYYY-MM-DD) — matches the on-screen table and the project's
+    // date-only convention; the exact contact creation time never reaches a view.
+    signupAt: asString(raw.createdAt).slice(0, 10),
+  };
+}
+
+export interface ListContactsInput {
+  listId: number;
+  /** Page size (Brevo max 500). */
+  limit: number;
+  offset: number;
+}
+
+/**
+ * One page of contacts from a Brevo list (`GET /v3/contacts/lists/{id}/contacts`),
+ * mapped to the displayed-fields-only `AdminContact[]`. `count` is the list total
+ * Brevo reports. Newest first (`sort=desc`, Brevo orders by creation).
+ */
+export async function listContactsFromList(
+  input: ListContactsInput,
+): Promise<{ contacts: AdminContact[]; count: number }> {
+  const limit = Math.min(Math.max(1, input.limit), BREVO_LIST_PAGE_SIZE);
+  const offset = Math.max(0, input.offset);
+  const data = await brevoGet<BrevoListContactsResponse>(
+    `/contacts/lists/${input.listId}/contacts?limit=${limit}&offset=${offset}&sort=desc`,
+  );
+  return {
+    contacts: (data.contacts ?? []).map(toAdminContact),
+    count: typeof data.count === "number" ? data.count : 0,
+  };
+}
+
+/**
+ * Fetch the WHOLE list (bounded by `BREVO_LIST_FETCH_CAP`), mapped to
+ * `AdminContact[]`, so filtering + pagination can run in memory server-side
+ * (Brevo's list endpoint cannot filter by attribute). `truncated` is true if the
+ * list exceeds the cap — the caller surfaces that rather than silently dropping.
+ */
+export async function fetchAllContactsFromList(input: {
+  listId: number;
+  max?: number;
+}): Promise<{ contacts: AdminContact[]; total: number; truncated: boolean }> {
+  const max = Math.max(1, input.max ?? BREVO_LIST_FETCH_CAP);
+  const all: AdminContact[] = [];
+  let total = 0;
+  let offset = 0;
+
+  while (all.length < max) {
+    const { contacts, count } = await listContactsFromList({
+      listId: input.listId,
+      limit: BREVO_LIST_PAGE_SIZE,
+      offset,
+    });
+    total = count;
+    all.push(...contacts);
+    offset += BREVO_LIST_PAGE_SIZE;
+    if (contacts.length < BREVO_LIST_PAGE_SIZE) break; // last page
+    // Only trust `total` to stop paging when it is positive — a malformed/zero
+    // count must not short-circuit a genuinely full page (the short-page check
+    // above already terminates the real last page).
+    if (total > 0 && all.length >= total) break;
+  }
+
+  const truncated = total > all.length || total > max;
+  return { contacts: all.slice(0, max), total, truncated };
 }
