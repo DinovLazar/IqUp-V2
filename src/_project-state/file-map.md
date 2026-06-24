@@ -27,7 +27,7 @@ path/to/file.ext — one-line description of what it does
 **Root config & housekeeping (Phase 1.01):**
 - `README.md` — short project readme + how to run locally
 - `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store` + `/tmp` (1.09 PDF QA output)
-- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08, non-secret placeholder)
+- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08); +2.01: Supabase runtime keys (`NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), CLI keys (`SUPABASE_PROJECT_REF`/`_DB_PASSWORD`), and `APP_ENV`
 - `.coderabbit.yaml` — CodeRabbit auto-review config (live once the app is connected)
 - `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format)
 - `tsconfig.json` — TypeScript config (strict)
@@ -60,7 +60,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
 - `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox; +1.10: the shared `<Disclaimer variant="short">` (§16.1 placement #2)
 - `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge; +1.08: optional `onProceed` primary button to the lead form
-- `src/app/(site)/procena/lead-form.tsx` — **lead form (1.08)**: RHF + Zod resolver over the 1.03 primitives; 8 fields (first name only), 3 separate never-pre-ticked consents, inline errors, `form_view` on mount; `CityField` swap-seam; preview seams (`autoValidate`/`defaultValues`)
+- `src/app/(site)/procena/lead-form.tsx` — **lead form (1.08)**: RHF + Zod resolver over the 1.03 primitives; 8 fields (first name only), 3 separate never-pre-ticked consents, inline errors, `form_view` on mount; `CityField` swap-seam; preview seams (`autoValidate`/`defaultValues`); +2.01: passes the real `writeScore` into `runLeadSubmit`
 - `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant; +1.10: §D.4 = the shared `<Disclaimer variant="full">` (§16.1 placement #3, both branches)
 - `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable
 - `src/app/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
@@ -77,7 +77,8 @@ path/to/file.ext — one-line description of what it does
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
-- `src/app/api/.gitkeep` — reserved serverless backend (lead/report/score)
+- `src/app/api/score/route.ts` — **`POST /api/score` (2.01)**: validates the body with the strict `scoreRowSchema` (rejects PII/extras/client dates), stamps `environment` from `APP_ENV` server-side, inserts via the service-role client; minimal `{ok}` JSON; no PII logged (`runtime=nodejs`, `dynamic=force-dynamic`)
+- `src/app/api/score/__tests__/route.test.ts` — Vitest (2.01, supabase client mocked): 201 happy path + server env stamping; rejects PII/extra/client-date/out-of-range/malformed-JSON (400, no insert); 500 on DB error; no PII in logs
 
 **Components (`src/components/ui/`) — brand kit on shadcn/Radix:**
 - `button.tsx` — Button: primary / secondary / ghost, full state set
@@ -106,6 +107,7 @@ path/to/file.ext — one-line description of what it does
 - `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
 - `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
+- `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; never imported client-side
 
 **Task bank — versioned config (`src/content/tasks/`) (Phase 1.04):**
 - `version.ts` — `TASK_BANK_VERSION` ("1.0.0"); stored with every anonymous record
@@ -149,7 +151,11 @@ path/to/file.ext — one-line description of what it does
 - `confidence.ts` — per-index confidence high/medium/low (Дел 6.5)
 - `finalize.ts` — folds a completed session into the `AssessmentResult`
 - `index.ts` — public barrel
-- `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite
+- `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite (the `purity` scan also covers `persist/`)
+- `persist/score-row.ts` — **pure `buildScoreRow` + strict `scoreRowSchema` (2.01)**: `AssessmentResult` + `{city,childGender,language}` → the no-PII "Store A" row; `ScoreRow = z.infer<schema>` (exactly the allowed keys — no PII/lead-id/timestamp compiles); the one tested `INDEX_COLUMN` map + `SIGNAL_KEYS`; enums tied to live `Confidence`/`SessionValidity`
+- `persist/index.ts` — barrel (`buildScoreRow`, `scoreRowSchema`, `SCORE_ROW_KEYS`, `SIGNAL_KEYS`, `INDEX_COLUMN`, types); separate from the scoring barrel so it's client/route/test-importable
+- `persist/__tests__/score-row.test.ts` — Vitest (2.01): exact allowed key-set, no-PII/lead-id/timestamp, strict-schema rejections, age/version/validity/confidence mapping, index→column correctness, ranges, purity + determinism
+- `persist/__tests__/migration.test.ts` — Vitest (2.01): SQL↔code parity — every row key is a column, RLS-on/no-policies, date-only (no created_at/timestamp/now()), no PII column, CHECK enums match the live types (ok/mild/strong; high/medium/low)
 
 **Timing layer (`src/features/timing/`) (Phase 1.06) — pure stopwatch + one React hook:**
 - `constants.ts` — UI idle/timing constants (`IDLE_NUDGE_MS`=22 s, `IDLE_POLL_MS`); re-exports `IDLE_GAP_EXCLUDE_MS`/`TOO_FAST_MS` from norms
@@ -186,10 +192,11 @@ path/to/file.ext — one-line description of what it does
 
 **Lead feature (`src/features/lead/`) (Phase 1.08) — shared schema + stubbed seams (framework-free):**
 - `schema.ts` — the shared Zod `leadSchema` (8 fields, first-name-only, permissive phone via `isPlausiblePhone`, two required consents enforced true, error TOKENS) + `LeadFormValues`; reused unchanged by the Part-2 API route
-- `submit.ts` — `submitLead` (Part-1 inert stub + documented Part-2 contract incl. the separate non-joinable score write) + `runLeadSubmit` (pure DI pipeline: persist → `lead_submit` → advance)
+- `submit.ts` — `submitLead` (Part-1 inert stub + documented Part-2 contract) + `runLeadSubmit` (pure DI pipeline); +2.01: the pipeline now fires `writeScore` first as a separate, non-blocking (try/catch-guarded) step decoupled from the lead (coarse demographics only; no shared key)
+- `score.ts` — **client score-write path (2.01)**: `postScore` (builds the row via `buildScoreRow`, POSTs to `/api/score`) + `writeScore` (fire-and-forget, self-catching wrapper used by `runLeadSubmit`); never touches Supabase directly
 - `cta.ts` — pure `buildBookingHref(url, city)` (`?grad=` URL-encoded) + `resolveBookingUrl` (`NEXT_PUBLIC_BOOKING_URL` or placeholder) + `BOOKING_URL_PLACEHOLDER`
-- `index.ts` — public barrel
-- `__tests__/{schema,cta,submit}.test.ts` — Vitest: field rules + consent-true enforcement, href encoding, pipeline ordering/args
+- `index.ts` — public barrel; +2.01 exports `writeScore`/`postScore`
+- `__tests__/{schema,cta,submit}.test.ts` — Vitest: field rules + consent-true enforcement, href encoding; +2.01 `submit`: score-write-first ordering, coarse-demographics-only payload (no PII), non-blocking on score-write throw, score still fires when the lead path rejects
 
 **Report PDF (`src/features/report/pdf/`) (Phase 1.09) — pure builder + IO seam; renders the 1.07 `ReportModel`:**
 - `theme.ts` — pure PDF tokens (literal-hex palette/surfaces mirroring `globals.css`, Montserrat family + weights, band fill/level + confidence bar maps)
@@ -222,6 +229,13 @@ path/to/file.ext — one-line description of what it does
 **Scripts:**
 - `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)
 - `scripts/dump-report-pdf.ts` — dev-only: render all 5 `fixtures.ts` profiles → PDF into gitignored `./tmp/` (`npx tsx scripts/dump-report-pdf.ts [city]`)
+- `scripts/dump-score-row.ts` — dev-only (2.01): print a sample `buildScoreRow` payload as JSON (the exact `/api/score` body; usable for a local e2e write)
+- `scripts/verify-scores-db.ts` — dev-only (2.01): live check that the service role can query `public.scores`, the anon key CANNOT read/write (RLS), and the latest row is date-only + version-stamped + PII-free (env from `.env.local`; prints nothing secret)
+
+**Supabase (anonymous scores DB) (Phase 2.01):**
+- `supabase/config.toml` — `supabase init` scaffold (local-dev defaults); used by the CLI for `db push`
+- `supabase/.gitignore` — ignores `.branches` / `.temp` / supabase env files
+- `supabase/migrations/20260624021436_create_scores.sql` — **the `public.scores` migration**: id (random uuid) + date-only `created_date` + coarse demographics + 8 signals + 5 indices + 5 confidences + validity + version stamps + `environment`; RLS enabled, NO policies; documenting table/column comments (no-PII / no-join). Applied live to the EU project
 
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
@@ -242,3 +256,5 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-08-Completion.md` — Phase 1.08 (lead form + confirmation) report
 - `completions/Part-1-Phase-09-Completion.md` — Phase 1.09 (branded PDF report) report
 - `completions/Part-1-Phase-10-Completion.md` — Phase 1.10 (shared disclaimer + static page shells + 7-placement audit) report
+- `completions/Part-2-Phase-01-Cowork.md` — Phase 2.01 Cowork half (created the Supabase EU project + placed credentials in `.env.local`)
+- `completions/Part-2-Phase-01-Code.md` — Phase 2.01 Code half (anonymous-scores schema + write path) report
