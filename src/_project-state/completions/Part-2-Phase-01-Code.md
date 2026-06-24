@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-24
 **Branch:** `phase-2.01-anonymous-scores-db` (cut from `main` — PR #9 / 1.10 is merged, D-115)
-**Commits:** see PR
-**PR:** into `main` (link added on open)
+**Commits:** `36816c8` (+ a docs backfill for this PR ref)
+**PR:** [#10](https://github.com/DinovLazar/IqUp-V2/pull/10) into `main`
 
 > **Report naming:** this is `Part-2-Phase-01-Code.md`, parallel to the Cowork half's `Part-2-Phase-01-Cowork.md` (the prompt's "Outputs" section names it `Part-2-Phase-01-Code.md`). The `-Completion.md` suffix used by Part-1 phases is replaced by the `-Cowork` / `-Code` split because 2.01 ran as two halves.
 
