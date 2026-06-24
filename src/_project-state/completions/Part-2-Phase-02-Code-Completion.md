@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-24
 **Branch:** `phase-2.02-brevo-lead-email` (cut from the merged 2.01 tip `c60f2aa`)
-**Commits:** _(backfilled on PR open)_
-**PR:** _(backfilled on PR open)_
+**Commits:** `48d27a1` (+ a docs backfill commit for this PR ref)
+**PR:** [#11](https://github.com/DinovLazar/IqUp-V2/pull/11)
 
 ## What shipped
 
