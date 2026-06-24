@@ -25,30 +25,37 @@ export interface SubmitLeadResult {
  */
 const MVP_LANGUAGE = "mk";
 
+/** The lead-capture endpoint (Phase 2.02). */
+const LEAD_ENDPOINT = "/api/lead";
+
 /**
- * Create/update the lead and kick off everything that follows. **Part 1: inert.**
+ * Create/update the lead and e-mail the report — now REAL (Phase 2.02).
  *
- * Part 2 contract (Phase 2.02 / 2.03) — this function will own, in order:
- *   1. Create/update the Brevo lead from `values` (name/email/phone/city +
- *      marketing-consent flag).
- *   2. Fire Meta `Lead` (CAPI, with an `event_id` for client/server dedup) and
- *      GA4 `lead_submit`.
- *   3. Generate the branded PDF (Phase 1.09) and email it via Brevo. The PDF is
- *      NEVER stored (spec Дел 14).
- *   4. SEPARATELY write the anonymous score row from `result` (date only, no
- *      PII). The two stores must NEVER be joinable (spec Дел 14.1) — this is why
- *      the score write lives behind the same seam but as an independent step,
- *      keyed by nothing that ties back to the lead.
+ * POSTs `{ ...values, result }` to `POST /api/lead`, which validates the fields
+ * (the shared `leadSchema`), upserts the parent as a Brevo contact (the SUCCESS
+ * GATE), then BEST-EFFORT re-assembles the report, renders the PDF (1.09) and
+ * e-mails it with the PDF attached. Rejects on a non-2xx response so the form
+ * surfaces an error and the confirmation does NOT render; resolves `{ ok: true }`
+ * on success.
  *
- * None of those bodies exist yet — only the seam, its types, and the call site.
+ * Still deferred to 2.03: the server-side Meta `Lead` (CAPI, `event_id` dedup) +
+ * GA4 `lead_submit` — the route is structured so 2.03 can add them after the
+ * upsert without re-plumbing this seam. The anonymous score write stays the
+ * SEPARATE, non-blocking `writeScore` → `/api/score` step (2.01); it is NOT part
+ * of this call, and the two stores never join (spec Дел 14.1).
  */
 export async function submitLead(
   values: LeadFormValues,
   result: AssessmentResult,
 ): Promise<SubmitLeadResult> {
-  // Intentionally no network in Part 1. Referenced so the contract is explicit.
-  void values;
-  void result;
+  const response = await fetch(LEAD_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...values, result }),
+  });
+  if (!response.ok) {
+    throw new Error(`lead submit failed: ${response.status}`);
+  }
   return { ok: true };
 }
 
