@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-06-24
 **Branch:** `phase-2.04-admin-panel` (cut from `main` — PR #11 / 2.02 is merged, D-125)
-**Commits:** see PR (the PR ref is backfilled in a follow-up `docs:` commit, mirroring 2.01/2.02)
-**PR:** into `main` (Lazar merges)
+**Commits:** `14b8ffd` (phase work + report) + this `docs:` backfill
+**PR:** [#12](https://github.com/DinovLazar/IqUp-V2/pull/12) into `main` (Lazar merges)
 
 ## What shipped
 
