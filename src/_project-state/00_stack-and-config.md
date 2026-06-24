@@ -274,3 +274,30 @@
   **Live verification (real Brevo account, EU):** a real `POST /api/lead` through the running dev server returned **200 `{ok:true}`**; Brevo → Contacts shows `iqup-2-02-verify@example.com` on **list 8 (Test)** with `FIRSTNAME=Тест-Родител`, `PHONE`, `CITY=Скопје`, `CHILD_GENDER=female`, `LANGUAGE=mk`, `CONSENT_SERVICE/PARENT/MARKETING=true`, `CONSENT_DATE=2026-06-24`, and **no score/result attribute**. The e-mail path is well-formed (`/v3/smtp/email` accepted, HTTP 201); the production sender `noreply@iqup.mk` is blocked pre-DNS (Cowork carryover) so real delivery was proven via the **verified gmail sender** (HTTP 201 + messageId; PDF rendered = 42 KB, attached). The shipped sender stays `noreply@iqup.mk` (no `.env.local` / code change).
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (route `ƒ /api/lead` added; `server-only` guards hold), `npm test` ✓ (**47 files, 323 tests**), `npm run format:check` ✓.
+
+- **2026-06-24 · Phase 2.04 (Code) — admin panel (Supabase Auth + 2FA, stats, contacts, CSV export).**
+
+  **New dependency (runtime, pinned EXACT — no caret, D-097-style):**
+  | Package | Version | Role |
+  |---|---|---|
+  | @supabase/ssr | 0.12.0 | Cookie-based Supabase Auth for the admin panel (browser + server SSR clients, middleware session refresh). Peers `@supabase/supabase-js ^2.108.0` (satisfied by 2.108.2). |
+
+  *(No other deps. `npm audit` unchanged — the 2 pre-existing moderate advisories from `@react-pdf` transitive deps remain.)*
+
+  **New DB objects (live, EU project `rdhvpypbwefmafejclfy`), applied via `supabase db push --db-url <session-pooler>` (D-114 invocation; the CLI binary ran cleanly this time — no re-sign needed):**
+  - `public.admin_users` — allowlist (`user_id` PK → `auth.users`, optional `label`, `created_at`). RLS on, NO policies.
+  - `public.admin_export_log` — PII-free export audit (`id`, `actor_user_id`, `export_type`, `filters jsonb`, `row_count`, `created_at`). RLS on, NO policies.
+  - `public.score_band(integer)` + `public.admin_score_stats(text)` — aggregates-only stats RPC over `public.scores`; `security invoker`; execute REVOKED from `anon`/`authenticated`/`public`, GRANTED to `service_role` only (D-126). Four migration files (`20260624120000…120300`), tracked in `supabase_migrations`.
+
+  **New modules:** `src/lib/supabase/{admin-browser,admin-server,admin-guard}.ts`; `src/middleware.ts`; `src/features/admin/{contacts,csv,stats,audit,index}.ts`; `src/app/admin/{layout,admin-shell,sign-out-button,page}.tsx` + `login/{page,login-form}.tsx` + `contacts/page.tsx`; `src/app/api/admin/export/route.ts`; `scripts/verify-admin-db.ts`. `messages/mk.json` gains the `admin` namespace. `src/lib/brevo/server.ts` extended with `BREVO_CONTACT_ATTRIBUTES` + `listContactsFromList` + `fetchAllContactsFromList` (read + export only). 9 new test files.
+
+  **Config decisions / deviations:**
+  - **Branched from `main`** (D-125): PR #11 (2.02) is merged (`9142f76`), so `main` is the chain tip (mirrors D-116…).
+  - **`requireAdmin()` is the real boundary** (session + aal2 + allowlist), called by every admin page + the export route; `src/middleware.ts` only refreshes the session + redirects unauthenticated `/admin/**` → `/admin/login` (login excluded). Verified live: `/admin` + `/admin/contacts` redirect to login; `/api/admin/export` returns 401 with no data (D-124).
+  - **Stats aggregation runs IN Postgres** via the `admin_score_stats` RPC; only aggregates cross the boundary; band thresholds in SQL `score_band()` guarded by a code↔SQL parity test (D-126).
+  - **Two stores never join** (D-121): the contacts view + CSV carry NO age and NO results; stats read ONLY scores; a static-scan test asserts no admin file reads both a contact identity and a score.
+  - **Export audit is FAIL-CLOSED** (D-127); the audit row is PII-free (D-122).
+  - **`/admin/**` is `noindex`** (admin `layout.tsx` metadata `robots: { index:false, follow:false }`), not linked from any public nav.
+  - **Next 16.2 deprecation kept** (D-128): `src/middleware.ts` works (registered as "Proxy (Middleware)") but prints a `middleware`→`proxy` deprecation warning; rename is a trivial future change.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `ƒ /admin`, `ƒ /admin/contacts`, `○ /admin/login`, `ƒ /api/admin/export`; middleware registered), `npm test` ✓ (**56 files, 384 tests**), `npm run format:check` ✓. Live: all four migrations applied; `scripts/verify-admin-db.ts` → ALL CHECKS PASSED (tables exist + RLS-locked, RPC returns aggregates for the service role, anon denied `42501`).

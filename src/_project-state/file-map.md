@@ -29,10 +29,11 @@ path/to/file.ext — one-line description of what it does
 - `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store` + `/tmp` (1.09 PDF QA output)
 - `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08); +2.01: Supabase runtime keys (`NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), CLI keys (`SUPABASE_PROJECT_REF`/`_DB_PASSWORD`), and `APP_ENV`; +2.02: the 5 `BREVO_*` vars (`BREVO_API_KEY` secret + `BREVO_SENDER_EMAIL`/`_NAME` + `BREVO_LIST_ID_PRODUCTION`/`_TEST`)
 - `.coderabbit.yaml` — CodeRabbit auto-review config (live once the app is connected)
-- `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format)
+- `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format); +2.04: `@supabase/ssr` 0.12.0 (cookie-based admin auth)
 - `tsconfig.json` — TypeScript config (strict)
 - `next.config.ts` — Next config wrapped with the next-intl plugin; +1.09: `serverExternalPackages: ["@react-pdf/renderer"]` for the 2.02 `/api/report` route
 - `next-env.d.ts` — Next-generated types (gitignored content; file tracked)
+- `src/middleware.ts` — **admin session middleware (2.04)**: matches `/admin/:path*`; refreshes the Supabase session cookie (`@supabase/ssr`, anon key, edge-safe) and redirects unauthenticated requests → `/admin/login` (login excluded); NOT the security boundary (that is `requireAdmin()`). Next 16.2 prints a `middleware`→`proxy` deprecation warning (D-128)
 - `postcss.config.mjs` — PostCSS → `@tailwindcss/postcss` (Tailwind v4)
 - `eslint.config.mjs` — ESLint flat config (Next core-web-vitals + TS)
 - `.prettierrc.json` — Prettier + `prettier-plugin-tailwindcss`
@@ -47,7 +48,7 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5)
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5); +2.04: `admin` namespace (internal staff tool, plain MK — login + 2FA, stats labels + gender map, contacts columns + filters + pagination + export)
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
@@ -75,12 +76,21 @@ path/to/file.ext — one-line description of what it does
 - `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**
 - `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
-- `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
+- `src/app/admin/layout.tsx` — **admin panel layout (2.04)**: marks all `/admin/**` `noindex,nofollow` + neutral bg; renders NO authenticated chrome (login lives under it too)
+- `src/app/admin/admin-shell.tsx` — **authenticated admin chrome (2.04)**: header wordmark + nav (Статистика/Контакти) + `SignOutButton`, centered content column; sync Server Component (next-intl); used by the stats + contacts pages only
+- `src/app/admin/sign-out-button.tsx` — **(2.04)** client sign-out: clears the Supabase session via the browser client, routes to `/admin/login`
+- `src/app/admin/login/page.tsx` — **`/admin/login` (2.04)**: the one admin route reachable without a session; renders the client `LoginForm`
+- `src/app/admin/login/login-form.tsx` — **(2.04)** client login state machine: email+password → TOTP enrol (QR/secret) or challenge → aal2 → `/admin`; friendly MK errors; NOT the security boundary
+- `src/app/admin/page.tsx` — **`/admin` stats (2.04)**: server, `requireAdminPage()`-gated; reads AGGREGATES only from `public.scores` via the `admin_score_stats` RPC (env-filtered); total + by age/gender/city/language + per-index band distribution; reads NO contacts
+- `src/app/admin/contacts/page.tsx` — **`/admin/contacts` (2.04)**: server, `requireAdminPage()`-gated; lists contacts LIVE from the env-resolved Brevo list (cols: first name/email/phone/city/gender/3 consents/signup — NO age, NO results); server-side filter (city/gender/marketing) + pagination + CSV export links; reads NO scores
+- `src/app/admin/__tests__/unjoinable-stores.test.ts` — node (2.04): static scan — no `src/app/admin/**` or `src/app/api/admin/**` file reads BOTH a contact identity and a score (the §14.1 unjoinable guard)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
 - `src/app/api/score/route.ts` — **`POST /api/score` (2.01)**: validates the body with the strict `scoreRowSchema` (rejects PII/extras/client dates), stamps `environment` via the shared `resolveEnvironment()` (`@/lib/env`, 2.02) server-side, inserts via the service-role client; minimal `{ok}` JSON; no PII logged (`runtime=nodejs`, `dynamic=force-dynamic`)
 - `src/app/api/score/__tests__/route.test.ts` — Vitest (2.01, supabase client mocked): 201 happy path + server env stamping; rejects PII/extra/client-date/out-of-range/malformed-JSON (400, no insert); 500 on DB error; no PII in logs
 - `src/app/api/lead/route.ts` — **`POST /api/lead` (2.02)**: validates the lead fields with the shared `leadSchema` (rejects invalid/missing-consent → 400), upserts the parent Brevo contact (built-ins + 8 attrs, list 7/8) as the SUCCESS GATE (failure → 502), then BEST-EFFORT re-assembles the report (`assembleReport`) → renders the PDF (`renderReportPdf`) → e-mails it with the PDF attached; logs PII-free + still returns `{ok}` if the e-mail fails. Persists nothing beyond the contact; no score write (`runtime=nodejs`, `dynamic=force-dynamic`)
 - `src/app/api/lead/__tests__/route.test.ts` — Vitest (2.02, Brevo client + PDF render mocked): validation rejections (no upsert); contact attrs (server-set LANGUAGE/CONSENT_DATE, stable gender code, no score/result keys = unjoinable); upsert-failure → 502 + no e-mail; e-mail/PDF-failure → still 200 + logs; server re-assembly === client model for all 5 fixtures
+- `src/app/api/admin/export/route.ts` — **`GET /api/admin/export` (2.04)**: `requireAdmin()`-gated (401 if not admin); reads the env-resolved Brevo list, applies `?city=&gender=&marketing=` filters, streams a CSV of the displayed fields (BOM + CRLF); `marketing=yes|only` → marketing-consent-only variant; writes ONE PII-free `admin_export_log` row BEFORE streaming (FAIL-CLOSED → 500 if the audit insert fails); reads NO scores (`runtime=nodejs`, `dynamic=force-dynamic`)
+- `src/app/api/admin/export/__tests__/route.test.ts` — Vitest (2.04, guard + service-role + Brevo mocked): 401 unauthenticated (no data, no audit); marketing-only returns only `consentMarketing=true`; audit row written PII-free with the right type/count; fail-closed 500 on audit error
 
 **Components (`src/components/ui/`) — brand kit on shadcn/Radix:**
 - `button.tsx` — Button: primary / secondary / ghost, full state set
@@ -110,8 +120,13 @@ path/to/file.ext — one-line description of what it does
 - `utils.ts` — `cn()` className helper
 - `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
 - `env.ts` — **shared server-side environment resolver (2.02, extracted from 2.01)**: `resolveEnvironment()` (`APP_ENV` → `development|preview|production`, default development) + `ALLOWED_ENVIRONMENTS`; used by BOTH the score `environment` stamp and the Brevo list selection so they always agree (D-120)
-- `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; never imported client-side
-- `brevo/server.ts` — **server-only Brevo client (2.02)**: `upsertLeadContact` (`POST /v3/contacts`, `updateEnabled:true`, 8 custom attrs) + `sendReportEmail` (`POST /v3/smtp/email`, sender from env, PDF base64 attachment) + `resolveBrevoListId` (prod→7 / else→8 via `@/lib/env`) + a PII-free `BrevoError`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` `BREVO_API_KEY`
+- `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; +2.04 also reads the `admin_users` allowlist, the `admin_score_stats` RPC, and writes `admin_export_log`; never imported client-side
+- `supabase/admin-browser.ts` — **(2.04)** browser Supabase Auth client (`@supabase/ssr` `createBrowserClient`, public keys only); used by `/admin/login` + sign-out
+- `supabase/admin-server.ts` — **(2.04)** server-only cookie-based Supabase Auth client (`createServerClient` over `next/headers` cookies); the session/identity client for `requireAdmin()`; separate from the service-role client
+- `supabase/admin-guard.ts` — **`requireAdmin()` — the admin security boundary (2.04)**: pure `evaluateAdmin()` (session + aal2 + `admin_users` allowlist, fail-closed) + the wired `requireAdmin()` + `requireAdminPage()` (redirect on failure); called by every admin page + the export route
+- `supabase/__tests__/admin-guard.test.ts` — Vitest (2.04, SSR/service/next-navigation mocked): the deny/allow matrix (no session / aal1 / not-allowlisted / ok) + fail-closed allowlist read + `requireAdminPage` redirect
+- `brevo/server.ts` — **server-only Brevo client (2.02)**: `upsertLeadContact` (`POST /v3/contacts`, `updateEnabled:true`, 8 custom attrs) + `sendReportEmail` (`POST /v3/smtp/email`, sender from env, PDF base64 attachment) + `resolveBrevoListId` (prod→7 / else→8 via `@/lib/env`) + a PII-free `BrevoError`; +2.04: `BREVO_CONTACT_ATTRIBUTES` (locked attr names, tied to the upsert contract) + `listContactsFromList`/`fetchAllContactsFromList` (READ a list → displayed-fields-only `AdminContact[]`, for the admin contacts view + export); guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` `BREVO_API_KEY`
+- `brevo/__tests__/list-contacts.test.ts` — Vitest (2.04, `server-only` + `fetch` mocked): GET endpoint + paging params, map → ONLY displayed `AdminContact` fields (no LANGUAGE/CONSENT_DATE leak), boolean consent coercion, multi-page fetch to the list total
 - `brevo/email-template.ts` — **pure transactional e-mail builder (2.02)**: `buildReportEmail({ parentFirstName, bookingHref })` → `{ subject, html, text }`; table-based inline-styled HTML + plain-text; all copy from `messages/mk.json` (`email.*` + `legal.disclaimer` = §16.1 placement #5); HTML-escapes the interpolated name; no `server-only`, no env
 - `brevo/__tests__/server.test.ts` — Vitest (2.02, `server-only` + `fetch` mocked): endpoints/headers/payloads, `updateEnabled:true`, full attr key-set + types, list 7/8 by env, sender from env, html+text+attachment, PII-free `BrevoError`, missing-key config error
 - `brevo/__tests__/email-template.test.ts` — Vitest (2.02): subject/body/CTA/sign-off/wordmark from mk.json, footer disclaimer === `legal.disclaimer`, CTA href === `buildBookingHref(city)`, `{name}` interpolation + HTML-escape, determinism
@@ -205,6 +220,14 @@ path/to/file.ext — one-line description of what it does
 - `index.ts` — public barrel; +2.01 exports `writeScore`/`postScore`
 - `__tests__/{schema,cta,submit}.test.ts` — Vitest: field rules + consent-true enforcement, href encoding; +2.01 `submit`: score-write-first ordering, coarse-demographics-only payload (no PII), non-blocking on score-write throw, score still fires when the lead path rejects
 
+**Admin feature (`src/features/admin/`) (Phase 2.04) — pure core (no network, no React), shared by the pages + export route + tests:**
+- `contacts.ts` — `AdminContact` (the displayed-fields-only shape) + `ADMIN_CONTACT_KEYS` (the no-age/no-score guard target) + `parseContactFilters`/`filterContacts`/`paginate`/`exportTypeFor` (`?city=&gender=&marketing=`, marketing `yes|no|only`)
+- `csv.ts` — pure `toContactsCsv` (RFC-4180 escaping, CRLF, booleans as true/false) + `CSV_HEADERS` (MK) + `CSV_BOM` (prepended by the route)
+- `stats.ts` — `AdminStats` type + `normalizeStats` (coerces the RPC jsonb; fills every index with all four bands) + `sortedEntries`/`sortedNumericEntries`; bands/index order from the live `band-label`/`indices` sources
+- `audit.ts` — pure `buildExportAuditRow` (actor + export type + filter summary + count) + `EXPORT_AUDIT_KEYS`; PII-free by construction
+- `index.ts` — barrel
+- `__tests__/{contacts,csv,stats,audit,migration-parity}.test.ts` — Vitest (2.04): contact shape (no age/score) + filters (incl. marketing-only) + parse/paginate; CSV escaping/columns/booleans; stats normalize/fill/sort; audit PII-free shape; **SQL↔code parity** (`score_band` cut-offs === `BAND_THRESHOLDS`; admin tables RLS-locked, no policies; export-log holds no PII column; RPC execute service-role-only)
+
 **Report PDF (`src/features/report/pdf/`) (Phase 1.09) — pure builder + IO seam; renders the 1.07 `ReportModel`:**
 - `theme.ts` — pure PDF tokens (literal-hex palette/surfaces mirroring `globals.css`, Montserrat family + weights, band fill/level + confidence bar maps)
 - `fonts.ts` — IO seam: `registerPdfFonts()` registers the bundled Montserrat TTFs with `@react-pdf` (idempotent; path via `process.cwd()`)
@@ -238,11 +261,16 @@ path/to/file.ext — one-line description of what it does
 - `scripts/dump-report-pdf.ts` — dev-only: render all 5 `fixtures.ts` profiles → PDF into gitignored `./tmp/` (`npx tsx scripts/dump-report-pdf.ts [city]`)
 - `scripts/dump-score-row.ts` — dev-only (2.01): print a sample `buildScoreRow` payload as JSON (the exact `/api/score` body; usable for a local e2e write)
 - `scripts/verify-scores-db.ts` — dev-only (2.01): live check that the service role can query `public.scores`, the anon key CANNOT read/write (RLS), and the latest row is date-only + version-stamped + PII-free (env from `.env.local`; prints nothing secret)
+- `scripts/verify-admin-db.ts` — dev-only (2.04): live check that the service role can query `admin_users`/`admin_export_log` + call the `admin_score_stats` RPC (aggregates only), and the anon key CANNOT read the allowlist or call the RPC (RLS + revoked execute); prints nothing secret
 
 **Supabase (anonymous scores DB) (Phase 2.01):**
 - `supabase/config.toml` — `supabase init` scaffold (local-dev defaults); used by the CLI for `db push`
 - `supabase/.gitignore` — ignores `.branches` / `.temp` / supabase env files
 - `supabase/migrations/20260624021436_create_scores.sql` — **the `public.scores` migration**: id (random uuid) + date-only `created_date` + coarse demographics + 8 signals + 5 indices + 5 confidences + validity + version stamps + `environment`; RLS enabled, NO policies; documenting table/column comments (no-PII / no-join). Applied live to the EU project
+- `supabase/migrations/20260624120000_create_admin_users.sql` — **(2.04)** `public.admin_users` allowlist (`user_id` PK → `auth.users` ON DELETE CASCADE, optional `label`, `created_at`); RLS enabled, NO policies. Applied live
+- `supabase/migrations/20260624120100_create_admin_export_log.sql` — **(2.04)** `public.admin_export_log` PII-free export audit (random `id`, `actor_user_id`, `export_type`, `filters jsonb`, `row_count`, `created_at`); RLS enabled, NO policies; no parent PII column. Applied live
+- `supabase/migrations/20260624120200_create_admin_score_stats.sql` — **(2.04)** `public.score_band(integer)` (§6.4 cut-offs) + `public.admin_score_stats(text)` (aggregates-only stats over `public.scores`, `security invoker`); execute revoked from public, granted to `service_role`. Applied live
+- `supabase/migrations/20260624120300_lock_admin_score_stats_execute.sql` — **(2.04)** revokes the default `anon`/`authenticated` execute grant on the stats functions (defence-in-depth; not a leak — RLS already blocks anon's underlying rows). Applied live
 
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
@@ -267,3 +295,4 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-2-Phase-01-Code.md` — Phase 2.01 Code half (anonymous-scores schema + write path) report
 - `completions/Part-2-Phase-02-Cowork-Completion.md` — Phase 2.02 Cowork half (stood up Brevo: lists 7/8, 8 custom attributes, API key in `.env.local`; sender pending DNS)
 - `completions/Part-2-Phase-02-Code-Completion.md` — Phase 2.02 Code half (Brevo lead capture + transactional PDF e-mail) report
+- `completions/Part-2-Phase-04-Completion.md` — Phase 2.04 (admin panel: Supabase Auth + 2FA, stats, contacts, CSV export) report
