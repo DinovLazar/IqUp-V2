@@ -19,6 +19,7 @@ export {
   type SubmitLeadResult,
   type LeadSubmitDeps,
 } from "./submit";
+export { writeScore, postScore } from "./score";
 export {
   buildBookingHref,
   resolveBookingUrl,

@@ -9,6 +9,7 @@
  */
 
 import type { AssessmentResult } from "@/features/scoring";
+import type { ScoreDemographics } from "@/features/scoring/persist";
 import type { LeadFormValues } from "./schema";
 import type { trackEvent } from "@/lib/analytics";
 
@@ -16,6 +17,13 @@ import type { trackEvent } from "@/lib/analytics";
 export interface SubmitLeadResult {
   ok: true;
 }
+
+/**
+ * Assessment UI language stored with the anonymous row. MVP is Macedonian-only
+ * (next-intl locale "mk"); when SR/HR/EN land, the form will pass the active
+ * locale instead of this constant.
+ */
+const MVP_LANGUAGE = "mk";
 
 /**
  * Create/update the lead and kick off everything that follows. **Part 1: inert.**
@@ -50,21 +58,53 @@ export interface LeadSubmitDeps {
     values: LeadFormValues,
     result: AssessmentResult,
   ) => Promise<SubmitLeadResult>;
+  /**
+   * Write the anonymous score row — a SEPARATE, non-blocking step decoupled from
+   * the lead (no shared key; spec §14.1). Fire-and-forget: returns void and must
+   * never throw or block. Its own failures are swallowed (logged server-side).
+   */
+  writeScore: (
+    result: AssessmentResult,
+    demographics: ScoreDemographics,
+  ) => void;
   track: typeof trackEvent;
   onSubmitted: (values: LeadFormValues) => void;
 }
 
 /**
- * The submit pipeline: persist the lead, then fire `lead_submit` (city only — no
- * PII), then advance the flow. Pure orchestration over injected deps so the call
- * order and arguments are testable in Node.
+ * The submit pipeline. In order:
+ *   1. Fire the anonymous score write — independent of the lead, non-blocking,
+ *      and guarded so even a synchronous throw can never reach the confirmation
+ *      (spec §14.1: the two stores are decoupled; a score failure must not affect
+ *      the parent's confirmation or PDF). It carries ONLY coarse demographics —
+ *      no name/e-mail/phone, and no key that ties back to the lead.
+ *   2. Persist the lead (Brevo/CAPI/PDF in Part 2; inert stub in Part 1).
+ *   3. Fire `lead_submit` (city only — no PII) and advance the flow.
+ *
+ * Pure orchestration over injected deps so order + arguments are testable in Node.
  */
 export async function runLeadSubmit(
   values: LeadFormValues,
   result: AssessmentResult,
   deps: LeadSubmitDeps,
 ): Promise<void> {
+  // 1. Anonymous score write — separate + non-blocking. Belt-and-suspenders: the
+  //    real `writeScore` is fire-and-forget + self-catching, and this try/catch
+  //    guards against any synchronous throw so confirmation is never blocked.
+  try {
+    deps.writeScore(result, {
+      city: values.city,
+      childGender: values.childGender,
+      language: MVP_LANGUAGE,
+    });
+  } catch {
+    // Never block the parent on the anonymous score write.
+  }
+
+  // 2. Lead path (still stubbed in Part 1).
   await deps.submit(values, result);
+
+  // 3. Analytics (city only) + advance.
   deps.track("lead_submit", { city: values.city });
   deps.onSubmitted(values);
 }

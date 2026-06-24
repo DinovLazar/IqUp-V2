@@ -11,6 +11,7 @@ import {
   leadSchema,
   runLeadSubmit,
   submitLead,
+  writeScore,
   type LeadFormValues,
 } from "@/features/lead";
 import { trackEvent } from "@/lib/analytics";
@@ -50,7 +51,7 @@ const EMPTY_DEFAULTS: LeadFormValues = {
 };
 
 export interface LeadFormProps {
-  /** The scored session — handed to `submitLead` (Part 2 also writes the score row). */
+  /** The scored session — handed to `submitLead` + the separate anonymous score write. */
   result: AssessmentResult;
   /** Valid submit → carry the values to the confirmation. */
   onSubmitted: (values: LeadFormValues) => void;
@@ -95,6 +96,7 @@ export function LeadForm({
     try {
       await runLeadSubmit(values, result, {
         submit: submitLead,
+        writeScore,
         track: trackEvent,
         onSubmitted,
       });
