@@ -27,7 +27,7 @@ path/to/file.ext — one-line description of what it does
 **Root config & housekeeping (Phase 1.01):**
 - `README.md` — short project readme + how to run locally
 - `.gitignore` — Next.js defaults + `.env*` (keeps `*.example`) + `.DS_Store` + `/tmp` (1.09 PDF QA output)
-- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08); +2.01: Supabase runtime keys (`NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), CLI keys (`SUPABASE_PROJECT_REF`/`_DB_PASSWORD`), and `APP_ENV`
+- `.env.local.example` — env variable shapes only (no secrets); real keys live in Vercel; `NEXT_PUBLIC_BOOKING_URL` documented (1.08); +2.01: Supabase runtime keys (`NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), CLI keys (`SUPABASE_PROJECT_REF`/`_DB_PASSWORD`), and `APP_ENV`; +2.02: the 5 `BREVO_*` vars (`BREVO_API_KEY` secret + `BREVO_SENDER_EMAIL`/`_NAME` + `BREVO_LIST_ID_PRODUCTION`/`_TEST`)
 - `.coderabbit.yaml` — CodeRabbit auto-review config (live once the app is connected)
 - `package.json` / `package-lock.json` — deps + scripts (dev/build/start/lint/typecheck/format)
 - `tsconfig.json` — TypeScript config (strict)
@@ -47,7 +47,7 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5)
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
@@ -77,8 +77,10 @@ path/to/file.ext — one-line description of what it does
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/.gitkeep` — reserved admin panel (Part 2)
 - `src/app/embed/.gitkeep` — reserved embeddable flow
-- `src/app/api/score/route.ts` — **`POST /api/score` (2.01)**: validates the body with the strict `scoreRowSchema` (rejects PII/extras/client dates), stamps `environment` from `APP_ENV` server-side, inserts via the service-role client; minimal `{ok}` JSON; no PII logged (`runtime=nodejs`, `dynamic=force-dynamic`)
+- `src/app/api/score/route.ts` — **`POST /api/score` (2.01)**: validates the body with the strict `scoreRowSchema` (rejects PII/extras/client dates), stamps `environment` via the shared `resolveEnvironment()` (`@/lib/env`, 2.02) server-side, inserts via the service-role client; minimal `{ok}` JSON; no PII logged (`runtime=nodejs`, `dynamic=force-dynamic`)
 - `src/app/api/score/__tests__/route.test.ts` — Vitest (2.01, supabase client mocked): 201 happy path + server env stamping; rejects PII/extra/client-date/out-of-range/malformed-JSON (400, no insert); 500 on DB error; no PII in logs
+- `src/app/api/lead/route.ts` — **`POST /api/lead` (2.02)**: validates the lead fields with the shared `leadSchema` (rejects invalid/missing-consent → 400), upserts the parent Brevo contact (built-ins + 8 attrs, list 7/8) as the SUCCESS GATE (failure → 502), then BEST-EFFORT re-assembles the report (`assembleReport`) → renders the PDF (`renderReportPdf`) → e-mails it with the PDF attached; logs PII-free + still returns `{ok}` if the e-mail fails. Persists nothing beyond the contact; no score write (`runtime=nodejs`, `dynamic=force-dynamic`)
+- `src/app/api/lead/__tests__/route.test.ts` — Vitest (2.02, Brevo client + PDF render mocked): validation rejections (no upsert); contact attrs (server-set LANGUAGE/CONSENT_DATE, stable gender code, no score/result keys = unjoinable); upsert-failure → 502 + no e-mail; e-mail/PDF-failure → still 200 + logs; server re-assembly === client model for all 5 fixtures
 
 **Components (`src/components/ui/`) — brand kit on shadcn/Radix:**
 - `button.tsx` — Button: primary / secondary / ghost, full state set
@@ -107,7 +109,12 @@ path/to/file.ext — one-line description of what it does
 - `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
 - `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
+- `env.ts` — **shared server-side environment resolver (2.02, extracted from 2.01)**: `resolveEnvironment()` (`APP_ENV` → `development|preview|production`, default development) + `ALLOWED_ENVIRONMENTS`; used by BOTH the score `environment` stamp and the Brevo list selection so they always agree (D-120)
 - `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; never imported client-side
+- `brevo/server.ts` — **server-only Brevo client (2.02)**: `upsertLeadContact` (`POST /v3/contacts`, `updateEnabled:true`, 8 custom attrs) + `sendReportEmail` (`POST /v3/smtp/email`, sender from env, PDF base64 attachment) + `resolveBrevoListId` (prod→7 / else→8 via `@/lib/env`) + a PII-free `BrevoError`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` `BREVO_API_KEY`
+- `brevo/email-template.ts` — **pure transactional e-mail builder (2.02)**: `buildReportEmail({ parentFirstName, bookingHref })` → `{ subject, html, text }`; table-based inline-styled HTML + plain-text; all copy from `messages/mk.json` (`email.*` + `legal.disclaimer` = §16.1 placement #5); HTML-escapes the interpolated name; no `server-only`, no env
+- `brevo/__tests__/server.test.ts` — Vitest (2.02, `server-only` + `fetch` mocked): endpoints/headers/payloads, `updateEnabled:true`, full attr key-set + types, list 7/8 by env, sender from env, html+text+attachment, PII-free `BrevoError`, missing-key config error
+- `brevo/__tests__/email-template.test.ts` — Vitest (2.02): subject/body/CTA/sign-off/wordmark from mk.json, footer disclaimer === `legal.disclaimer`, CTA href === `buildBookingHref(city)`, `{name}` interpolation + HTML-escape, determinism
 
 **Task bank — versioned config (`src/content/tasks/`) (Phase 1.04):**
 - `version.ts` — `TASK_BANK_VERSION` ("1.0.0"); stored with every anonymous record
@@ -192,7 +199,7 @@ path/to/file.ext — one-line description of what it does
 
 **Lead feature (`src/features/lead/`) (Phase 1.08) — shared schema + stubbed seams (framework-free):**
 - `schema.ts` — the shared Zod `leadSchema` (8 fields, first-name-only, permissive phone via `isPlausiblePhone`, two required consents enforced true, error TOKENS) + `LeadFormValues`; reused unchanged by the Part-2 API route
-- `submit.ts` — `submitLead` (Part-1 inert stub + documented Part-2 contract) + `runLeadSubmit` (pure DI pipeline); +2.01: the pipeline now fires `writeScore` first as a separate, non-blocking (try/catch-guarded) step decoupled from the lead (coarse demographics only; no shared key)
+- `submit.ts` — `submitLead` + `runLeadSubmit` (pure DI pipeline); +2.01: the pipeline fires `writeScore` first as a separate, non-blocking (try/catch-guarded) step decoupled from the lead (coarse demographics only; no shared key); +2.02: `submitLead` is now REAL — POSTs `{ ...values, result }` to `/api/lead`, rejects on a non-2xx (the form surfaces an error, no confirmation); `runLeadSubmit` + the score-write step unchanged
 - `score.ts` — **client score-write path (2.01)**: `postScore` (builds the row via `buildScoreRow`, POSTs to `/api/score`) + `writeScore` (fire-and-forget, self-catching wrapper used by `runLeadSubmit`); never touches Supabase directly
 - `cta.ts` — pure `buildBookingHref(url, city)` (`?grad=` URL-encoded) + `resolveBookingUrl` (`NEXT_PUBLIC_BOOKING_URL` or placeholder) + `BOOKING_URL_PLACEHOLDER`
 - `index.ts` — public barrel; +2.01 exports `writeScore`/`postScore`
@@ -258,3 +265,5 @@ path/to/file.ext — one-line description of what it does
 - `completions/Part-1-Phase-10-Completion.md` — Phase 1.10 (shared disclaimer + static page shells + 7-placement audit) report
 - `completions/Part-2-Phase-01-Cowork.md` — Phase 2.01 Cowork half (created the Supabase EU project + placed credentials in `.env.local`)
 - `completions/Part-2-Phase-01-Code.md` — Phase 2.01 Code half (anonymous-scores schema + write path) report
+- `completions/Part-2-Phase-02-Cowork-Completion.md` — Phase 2.02 Cowork half (stood up Brevo: lists 7/8, 8 custom attributes, API key in `.env.local`; sender pending DNS)
+- `completions/Part-2-Phase-02-Code-Completion.md` — Phase 2.02 Code half (Brevo lead capture + transactional PDF e-mail) report

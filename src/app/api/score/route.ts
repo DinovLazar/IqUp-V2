@@ -17,21 +17,11 @@ import { NextResponse } from "next/server";
 
 import { scoreRowSchema } from "@/features/scoring/persist";
 import { getServiceRoleClient } from "@/lib/supabase/server";
+import { resolveEnvironment } from "@/lib/env";
 
 export const runtime = "nodejs";
 // A write — never cached / statically optimized.
 export const dynamic = "force-dynamic";
-
-const ALLOWED_ENVIRONMENTS = ["development", "preview", "production"] as const;
-type Environment = (typeof ALLOWED_ENVIRONMENTS)[number];
-
-/** Server-stamped environment (data hygiene). Defaults to development. */
-function resolveEnvironment(): Environment {
-  const value = process.env.APP_ENV;
-  return (ALLOWED_ENVIRONMENTS as readonly string[]).includes(value ?? "")
-    ? (value as Environment)
-    : "development";
-}
 
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Parse JSON (malformed → 400, no echo).

@@ -1,12 +1,12 @@
 /**
- * Submit-seam tests (Phase 1.08 + 2.01). The Part-1 stub does no network and
- * resolves a typed success; `runLeadSubmit` is the pure pipeline the form
- * delegates to. As of 2.01 it ALSO fires the anonymous score write — a separate,
- * non-blocking step that is decoupled from the lead and must never block the
+ * Submit-seam tests (Phase 1.08 + 2.01 + 2.02). `submitLead` now POSTs the lead +
+ * result to `/api/lead` (2.02); `runLeadSubmit` is the pure pipeline the form
+ * delegates to. As of 2.01 the pipeline ALSO fires the anonymous score write — a
+ * separate, non-blocking step decoupled from the lead that must never block the
  * confirmation, even if it throws.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   runLeadSubmit,
   submitLead,
@@ -41,9 +41,33 @@ function makeDeps(overrides: Partial<LeadSubmitDeps> = {}): LeadSubmitDeps {
   };
 }
 
-describe("submitLead (Part-1 stub)", () => {
-  it("resolves a typed success without touching the network", async () => {
+describe("submitLead (POSTs /api/lead)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs { ...values, result } to /api/lead and resolves on a 2xx", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+
     await expect(submitLead(VALUES, RESULT)).resolves.toEqual({ ok: true });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/lead");
+    expect(init.method).toBe("POST");
+    // The body IS exactly `{ ...values, result }` as it goes over the wire
+    // (normalize both sides through JSON: undefined optionals are dropped).
+    expect(JSON.parse(init.body as string)).toEqual(
+      JSON.parse(JSON.stringify({ ...VALUES, result: RESULT })),
+    );
+  });
+
+  it("rejects on a non-2xx response (form shows an error, no confirmation)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 502 }),
+    );
+    await expect(submitLead(VALUES, RESULT)).rejects.toThrow();
   });
 });
 

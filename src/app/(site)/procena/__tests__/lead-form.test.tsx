@@ -48,8 +48,16 @@ function tick(label: RegExp) {
   fireEvent.click(screen.getByLabelText(label));
 }
 
-beforeEach(() => vi.mocked(trackEvent).mockClear());
-afterEach(() => cleanup());
+beforeEach(() => {
+  vi.mocked(trackEvent).mockClear();
+  // submitLead → POST /api/lead and writeScore → POST /api/score (2.01/2.02) now
+  // run for real on a valid submit; stub fetch so both resolve in jsdom.
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("LeadForm — analytics on mount", () => {
   it("fires form_view exactly once on mount, with no other event", () => {
