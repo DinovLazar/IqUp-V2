@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
+import { uxForAge } from "@/content/tasks/levels";
 import type { EfItem, TowerMove, TowerState } from "@/features/tasks";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ function Peg({
   onClick,
   index,
   label,
+  minTap = 44,
 }: {
   balls: number[];
   capacity: number;
@@ -61,6 +63,8 @@ function Peg({
   onClick?: () => void;
   index?: number;
   label?: string;
+  /** UX_BY_AGE tap minimum, applied to interactive pegs only. */
+  minTap?: number;
 }) {
   const slots = Array.from({ length: capacity }, (_, i) => balls[i]);
   const Tag = onClick ? "button" : "div";
@@ -80,7 +84,13 @@ function Peg({
         selectable && !lifted && "border-dashed border-border-pur",
         shaking && "animate-shake",
       )}
-      style={{ minHeight: capacity * (ballSize + 6) + 26 }}
+      style={{
+        minHeight: Math.max(
+          capacity * (ballSize + 6) + 26,
+          onClick ? minTap : 0,
+        ),
+        minWidth: onClick ? minTap : undefined,
+      }}
     >
       {/* base + rod: the peg's capacity is VISIBLE as the rod height */}
       <span className="mt-1 h-1.5 w-12 rounded-full bg-grey/50" aria-hidden />
@@ -110,11 +120,14 @@ function Peg({
 export function EfTask({
   item,
   onAnswer,
+  age,
 }: {
   item: EfItem;
   onAnswer: (fields: ResponseFields) => void;
   practice?: boolean;
+  age?: number;
 }) {
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const t = useTranslations("task");
   const ta = useTranslations("a11y");
   const caps = item.stimulus.pegCapacities;
@@ -213,6 +226,7 @@ export function EfTask({
             shaking={shakePeg === i}
             onClick={() => onPeg(i)}
             label={ta("peg", { n: i + 1 })}
+            minTap={minTap}
           />
         ))}
       </div>

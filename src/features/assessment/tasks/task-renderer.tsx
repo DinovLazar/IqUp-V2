@@ -30,6 +30,8 @@ export interface TaskRendererProps {
   practice?: boolean;
   /** Glr only: recall rounds for this administration (from the engine action). */
   rounds?: number;
+  /** Child age — drives the UX_BY_AGE tap-target minimums (default: brand 44px). */
+  age?: number;
 }
 
 export function TaskRenderer({
@@ -37,17 +39,24 @@ export function TaskRenderer({
   onAnswer,
   practice,
   rounds,
+  age,
 }: TaskRendererProps) {
   if (isGf(item))
-    return <GfTask item={item} onAnswer={onAnswer} practice={practice} />;
+    return (
+      <GfTask item={item} onAnswer={onAnswer} practice={practice} age={age} />
+    );
   if (isGv(item))
-    return <GvTask item={item} onAnswer={onAnswer} practice={practice} />;
+    return (
+      <GvTask item={item} onAnswer={onAnswer} practice={practice} age={age} />
+    );
   if (isGsm(item))
     return <GsmTask item={item} onAnswer={onAnswer} practice={practice} />;
   if (isGs(item))
     return <GsTask item={item} onAnswer={onAnswer} practice={practice} />;
   if (isEf(item))
-    return <EfTask item={item} onAnswer={onAnswer} practice={practice} />;
+    return (
+      <EfTask item={item} onAnswer={onAnswer} practice={practice} age={age} />
+    );
   if (isGlr(item))
     return (
       <GlrTask
@@ -55,9 +64,12 @@ export function TaskRenderer({
         onAnswer={onAnswer}
         rounds={rounds}
         practice={practice}
+        age={age}
       />
     );
   if (isCt(item))
-    return <CtTask item={item} onAnswer={onAnswer} practice={practice} />;
+    return (
+      <CtTask item={item} onAnswer={onAnswer} practice={practice} age={age} />
+    );
   return null;
 }

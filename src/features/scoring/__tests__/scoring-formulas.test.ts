@@ -32,12 +32,16 @@ import {
 import { gradedItem } from "./helpers";
 
 describe("raw → index formulas (v2 anchors)", () => {
-  it("accuracy family: 50 + (acc − expected)·75 (acc = expected → 50)", () => {
+  it("accuracy family: piecewise around the anchor (expected → 50; 1 → 95; 0 → 20 at every anchor)", () => {
     expect(accuracyIndex(0.5, 0.5)).toBe(50);
-    expect(accuracyIndex(0.7, 0.5)).toBe(65);
-    expect(accuracyIndex(0.3, 0.5)).toBe(35);
-    expect(accuracyIndex(1.0, 0.4)).toBe(95);
-    expect(accuracyIndex(0, 0.4)).toBe(20);
+    expect(accuracyIndex(0.7, 0.5)).toBe(68); // 50 + (0.2/0.5)·45
+    expect(accuracyIndex(0.3, 0.5)).toBe(38); // 50 − (0.2/0.5)·30
+    // The extremes reach the same endpoints regardless of the anchor — a
+    // perfect older child (high anchor) still reaches the top band.
+    for (const e of [0.3, 0.5, 0.64, 0.8]) {
+      expect(accuracyIndex(1.0, e)).toBe(95);
+      expect(accuracyIndex(0, e)).toBe(20);
+    }
   });
 
   it("span family: 50 + (span − expected)·14 (= expected → 50)", () => {

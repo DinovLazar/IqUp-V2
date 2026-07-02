@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
+import { uxForAge } from "@/content/tasks/levels";
 import type { GlrItem } from "@/features/tasks";
 import { AnswerOption } from "@/components/ui/answer-option";
 import { Button } from "@/components/ui/button";
@@ -22,12 +23,15 @@ export function GlrTask({
   item,
   onAnswer,
   rounds,
+  age,
 }: {
   item: GlrItem;
   onAnswer: (fields: ResponseFields) => void;
   rounds?: number;
   practice?: boolean;
+  age?: number;
 }) {
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const t = useTranslations("task");
   const ta = useTranslations("a11y");
   const trials = item.stimulus.trials;
@@ -103,6 +107,7 @@ export function GlrTask({
             onSelect={() => pick(i)}
             aria-label={ta("option", { n: i + 1 })}
             className="aspect-square"
+            style={{ minWidth: minTap, minHeight: minTap }}
           >
             <GlrGlyph id={target} size={44} />
           </AnswerOption>

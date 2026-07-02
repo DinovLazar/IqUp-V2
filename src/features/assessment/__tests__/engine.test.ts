@@ -129,15 +129,39 @@ describe("adaptive laddered path + basal (v2 §0)", () => {
     expect(d.done).toBe(true);
   });
 
-  it("all-wrong floors out at L1 with nothing credited", () => {
+  it("a single mistap at an L1 start does NOT end the domain — the ceiling still needs 2 errors", () => {
+    // Age 5 starts Gf at L1: wrong there ends the basal descent (nothing to
+    // credit) but §0 sanctions only the 2-error ceiling / cap as terminations.
+    let s = startSession({ sessionSeed: "floor", age: 5 });
+    const first = nextAction(s);
+    if (first.kind !== "administer" || first.signal !== "gf")
+      throw new Error("gf");
+    expect(first.level).toBe(1);
+    s = applyResponse(s, wrongResponse(first));
+    const afterOne = s.domains.gf;
+    if (afterOne.kind !== "laddered") throw new Error("laddered");
+    expect(afterOne.done).toBe(false); // one accidental mistap ≠ a floored index
+    expect(afterOne.basalPhase).toBe(false);
+    expect(afterOne.basalCreditLevels).toEqual([]);
+    // A recovery at L1 climbs normally.
+    const second = nextAction(s);
+    if (second.kind !== "administer") throw new Error("administer");
+    expect(second.level).toBe(1);
+    s = applyResponse(s, correctResponse(second));
+    const recovered = s.domains.gf;
+    if (recovered.kind !== "laddered") throw new Error("laddered");
+    expect(recovered.level).toBe(2);
+    expect(recovered.done).toBe(false);
+  });
+
+  it("all-wrong floors out at L1 via the normal 2-error ceiling", () => {
     const { final } = recordRun(
       startSession({ sessionSeed: "floor", age: 5 }),
       wrongResponse,
     );
     const d = final.domains.gf;
     if (d.kind !== "laddered") throw new Error("expected laddered");
-    // Age 5 starts at L1: first wrong at L1 ends the basal descent immediately.
-    expect(d.items.length).toBe(1);
+    expect(d.items.length).toBe(2); // wrong, wrong → ceiling
     expect(d.basalCreditLevels).toEqual([]);
     expect(d.level).toBe(1);
     expect(d.done).toBe(true);

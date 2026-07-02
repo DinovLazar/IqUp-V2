@@ -338,7 +338,9 @@ function generateOddOneOut(level: number, seed: string, age?: number): GvItem {
 
 /**
  * Generate a Gv item. Family is chosen deterministically from the seed unless
- * `opts.family` ("rotation" | "oddOneOut") forces one.
+ * `opts.family` ("rotation" | "oddOneOut") forces one. Odd-one-out needs at
+ * least 3 options to be decidable ("which of TWO doesn't belong" is a coin
+ * flip), so below that the rotation family is served instead.
  */
 export function generate(
   level: number,
@@ -348,7 +350,9 @@ export function generate(
   const family =
     opts?.family ??
     (makeRng(`${seed}|gv-family`)() < 0.5 ? "rotation" : "oddOneOut");
-  return family === "oddOneOut"
-    ? generateOddOneOut(level, seed, opts?.age)
-    : generateRotation(level, seed, opts?.age);
+  const optionCount = clampOptionCount(gvLevel(level).optionCount, opts?.age);
+  if (family === "oddOneOut" && optionCount >= 3) {
+    return generateOddOneOut(level, seed, opts?.age);
+  }
+  return generateRotation(level, seed, opts?.age);
 }

@@ -204,7 +204,6 @@ function reduceLaddered(d: LadderedDomain, g: GradedItem): LadderedDomain {
   const items = [...d.items, g];
   let { level, consecutiveErrors, maxLevelCorrect, basalPhase } = d;
   let { basalCreditLevels } = d;
-  let flooredOut = false;
 
   if (basalPhase) {
     if (g.correct) {
@@ -216,11 +215,14 @@ function reduceLaddered(d: LadderedDomain, g: GradedItem): LadderedDomain {
       level = Math.min(MAX_LEVEL, firstCorrect + 1);
       consecutiveErrors = 0;
     } else if (level <= MIN_LEVEL) {
-      // Failed all the way down to L1 — nothing to credit, the domain floors.
+      // Wrong at L1: the descent can go no lower, so the basal phase ends with
+      // nothing credited — but ONE error is not a termination (§0 sanctions
+      // only the ceiling and the cap). The normal consecutive-error ceiling
+      // takes over: a child who mistapped the very first L1 item gets another
+      // L1 item; a descent chain arrives here with ≥2 errors and ends anyway.
       basalPhase = false;
       basalCreditLevels = [];
       consecutiveErrors += 1;
-      flooredOut = true;
     } else {
       // Demote item-by-item; the ceiling is suspended during the descent.
       level -= 1;
@@ -245,7 +247,6 @@ function reduceLaddered(d: LadderedDomain, g: GradedItem): LadderedDomain {
     );
 
   const done =
-    flooredOut ||
     items.length >= d.cap ||
     directionCapped ||
     (!basalPhase && consecutiveErrors >= CEILING_CONSECUTIVE_ERRORS);

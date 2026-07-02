@@ -161,6 +161,7 @@ export function Assessment() {
       instruction={instruction}
       hint={hint}
       rounds={rounds}
+      age={age}
       onRespond={(r: RawResponse) =>
         setState((s) => (s ? settle(applyResponse(s, r)) : s))
       }

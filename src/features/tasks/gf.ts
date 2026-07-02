@@ -626,6 +626,8 @@ function generateSeries(
 
   // Object notation must stay countable: retry deterministic parameter draws
   // until every term (and the answer) fits the drawable range.
+  const inObjectRange = (all: number[]) =>
+    all.every((t) => t >= 1 && t <= OBJECT_TERM_MAX);
   let terms: number[] = [];
   let next = 0;
   for (let attempt = 0; attempt < 30; attempt++) {
@@ -634,13 +636,22 @@ function generateSeries(
     terms = built.terms;
     next = built.next;
     if (notation === "digits") break;
-    const all = [...terms, next];
-    if (all.every((t) => t >= 1 && t <= OBJECT_TERM_MAX)) break;
+    if (inObjectRange([...terms, next])) break;
+  }
+  if (notation === "objects" && !inObjectRange([...terms, next])) {
+    // Deterministic guaranteed-in-range fallback: minimum parameters (a zero
+    // Rng makes every intInRange pick its lower bound). The object-notation
+    // rules (L1–L4: +1/+2, +k, −k, alternating) all stay within 1–12 there.
+    const built = buildSeries(cfg.seriesRule, cfg.seriesVisible, () => 0);
+    terms = built.terms;
+    next = built.next;
   }
 
   const rng = makeRng(deriveSeed(seed, "series-options"));
   const optionCount = clampOptionCount(4, age);
-  const floor = notation === "objects" ? 1 : undefined;
+  // Children never see negative numbers here: object terms stay 1–12 and even
+  // digit distractors are floored at 0.
+  const floor = notation === "objects" ? 1 : 0;
   const ceil = notation === "objects" ? OBJECT_TERM_MAX : undefined;
   const inRange = (v: number) =>
     (floor === undefined || v >= floor) && (ceil === undefined || v <= ceil);

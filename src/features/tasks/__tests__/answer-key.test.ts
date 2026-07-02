@@ -15,6 +15,21 @@ import type {
 } from "@/features/tasks";
 import { GLR_CONFLICT_GROUPS } from "@/features/tasks/glr";
 
+/**
+ * The rotation/reflection-equivalent glyph pairs of the renderer's abstract
+ * sets, DECLARED INDEPENDENTLY here (mirroring glyphs.tsx geometry: 3↔4 plus/×,
+ * 10↔11 chevrons, 14↔15 S/Z — in both the target (100+) and cue (200+) ranges)
+ * so the guard test cannot silently drift with the generator's own constant.
+ */
+const CANONICAL_CONFLICT_PAIRS: readonly (readonly number[])[] = [
+  [103, 104],
+  [110, 111],
+  [114, 115],
+  [203, 204],
+  [210, 211],
+  [214, 215],
+];
+
 const SEEDS = ["k1", "k2", "k3", "k4", "k5", "k6"];
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -460,6 +475,16 @@ describe("answer key — Glr (paired-associate)", () => {
   });
 
   it("no two glyphs in one item are rotations/reflections of each other (v2 guard)", () => {
+    // The generator's guard data must cover every canonical mirror pair …
+    for (const pair of CANONICAL_CONFLICT_PAIRS) {
+      expect(
+        GLR_CONFLICT_GROUPS.some(
+          (g) => g.includes(pair[0]) && g.includes(pair[1]),
+        ),
+        `GLR_CONFLICT_GROUPS is missing the pair ${pair.join("/")}`,
+      ).toBe(true);
+    }
+    // … and generated items must never serve two ids from one pair together.
     for (const level of LEVELS) {
       for (const seed of SEEDS) {
         const item = generateItem({ signal: "glr", level, seed });
@@ -469,7 +494,7 @@ describe("answer key — Glr (paired-associate)", () => {
           ids.add(pair.cue);
           ids.add(pair.target);
         }
-        for (const group of GLR_CONFLICT_GROUPS) {
+        for (const group of CANONICAL_CONFLICT_PAIRS) {
           const hits = group.filter((g) => ids.has(g));
           expect(hits.length).toBeLessThanOrEqual(1);
         }

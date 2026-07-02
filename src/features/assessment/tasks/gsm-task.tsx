@@ -89,7 +89,7 @@ export function GsmTask({
       <div
         className="relative mx-auto aspect-square w-full max-w-[320px] rounded-card border border-border bg-bg"
         role="group"
-        aria-label="Корси табла"
+        aria-label={ta("board")}
       >
         {/* backdrop tiles (flash visuals only) */}
         <svg

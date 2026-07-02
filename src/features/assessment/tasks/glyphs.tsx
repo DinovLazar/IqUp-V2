@@ -128,7 +128,18 @@ export function ShapeGlyph({
         strokeLinejoin="round"
       >
         {shapeBody(kind)}
-        {pip && <circle cx={50} cy={22} r={6} fill="#FFFFFF" stroke="none" />}
+        {pip && (
+          // Ink outline keeps the pip ≥3:1 against every rule hue (a11y —
+          // on symmetric shapes the pip is the only rotation cue).
+          <circle
+            cx={50}
+            cy={22}
+            r={6}
+            fill="#FFFFFF"
+            stroke="#231F26"
+            strokeWidth={2.5}
+          />
+        )}
       </g>
     </svg>
   );
@@ -204,7 +215,14 @@ export function CountedShape({
           strokeLinejoin="round"
         >
           {shapeBody(kind)}
-          <circle cx={50} cy={22} r={6} fill="#FFFFFF" stroke="none" />
+          <circle
+            cx={50}
+            cy={22}
+            r={6}
+            fill="#FFFFFF"
+            stroke="#231F26"
+            strokeWidth={2.5 / unit}
+          />
         </g>
       ))}
     </svg>
@@ -781,7 +799,11 @@ export function ArrowGlyph({
   );
 }
 
-/** A small colour+number token for a CT condition `when` id (paired, not colour-only). */
+/**
+ * A colour+number token for a CT condition `when` id: a thick coloured ring
+ * around an INK numeral on white, so the number stays ≥4.5:1 on every hue and
+ * meaning is never colour-only (a11y).
+ */
 export function ConditionToken({
   id,
   size = 34,
@@ -791,11 +813,11 @@ export function ConditionToken({
 }) {
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full text-label font-semibold text-white"
+      className="inline-flex items-center justify-center rounded-full bg-white text-label font-semibold text-ink"
       style={{
         width: size,
         height: size,
-        backgroundColor: shapeColor(id),
+        border: `${Math.max(4, Math.round(size * 0.16))}px solid ${shapeColor(id)}`,
       }}
     >
       {id + 1}

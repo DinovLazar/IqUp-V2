@@ -49,11 +49,12 @@ export const GLR_ABSTRACT_CUES: readonly number[] = Array.from(
  * item; the guard is asserted by the distinctiveness test.
  */
 export const GLR_CONFLICT_GROUPS: readonly (readonly number[])[] = [
-  [103, 104], // plus ↔ ×
+  [103, 104], // plus ↔ × (target set)
   [110, 111], // chevron-right ↔ chevron-left
   [114, 115], // S-curve ↔ Z-curve
-  [203, 204],
+  [203, 204], // the cue set shares the body geometry → same pairs
   [210, 211],
+  [214, 215],
 ];
 
 const conflictGroupOf = (id: number): readonly number[] | undefined =>

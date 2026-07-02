@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
+import { uxForAge } from "@/content/tasks/levels";
 import { isGfMatrix, type GfItem, type MatrixCell } from "@/features/tasks";
 import { AnswerOption } from "@/components/ui/answer-option";
 import { Button } from "@/components/ui/button";
@@ -53,11 +54,14 @@ function CellBox({
 export function GfTask({
   item,
   onAnswer,
+  age,
 }: {
   item: GfItem;
   onAnswer: (fields: ResponseFields) => void;
   practice?: boolean;
+  age?: number;
 }) {
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const t = useTranslations("common");
   const ta = useTranslations("a11y");
   const [selected, setSelected] = React.useState<number | null>(null);
@@ -130,6 +134,7 @@ export function GfTask({
                 selected={selected === i}
                 onSelect={() => setSelected(i)}
                 aria-label={ta("option", { n: i + 1 })}
+                style={{ minWidth: minTap, minHeight: minTap }}
               >
                 <MatrixCellGlyph cell={cell} size={56} />
               </AnswerOption>
@@ -140,6 +145,7 @@ export function GfTask({
                 selected={selected === i}
                 onSelect={() => setSelected(i)}
                 aria-label={ta("option", { n: i + 1 })}
+                style={{ minWidth: minTap, minHeight: minTap }}
               >
                 {item.stimulus.notation === "objects" ? (
                   <ObjectCount count={n} size={52} />

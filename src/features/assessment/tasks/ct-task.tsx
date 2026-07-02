@@ -25,6 +25,7 @@ import {
   RobotSprite,
   StarSprite,
 } from "./glyphs";
+import { uxForAge } from "@/content/tasks/levels";
 import { ctOptionResponse, ctStepResponse, type ResponseFields } from "./view";
 
 // CT — STEM (computational thinking, calibration v2). Nine symbol-only task
@@ -108,6 +109,7 @@ function TileBoard({
   goalKind?: "star" | "event";
   box?: number;
 }) {
+  const label = useTranslations("a11y")("board");
   const gap = 4;
   const cell = (box - gap * (size + 1)) / size;
   const at = (p: Point) => ({
@@ -125,7 +127,7 @@ function TileBoard({
       width="100%"
       className="max-w-[240px] rounded-card border border-border bg-bg"
       role="img"
-      aria-label="Табла"
+      aria-label={label}
     >
       {Array.from({ length: size * size }, (_, i) => {
         const p = { x: i % size, y: Math.floor(i / size) };
@@ -183,12 +185,15 @@ function OptionPicker({
   options,
   onAnswer,
   wide,
+  minTap = 44,
 }: {
   stimulus: React.ReactNode;
   options: readonly React.ReactNode[];
   onAnswer: (f: ResponseFields) => void;
   /** Wide options render one per row. */
   wide?: boolean;
+  /** UX_BY_AGE tap minimum for the option controls. */
+  minTap?: number;
 }) {
   const tc = useTranslations("common");
   const ta = useTranslations("a11y");
@@ -209,6 +214,7 @@ function OptionPicker({
             onSelect={() => setSel(i)}
             aria-label={ta("option", { n: i + 1 })}
             className="min-h-14 px-3"
+            style={{ minHeight: minTap }}
           >
             {content}
           </AnswerOption>
@@ -230,12 +236,15 @@ function OptionPicker({
 function CtSequence({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtSequenceStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <TileBoard
           size={s.gridSize}
@@ -257,10 +266,13 @@ function CtSequence({
 function CtDebug({
   s,
   onAnswer,
+  minTap = 44,
 }: {
   s: CtDebugStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
+  const ta = useTranslations("a11y");
   return (
     <div className="flex w-full flex-col items-center gap-5">
       <TileBoard
@@ -275,8 +287,9 @@ function CtDebug({
             key={i}
             type="button"
             onClick={() => onAnswer(ctStepResponse(i))}
-            aria-label={`Чекор ${i + 1}`}
+            aria-label={ta("step", { n: i + 1 })}
             className="flex min-h-12 min-w-12 flex-col items-center gap-1 rounded-card border-2 border-border bg-surface p-1.5 outline-none hover:border-pur focus-visible:ring-[3px] focus-visible:ring-focus"
+            style={{ minWidth: minTap, minHeight: minTap }}
           >
             <ArrowGlyph move={m} size={30} />
             <span className="text-label font-normal text-muted">{i + 1}</span>
@@ -292,12 +305,15 @@ function CtDebug({
 function CtLoop({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtLoopStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <div className="flex flex-col items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
           <ArrowRow moves={s.sequence} size={26} />
@@ -318,12 +334,15 @@ function CtLoop({
 function CtLoopEvent({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtLoopEventStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <TileBoard
           size={s.gridSize}
@@ -355,9 +374,11 @@ function CtLoopEvent({
 function CtCondition({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtConditionStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   const pattern = s.patternLength ?? s.input.length;
   const groups: number[][] = [];
@@ -366,6 +387,7 @@ function CtCondition({
   }
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <div className="flex flex-col items-center gap-3">
           {/* rule legend: if-token (colour+number input → arrow outcome) */}
@@ -413,13 +435,16 @@ function CtCondition({
 function CtNestedLoop({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtNestedLoopStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
     <OptionPicker
       wide
+      minTap={minTap}
       stimulus={
         <div className="flex flex-col items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
           <ArrowRow moves={s.sequence} size={22} />
@@ -444,9 +469,11 @@ function CtNestedLoop({
 function CtCounter({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtCounterStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   const segments: Move[][] = [];
   let at = 0;
@@ -456,6 +483,7 @@ function CtCounter({
   }
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <div className="flex flex-wrap items-center justify-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
           {segments.map((seg, i) => (
@@ -484,12 +512,15 @@ function CtCounter({
 function CtOptimize({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtOptimizeStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
     <OptionPicker
+      minTap={minTap}
       stimulus={
         <div className="flex flex-col items-center gap-3">
           <TileBoard
@@ -517,29 +548,32 @@ function CtOptimize({
 export function CtTask({
   item,
   onAnswer,
+  age,
 }: {
   item: CtItem;
   onAnswer: (fields: ResponseFields) => void;
   practice?: boolean;
+  age?: number;
 }) {
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const s = item.stimulus;
   switch (s.subtype) {
     case "sequence":
-      return <CtSequence s={s} onAnswer={onAnswer} />;
+      return <CtSequence s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "debug":
-      return <CtDebug s={s} onAnswer={onAnswer} />;
+      return <CtDebug s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "loop":
-      return <CtLoop s={s} onAnswer={onAnswer} />;
+      return <CtLoop s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "loopEvent":
-      return <CtLoopEvent s={s} onAnswer={onAnswer} />;
+      return <CtLoopEvent s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "condition":
     case "conditionLoop":
-      return <CtCondition s={s} onAnswer={onAnswer} />;
+      return <CtCondition s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "nestedLoop":
-      return <CtNestedLoop s={s} onAnswer={onAnswer} />;
+      return <CtNestedLoop s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "counter":
-      return <CtCounter s={s} onAnswer={onAnswer} />;
+      return <CtCounter s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "optimize":
-      return <CtOptimize s={s} onAnswer={onAnswer} />;
+      return <CtOptimize s={s} onAnswer={onAnswer} minTap={minTap} />;
   }
 }

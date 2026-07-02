@@ -153,9 +153,16 @@ describe("distractors — Gv", () => {
           .filter((o) => o.isRot);
         expect(rotations).toHaveLength(1);
         expect(rotations[0].i).toBe(item.answer);
-        // The answer's transform is a pure (non-reflected) rotation of the base.
+        // The answer's transform is a pure (non-reflected) rotation of the base,
+        // served at one of the LEVEL's calibrated discrimination angles.
         expect(item.options[item.answer].transform.reflect).toBe(false);
         expect(item.options[item.answer].transform.shapeId).toBe(0);
+        expect(cfg.angles).toContain(
+          item.options[item.answer].transform.rotateDeg,
+        );
+        expect(item.meta.correctAngle).toBe(
+          item.options[item.answer].transform.rotateDeg,
+        );
 
         // Mirror foils: declared count, and each is a true mirror of the base.
         const mirrors = item.options.filter((o) => o.transform.reflect);

@@ -242,12 +242,15 @@ export const INDEX_MIN = 8;
 export const INDEX_MAX = 99;
 
 /**
- * accuracy family (v2): index = center + (acc − expectedAcc(signal, age)) · scale.
- * `expectedAcc` is the closed-form typical staircase outcome (see
- * {@link expectedWeightedAccuracy}), so a typical child lands at ≈ 50 at every
- * age. The scale is an anchor constant [provisional].
+ * accuracy family (v2): a PIECEWISE-linear map anchored at the per-signal,
+ * per-age expectation — [0, expected] → [bottom, center] and [expected, 1] →
+ * [center, top]. `expectedAcc` is the closed-form typical staircase outcome
+ * (see {@link expectedWeightedAccuracy}), so a typical child lands at 50 at
+ * every age AND a perfect run reaches the top band at every age (a fixed slope
+ * would compress the ceiling for older ages, whose expectation is higher).
+ * The anchor constants are [provisional].
  */
-export const ACCURACY_INDEX = { center: 50, scale: 75 } as const;
+export const ACCURACY_INDEX = { center: 50, top: 95, bottom: 20 } as const;
 /** span family: index = base + (span − expected) · perUnit (span = expected → 50). */
 export const SPAN_INDEX = { base: 50, perUnit: 14 } as const;
 /** speed family: index = base + (netPerMin − expected) · perUnit (= expected → 50). */

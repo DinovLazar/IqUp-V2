@@ -306,6 +306,47 @@ describe("extremes (Дел 7.3)", () => {
     }
   });
 
+  it("Gsm: basal credit counts as demonstrated span (a backward-strong child is not floored)", () => {
+    // Age 13 starts Gsm at L6 (5-forward). A child who fails every FORWARD row
+    // but reliably passes 4-backward establishes the basal at L5, crediting
+    // L1–L4 — including the 4-forward row — as passed.
+    const script: ResponseScript = (a) => {
+      if (a.signal === "gsm") {
+        return a.direction === "backward" && (a.spanLength ?? 0) <= 4
+          ? correctResponse(a)
+          : wrongResponse(a);
+      }
+      return correctResponse(a);
+    };
+    const r = finalize(
+      runSession(startSession({ sessionSeed: "gsm-credit", age: 13 }), script),
+    );
+    // No forward row was ANSWERED correctly, yet the credited 4-forward counts.
+    expect(r.signals.gsm.span?.forward).toBe(4);
+    expect(r.signals.gsm.floor).toBe(false);
+    expect(r.signals.gsm.index).toBeGreaterThan(8); // not pinned to the floor
+  });
+
+  it("Gsm: a failed-only backward run never averages a zero into the span", () => {
+    // Age 8 starts Gsm at L3 (3-BACKWARD). The child fails every backward row
+    // but passes forward rows — the index must rest on the forward span alone.
+    const script: ResponseScript = (a) => {
+      if (a.signal === "gsm") {
+        return a.direction === "backward"
+          ? wrongResponse(a)
+          : correctResponse(a);
+      }
+      return correctResponse(a);
+    };
+    const r = finalize(
+      runSession(startSession({ sessionSeed: "gsm-nobwd", age: 8 }), script),
+    );
+    expect((r.signals.gsm.span?.forward ?? 0) > 0).toBe(true);
+    expect(r.signals.gsm.span?.backward).toBe(0);
+    // rawScore equals the forward span — no (fwd + 0.5)/2 zero-averaging.
+    expect(r.signals.gsm.rawScore).toBe(r.signals.gsm.span?.forward);
+  });
+
   it("Gsm: failing forward while acing backward shows mastery — never a floor", () => {
     // The pathological case: every forward row wrong, every backward row right.
     // Under the v2 interleaved ladder the child oscillates; the floor must NOT
@@ -321,7 +362,14 @@ describe("extremes (Дел 7.3)", () => {
     const r = finalize(
       runSession(startSession({ sessionSeed: "gsm-edge", age: 13 }), script),
     );
-    expect(r.signals.gsm.span?.forward).toBe(0);
+    // No forward row is ever ANSWERED correctly — the forward span that shows
+    // is the basal CREDIT (L4 = 4-forward below the backward-established basal).
+    expect(
+      r.signals.gsm.perItem.some(
+        (it) => it.direction === "forward" && it.correct,
+      ),
+    ).toBe(false);
+    expect(r.signals.gsm.span?.forward).toBe(4);
     expect((r.signals.gsm.span?.backward ?? 0) > 0).toBe(true);
     expect(r.signals.gsm.floor).toBe(false);
     expect(r.signals.gsm.ceiling && r.signals.gsm.floor).toBe(false);

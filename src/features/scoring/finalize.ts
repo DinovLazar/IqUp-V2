@@ -23,7 +23,7 @@ import {
   expectedWeightedAccuracy,
   type ScoredSignal,
 } from "@/content/norms";
-import { TASK_BANK_VERSION } from "@/content/tasks";
+import { TASK_BANK_VERSION, gsmLevelForAge } from "@/content/tasks";
 import { INDEX_ORDER, type IndexKey } from "@/lib/indices";
 import type { GradedItem, SessionState } from "@/features/assessment/types";
 import { deriveAttention } from "./attention";
@@ -212,9 +212,28 @@ export function finalize(state: SessionState): AssessmentResult {
   // Gsm — span family over the direction-carrying ladder (offset 0.5, v2).
   {
     const items = laddered.gsm.items;
-    const forwardSpan = maxCorrectSpan(gsmForward);
-    const backwardSpan = maxCorrectSpan(gsmBackward);
-    const ran = gsmBackward.length > 0;
+    // Basal credit applies to spans too: every credited ladder row below the
+    // first-correct level counts as a passed span in ITS direction (under-8
+    // substitution included via the same level lookup the engine uses).
+    let creditedForward = 0;
+    let creditedBackward = 0;
+    for (const l of laddered.gsm.creditLevels) {
+      const row = gsmLevelForAge(l, age);
+      if (row.direction === "backward") {
+        creditedBackward = Math.max(creditedBackward, row.length);
+      } else {
+        creditedForward = Math.max(creditedForward, row.length);
+      }
+    }
+    const forwardSpan = Math.max(maxCorrectSpan(gsmForward), creditedForward);
+    const backwardSpan = Math.max(
+      maxCorrectSpan(gsmBackward),
+      creditedBackward,
+    );
+    // Average the directions only when backward shows EVIDENCE (a correct
+    // trial or a credited row) — a failed-only backward run must not average
+    // a zero into an otherwise demonstrated forward span.
+    const ran = correctCount(gsmBackward) > 0 || creditedBackward > 0;
     const raw = spanForIndex(forwardSpan, backwardSpan, age, ran);
     const index = spanIndex(raw, byAge(EXPECTED_FORWARD_SPAN_BY_AGE, age));
     signalIndex.gsm = index;
@@ -227,12 +246,14 @@ export function finalize(state: SessionState): AssessmentResult {
       span: { forward: forwardSpan, backward: backwardSpan },
       ...timeObservables(items),
       ceiling: spanCeiling(forwardSpan, backwardSpan),
-      // Floor = no evidence of mastery in ANY administered direction (keeps
-      // floor/ceiling mutually exclusive; D-066).
+      // Floor = no evidence of mastery in ANY direction — administered or
+      // basal-credited (keeps floor/ceiling mutually exclusive; D-066).
       floor:
         gsmForward.length > 0 &&
         correctCount(gsmForward) === 0 &&
-        (gsmBackward.length === 0 || correctCount(gsmBackward) === 0),
+        (gsmBackward.length === 0 || correctCount(gsmBackward) === 0) &&
+        creditedForward === 0 &&
+        creditedBackward === 0,
     };
   }
 

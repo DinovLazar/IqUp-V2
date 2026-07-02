@@ -15,6 +15,7 @@ import {
   ITEM_CAPS,
   PROVISIONAL_NORMS,
   START_LEVELS,
+  itemCap,
   startLevel,
 } from "@/content/norms";
 import {
@@ -22,6 +23,7 @@ import {
   GSM_ISI_MS,
   GSM_PRESENTATION_MS,
   UX_BY_AGE,
+  ctLevel,
   efLevel,
   gfLevel,
   glrLevel,
@@ -105,6 +107,308 @@ describe("ladder monotonicity (v2 §1–§8)", () => {
   });
 });
 
+// ── (a′) exact ladder snapshots — every §1–§8 column pinned ──────────────────
+
+describe("ladder tables match §1–§8 exactly (full-row snapshots)", () => {
+  it("Gf: rule classes, xor gates, subtlety and the series columns", () => {
+    expect(LEVELS.map((l) => gfLevel(l))).toEqual([
+      {
+        matrixSize: 2,
+        matrixAttrCount: 1,
+        ruleTypes: ["constancy"],
+        allowXor: false,
+        distractorSubtlety: 1,
+        seriesRule: "plusOneTwo",
+        seriesVisible: 4,
+      },
+      {
+        matrixSize: 2,
+        matrixAttrCount: 1,
+        ruleTypes: ["constancy", "progression"],
+        allowXor: false,
+        distractorSubtlety: 1,
+        seriesRule: "plusK",
+        seriesVisible: 4,
+      },
+      {
+        matrixSize: 2,
+        matrixAttrCount: 1,
+        ruleTypes: ["progression"],
+        allowXor: false,
+        distractorSubtlety: 2,
+        seriesRule: "minusK",
+        seriesVisible: 4,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 1,
+        ruleTypes: ["progression"],
+        allowXor: false,
+        distractorSubtlety: 2,
+        seriesRule: "alternating",
+        seriesVisible: 5,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 2,
+        ruleTypes: ["progression", "additionSubtraction"],
+        allowXor: false,
+        distractorSubtlety: 2,
+        seriesRule: "timesTwo",
+        seriesVisible: 4,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 2,
+        ruleTypes: ["additionSubtraction", "distributionOfThree"],
+        allowXor: false,
+        distractorSubtlety: 2,
+        seriesRule: "timesK",
+        seriesVisible: 4,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 2,
+        ruleTypes: ["distributionOfThree", "progression"],
+        allowXor: false,
+        distractorSubtlety: 2,
+        seriesRule: "interleaved",
+        seriesVisible: 6,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 3,
+        ruleTypes: ["distributionOfTwo"],
+        allowXor: true,
+        distractorSubtlety: 2,
+        seriesRule: "timesThenPlus",
+        seriesVisible: 5,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 3,
+        ruleTypes: ["distributionOfThree", "distributionOfTwo"],
+        allowXor: true,
+        distractorSubtlety: 3,
+        seriesRule: "secondOrder",
+        seriesVisible: 5,
+      },
+      {
+        matrixSize: 3,
+        matrixAttrCount: 3,
+        ruleTypes: ["distributionOfTwo", "progression", "distributionOfThree"],
+        allowXor: true,
+        distractorSubtlety: 3,
+        seriesRule: "fibonacci",
+        seriesVisible: 5,
+      },
+    ]);
+  });
+
+  it("Gv: angles, segments, options and mirror foils per row", () => {
+    expect(LEVELS.map((l) => gvLevel(l))).toEqual([
+      {
+        angles: [0, 45],
+        segments: [2, 3],
+        optionCount: 2,
+        mirrorDistractor: false,
+        mirrorFoilCount: 0,
+      },
+      {
+        angles: [45],
+        segments: [3, 3],
+        optionCount: 3,
+        mirrorDistractor: false,
+        mirrorFoilCount: 0,
+      },
+      {
+        angles: [90],
+        segments: [3, 4],
+        optionCount: 4,
+        mirrorDistractor: false,
+        mirrorFoilCount: 0,
+      },
+      {
+        angles: [90],
+        segments: [4, 4],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 1,
+      },
+      {
+        angles: [120],
+        segments: [4, 5],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 1,
+      },
+      {
+        angles: [135],
+        segments: [5, 5],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 1,
+      },
+      {
+        angles: [135],
+        segments: [5, 5],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 1,
+      },
+      {
+        angles: [180],
+        segments: [5, 6],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 1,
+      },
+      {
+        angles: [180],
+        segments: [6, 6],
+        optionCount: 4,
+        mirrorDistractor: true,
+        mirrorFoilCount: 2,
+      },
+      {
+        angles: [180],
+        segments: [6, 7],
+        optionCount: 5,
+        mirrorDistractor: true,
+        mirrorFoilCount: 2,
+      },
+    ]);
+  });
+
+  it("Gsm: length/direction/path per row", () => {
+    expect(LEVELS.map((l) => gsmLevel(l))).toEqual([
+      { length: 2, direction: "forward", path: "simple" },
+      { length: 3, direction: "forward", path: "simple" },
+      { length: 3, direction: "backward", path: "simple" },
+      { length: 4, direction: "forward", path: "simple" },
+      { length: 4, direction: "backward", path: "simple" },
+      { length: 5, direction: "forward", path: "simple" },
+      { length: 5, direction: "backward", path: "simple" },
+      { length: 6, direction: "forward", path: "crisscross" },
+      { length: 7, direction: "forward", path: "crisscross" },
+      { length: 7, direction: "backward", path: "crisscross" },
+    ]);
+  });
+
+  it("Gs: the §4 per-age table exactly (incl. targetSymbolCount)", () => {
+    expect(GS_BY_AGE).toEqual({
+      5: {
+        cellCount: 12,
+        distractorsPerTarget: 2,
+        similarity: [1, 1],
+        targetSymbolCount: 1,
+        windowSec: 40,
+      },
+      6: {
+        cellCount: 15,
+        distractorsPerTarget: 2,
+        similarity: [1, 1],
+        targetSymbolCount: 1,
+        windowSec: 35,
+      },
+      7: {
+        cellCount: 18,
+        distractorsPerTarget: 2,
+        similarity: [1, 2],
+        targetSymbolCount: 1,
+        windowSec: 30,
+      },
+      8: {
+        cellCount: 20,
+        distractorsPerTarget: 3,
+        similarity: [2, 2],
+        targetSymbolCount: 2,
+        windowSec: 25,
+      },
+      9: {
+        cellCount: 22,
+        distractorsPerTarget: 3,
+        similarity: [2, 2],
+        targetSymbolCount: 2,
+        windowSec: 25,
+      },
+      10: {
+        cellCount: 24,
+        distractorsPerTarget: 3,
+        similarity: [2, 2],
+        targetSymbolCount: 2,
+        windowSec: 22,
+      },
+      11: {
+        cellCount: 24,
+        distractorsPerTarget: 4,
+        similarity: [2, 3],
+        targetSymbolCount: 2,
+        windowSec: 20,
+      },
+      12: {
+        cellCount: 26,
+        distractorsPerTarget: 4,
+        similarity: [3, 3],
+        targetSymbolCount: 2,
+        windowSec: 20,
+      },
+      13: {
+        cellCount: 28,
+        distractorsPerTarget: 4,
+        similarity: [3, 3],
+        targetSymbolCount: 2,
+        windowSec: 20,
+      },
+    });
+  });
+
+  it("EF: minMoves + structural properties per row (L9/L10 inherently constrained — D-137)", () => {
+    expect(LEVELS.map((l) => efLevel(l))).toEqual([
+      { minMoves: 2, constrained: false, distractorGoal: false },
+      { minMoves: 2, constrained: false, distractorGoal: true },
+      { minMoves: 3, constrained: false, distractorGoal: false },
+      { minMoves: 3, constrained: true, distractorGoal: false },
+      { minMoves: 4, constrained: false, distractorGoal: false },
+      { minMoves: 4, constrained: true, distractorGoal: false },
+      { minMoves: 5, constrained: false, distractorGoal: false },
+      { minMoves: 5, constrained: true, distractorGoal: false },
+      { minMoves: 6, constrained: true, distractorGoal: false },
+      { minMoves: 7, constrained: true, distractorGoal: false },
+    ]);
+  });
+
+  it("Glr: pairs/trials/symbolStyle per row", () => {
+    expect(LEVELS.map((l) => glrLevel(l))).toEqual([
+      { pairs: 4, trials: 3, symbolStyle: "pictorial" },
+      { pairs: 4, trials: 2, symbolStyle: "pictorial" },
+      { pairs: 5, trials: 3, symbolStyle: "pictorial" },
+      { pairs: 6, trials: 3, symbolStyle: "pictorial" },
+      { pairs: 6, trials: 2, symbolStyle: "mixed" },
+      { pairs: 6, trials: 2, symbolStyle: "abstract" },
+      { pairs: 8, trials: 3, symbolStyle: "abstract" },
+      { pairs: 8, trials: 2, symbolStyle: "abstract" },
+      { pairs: 10, trials: 3, symbolStyle: "abstract" },
+      { pairs: 10, trials: 2, symbolStyle: "abstract" },
+    ]);
+  });
+
+  it("CT: the family set per level", () => {
+    expect(LEVELS.map((l) => [...ctLevel(l).family])).toEqual([
+      ["sequence"],
+      ["sequence"],
+      ["sequence", "debug"],
+      ["loop"],
+      ["loop", "loopEvent"],
+      ["condition"],
+      ["conditionLoop"],
+      ["nestedLoop"],
+      ["counter"],
+      ["optimize"],
+    ]);
+  });
+});
+
 // ── (b) per-age start levels per signal ───────────────────────────────────────
 
 describe("per-signal start levels (v2 §1–§8)", () => {
@@ -127,6 +431,18 @@ describe("per-signal start levels (v2 §1–§8)", () => {
       lone: { young: 5, mid: 6, older: 7 },
       shared: { young: 4, mid: 5, older: 6 },
     });
+    // The lone/shared MAPPING itself: Gf + Gv are lone; the rest are shared.
+    for (const [age, lone, shared] of [
+      [5, 5, 4],
+      [8, 6, 5],
+      [13, 7, 6],
+    ] as const) {
+      expect(itemCap("gf", age)).toBe(lone);
+      expect(itemCap("gv", age)).toBe(lone);
+      for (const sig of ["gsm", "ef", "glr", "ct"] as const) {
+        expect(itemCap(sig, age)).toBe(shared);
+      }
+    }
   });
 });
 
