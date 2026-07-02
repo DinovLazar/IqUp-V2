@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-07-02
 **Branch:** `phase-2.06-task-bank-v2` (cut from `main` — PR #12 was merged)
-**Commits:** `6d8dbc8` … (see PR)
-**PR:** *(opened into `main`; link in the PR list — never merged by Code)*
+**Commits:** `6d8dbc8` + `58a6660` + the PR-ref backfill
+**PR:** [#13](https://github.com/DinovLazar/IqUp-V2/pull/13) into `main` (awaiting CodeRabbit + Codex review, then Lazar's merge)
 
 ## What shipped
 
