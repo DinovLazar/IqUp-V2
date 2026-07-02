@@ -25,10 +25,24 @@ export function clampIndex(raw: number): number {
   return Math.min(INDEX_MAX, Math.max(INDEX_MIN, Math.round(raw)));
 }
 
-/** accuracy family: 20 + accuracy_weighted·75 (1.0 → 95). Input clamped to [0,1]. */
-export function accuracyIndex(accuracyWeighted: number): number {
+/**
+ * accuracy family (v2): piecewise-linear around the per-signal, per-age anchor
+ * `expectedForAge` — acc = expected → 50 exactly; acc = 1 → 95 and acc = 0 →
+ * 20 at EVERY age (a fixed slope would make the top band unreachable for older
+ * ages, whose expectation is higher). Input clamped to [0,1].
+ */
+export function accuracyIndex(
+  accuracyWeighted: number,
+  expectedForAge: number,
+): number {
   const a = Math.min(1, Math.max(0, accuracyWeighted));
-  return clampIndex(ACCURACY_INDEX.base + a * ACCURACY_INDEX.scale);
+  const e = Math.min(0.99, Math.max(0.01, expectedForAge));
+  const { center, top, bottom } = ACCURACY_INDEX;
+  const raw =
+    a >= e
+      ? center + ((a - e) / (1 - e)) * (top - center)
+      : center - ((e - a) / e) * (center - bottom);
+  return clampIndex(raw);
 }
 
 /** span family: 50 + (span − expected)·14 (span = expected → 50). */

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { INDEX_MAX, INDEX_MIN, type ScoredSignal } from "@/content/norms";
+import {
+  INDEX_MAX,
+  INDEX_MIN,
+  expectedWeightedAccuracy,
+  type ScoredSignal,
+} from "@/content/norms";
 import {
   accuracyIndex,
   bandFor,
@@ -26,17 +31,24 @@ import {
 } from "../time";
 import { gradedItem } from "./helpers";
 
-describe("raw → index formulas (Прилог B.2)", () => {
-  it("accuracy family: 20 + acc·75 (1.0 → 95)", () => {
-    expect(accuracyIndex(1.0)).toBe(95);
-    expect(accuracyIndex(0)).toBe(20);
-    expect(accuracyIndex(0.5)).toBe(58); // round(57.5)
+describe("raw → index formulas (v2 anchors)", () => {
+  it("accuracy family: piecewise around the anchor (expected → 50; 1 → 95; 0 → 20 at every anchor)", () => {
+    expect(accuracyIndex(0.5, 0.5)).toBe(50);
+    expect(accuracyIndex(0.7, 0.5)).toBe(68); // 50 + (0.2/0.5)·45
+    expect(accuracyIndex(0.3, 0.5)).toBe(38); // 50 − (0.2/0.5)·30
+    // The extremes reach the same endpoints regardless of the anchor — a
+    // perfect older child (high anchor) still reaches the top band.
+    for (const e of [0.3, 0.5, 0.64, 0.8]) {
+      expect(accuracyIndex(1.0, e)).toBe(95);
+      expect(accuracyIndex(0, e)).toBe(20);
+    }
   });
 
   it("span family: 50 + (span − expected)·14 (= expected → 50)", () => {
     expect(spanIndex(5, 5)).toBe(50);
     expect(spanIndex(6, 5)).toBe(64);
     expect(spanIndex(4, 5)).toBe(36);
+    expect(spanIndex(4.1, 4.1)).toBe(50); // fractional v2 expectations
   });
 
   it("speed family: 50 + (netPerMin − expected)·6 (= expected → 50)", () => {
@@ -88,7 +100,7 @@ describe("bands (Дел 6.4) — boundary tests", () => {
   });
 });
 
-describe("raw-score extractors (Дел 6.1)", () => {
+describe("raw-score extractors (Дел 6.1, v2 level-weighted + basal credit)", () => {
   it("weighted accuracy weights correctness by item difficulty", () => {
     const items = [
       gradedItem({ signal: "gf", difficultyWeight: 0.5, correct: true }),
@@ -98,47 +110,85 @@ describe("raw-score extractors (Дел 6.1)", () => {
     expect(weightedAccuracy([])).toBe(0);
   });
 
-  it("EF efficiency = mean(minMoves/moves) over solved items, 0 if unsolved", () => {
+  it("basal credits count as passed at their level weight (v2)", () => {
+    const items = [
+      gradedItem({ signal: "gf", difficultyWeight: 0.4, correct: true }),
+      gradedItem({ signal: "gf", difficultyWeight: 0.5, correct: false }),
+    ];
+    // Credits for levels 1–3 add w=0.1+0.2+0.3=0.6, all passed:
+    // (0.6 + 0.4) / (0.6 + 0.4 + 0.5) = 1.0/1.5
+    expect(weightedAccuracy(items, [1, 2, 3])).toBeCloseTo(1 / 1.5, 10);
+  });
+
+  it("EF efficiency is level-weighted: Σ w·(minMoves/moves) / Σ w (v2)", () => {
     const items = [
       gradedItem({
         signal: "ef",
+        difficultyWeight: 0.5,
         ef: { minMoves: 2, movesUsed: 2, solved: true },
       }),
       gradedItem({
         signal: "ef",
+        difficultyWeight: 0.5,
         ef: { minMoves: 3, movesUsed: 6, solved: true },
       }),
     ];
-    expect(efEfficiency(items)).toBeCloseTo(0.75, 10); // (1 + 0.5)/2
+    expect(efEfficiency(items)).toBeCloseTo(0.75, 10); // (0.5·1 + 0.5·0.5)/1
     const withFail = [
       ...items,
       gradedItem({
         signal: "ef",
+        difficultyWeight: 1,
         ef: { minMoves: 3, movesUsed: 0, solved: false },
       }),
     ];
-    expect(efEfficiency(withFail)).toBeCloseTo(0.5, 10); // (1 + 0.5 + 0)/3
+    expect(efEfficiency(withFail)).toBeCloseTo(0.75 / 2, 10); // heavy fail halves it
+    // Basal credit counts as a perfectly-solved problem at its level weight.
+    expect(
+      efEfficiency(
+        [
+          gradedItem({
+            signal: "ef",
+            difficultyWeight: 0.2,
+            ef: { minMoves: 3, movesUsed: 3, solved: true },
+          }),
+        ],
+        [1],
+      ),
+    ).toBeCloseTo(1, 10); // (0.1 + 0.2·1)/(0.1 + 0.2)
   });
 
-  it("Glr recall = mean round accuracy; learning slope = per-round gain", () => {
-    const item = gradedItem({
+  it("Glr recall is level-weighted mean round accuracy; slope = mean per-item gain (v2)", () => {
+    const a = gradedItem({
       signal: "glr",
+      difficultyWeight: 0.5,
       glr: { roundAccuracies: [0.2, 0.6] },
     });
-    expect(glrRecall(item)).toBeCloseTo(0.4, 10);
-    expect(learningSlope(item)).toBeCloseTo(0.4, 10);
+    const b = gradedItem({
+      signal: "glr",
+      difficultyWeight: 0.5,
+      glr: { roundAccuracies: [0.6, 1.0] },
+    });
+    expect(glrRecall([a])).toBeCloseTo(0.4, 10);
+    expect(glrRecall([a, b])).toBeCloseTo(0.6, 10); // (0.5·0.4 + 0.5·0.8)/1
+    expect(glrRecall([a], [1, 2])).toBeCloseTo(
+      (0.1 + 0.2 + 0.5 * 0.4) / 0.8,
+      10,
+    );
+    expect(learningSlope([a])).toBeCloseTo(0.4, 10);
+    expect(learningSlope([a, b])).toBeCloseTo(0.4, 10);
     expect(
-      learningSlope(
+      learningSlope([
         gradedItem({ signal: "glr", glr: { roundAccuracies: [0.5] } }),
-      ),
+      ]),
     ).toBe(0);
-    expect(glrRecall(null)).toBe(0);
+    expect(glrRecall([])).toBe(0);
   });
 
-  it("Gs net-per-minute = (correct − 0.5·errors) / effective minutes", () => {
-    const item = gradedItem({
+  it("Gs net-per-minute aggregates the scored rounds: Σ(correct − 0.5·errors) / Σ minutes (v2)", () => {
+    const round1 = gradedItem({
       signal: "gs",
-      effectiveTimeMs: 60_000,
+      effectiveTimeMs: 30_000,
       gs: {
         found: 6,
         falseTaps: 0,
@@ -147,8 +197,7 @@ describe("raw-score extractors (Дел 6.1)", () => {
         cellCount: 20,
       },
     });
-    expect(gsNetPerMin(item)).toBeCloseTo(6, 10);
-    const withErrors = gradedItem({
+    const round2 = gradedItem({
       signal: "gs",
       effectiveTimeMs: 30_000,
       gs: {
@@ -159,7 +208,9 @@ describe("raw-score extractors (Дел 6.1)", () => {
         cellCount: 20,
       },
     });
-    expect(gsNetPerMin(withErrors)).toBeCloseTo(10, 10); // (6 − 1) / 0.5
+    expect(gsNetPerMin([round1])).toBeCloseTo(12, 10);
+    expect(gsNetPerMin([round1, round2])).toBeCloseTo(11, 10); // (6 + 5) / 1 min
+    expect(gsNetPerMin([])).toBe(0);
   });
 
   it("max correct span ignores incorrect trials", () => {
@@ -172,11 +223,28 @@ describe("raw-score extractors (Дел 6.1)", () => {
     expect(maxCorrectSpan([])).toBe(0);
   });
 
-  it("span-for-index averages backward only from age 8", () => {
+  it("span-for-index averages backward (+0.5 Corsi offset, v2) only from age 8", () => {
     expect(spanForIndex(5, 3, 7, true)).toBe(5); // age < 8 → forward only
     expect(spanForIndex(5, 3, 9, false)).toBe(5); // no backward run → forward
-    expect(spanForIndex(5, 3, 9, true)).toBe(5); // (5 + (3+2))/2
-    expect(spanForIndex(6, 4, 10, true)).toBe(6); // (6 + (4+2))/2
+    expect(spanForIndex(5, 4, 9, true)).toBeCloseTo(4.75, 10); // (5 + 4.5)/2
+    expect(spanForIndex(6, 5.5, 10, true)).toBeCloseTo(6, 10); // (6 + 6)/2
+  });
+});
+
+describe("per-age expected accuracy (v2 anchor construction)", () => {
+  it("is a valid probability that never decreases too wildly and reflects the start level", () => {
+    for (const signal of ["gf", "gv", "ef", "glr", "ct"] as const) {
+      for (let age = 5; age <= 13; age++) {
+        const e = expectedWeightedAccuracy(signal, age);
+        expect(e).toBeGreaterThan(0);
+        expect(e).toBeLessThan(1);
+      }
+      // Higher start levels (older ages) anchor at higher expected accuracy
+      // (basal credit grows with the start level).
+      expect(expectedWeightedAccuracy(signal, 13)).toBeGreaterThan(
+        expectedWeightedAccuracy(signal, 5),
+      );
+    }
   });
 });
 

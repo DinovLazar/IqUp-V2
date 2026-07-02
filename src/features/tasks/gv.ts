@@ -1,23 +1,32 @@
 /**
- * Gv — Spatial. Two families (spec A.2, Дел 4):
- *   • rotation  — pick the option that is the prompt shape, just rotated. The
- *                 distractors are mirror images and a different shape, so exactly
- *                 ONE option is a pure rotation of the base.
- *   • oddOneOut — four shapes, three rotations of one base and one mirror; pick
- *                 the mirror (the one that "doesn't belong").
+ * Gv — Spatial, calibration v2. Two families over structured BLOCK FIGURES
+ * (polyomino-style: `segments` unit squares joined edge-to-edge into an
+ * asymmetric figure, emitted as an outline polygon in coordinate geometry):
  *
- * The base is an asymmetric (chiral) polygon emitted as coordinate geometry, so
- * rotation is exact and it renders identically anywhere (handover §3 / spec A.2).
- * No image, no SVG — points only.
+ *   • rotation  — pick the option that is the prompt figure, just rotated.
+ *                 From L4 the foils include true mirror images (chirality-
+ *                 verified); below L4 foils are different figures (mirror
+ *                 discrimination is not reliable before ~8).
+ *   • oddOneOut — options are rotations of one base figure plus one odd option:
+ *                 a different figure below L4, the mirror from L4.
+ *
+ * Rotation is mathematically exact (a transform of coordinates), so the figure
+ * renders identically anywhere. No image, no SVG — points only.
  */
 
-import { gvLevel } from "@/content/tasks/levels";
-import { deriveSeed, makeRng, pick, shuffle, type Rng } from "@/lib/prng";
+import { clampOptionCount, gvLevel } from "@/content/tasks/levels";
+import {
+  deriveSeed,
+  intInRange,
+  makeRng,
+  pick,
+  shuffle,
+  type Rng,
+} from "@/lib/prng";
 import {
   makeBase,
   reflectPoint,
   rotatePoint,
-  round,
   samePointSet,
   transformPolygon,
 } from "./shared";
@@ -28,45 +37,108 @@ const ALL_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315] as const;
 const rotateAll = (pts: Point[], deg: number): Point[] =>
   pts.map((p) => rotatePoint(p, deg));
 
-/** Build an asymmetric polygon of `verts` vertices on a normalized grid. */
-function makeShape(rng: Rng, verts: number): Point[] {
-  const pts: Point[] = [];
-  for (let i = 0; i < verts; i++) {
-    const baseAngle = (i / verts) * 2 * Math.PI;
-    // Keep vertices in angular order (jitter < half the slice) so the polygon
-    // is simple, but vary radius freely to break all symmetry.
-    const jitter = (rng() - 0.5) * ((2 * Math.PI) / verts) * 0.7;
-    const ang = baseAngle + jitter;
-    const radius = 0.4 + rng() * 0.6;
-    pts.push({
-      x: round(Math.cos(ang) * radius),
-      y: round(Math.sin(ang) * radius),
-    });
+// ── Polyomino block figures ───────────────────────────────────────────────────
+
+const cellKey = (x: number, y: number): string => `${x},${y}`;
+
+/**
+ * Grow an edge-connected set of `n` unit cells. Candidates that would create a
+ * "pinch" (two cells touching only at a corner) are rejected so the outline is
+ * a single simple loop.
+ */
+function growCells(rng: Rng, n: number): Point[] | null {
+  const cells: Point[] = [{ x: 0, y: 0 }];
+  const set = new Set<string>([cellKey(0, 0)]);
+  const createsPinch = (c: Point): boolean => {
+    for (const [dx, dy] of [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ] as const) {
+      const diag = cellKey(c.x + dx, c.y + dy);
+      if (!set.has(diag)) continue;
+      const sideA = set.has(cellKey(c.x + dx, c.y));
+      const sideB = set.has(cellKey(c.x, c.y + dy));
+      if (!sideA && !sideB) return true;
+    }
+    return false;
+  };
+  let guard = 0;
+  while (cells.length < n && guard++ < 200) {
+    const frontier: Point[] = [];
+    const seen = new Set<string>();
+    for (const c of cells) {
+      for (const [dx, dy] of [
+        [0, -1],
+        [0, 1],
+        [-1, 0],
+        [1, 0],
+      ] as const) {
+        const p = { x: c.x + dx, y: c.y + dy };
+        const k = cellKey(p.x, p.y);
+        if (set.has(k) || seen.has(k)) continue;
+        seen.add(k);
+        if (!createsPinch(p)) frontier.push(p);
+      }
+    }
+    if (frontier.length === 0) return null;
+    // Stable candidate order (insertion is deterministic) → deterministic pick.
+    const next = pick(rng, frontier);
+    cells.push(next);
+    set.add(cellKey(next.x, next.y));
   }
-  return pts;
+  return cells.length === n ? cells : null;
 }
 
-/** A shape is chiral if its mirror equals no rotation of itself. */
+/** Trace the outline polygon of a pinch-free cell set (interior on the right). */
+function outlineOf(cells: Point[]): Point[] {
+  const set = new Set(cells.map((c) => cellKey(c.x, c.y)));
+  const has = (x: number, y: number) => set.has(cellKey(x, y));
+  // Directed boundary edges: from-vertex → to-vertex.
+  const edges = new Map<string, Point>();
+  const vKey = (p: Point) => `${p.x},${p.y}`;
+  for (const { x, y } of cells) {
+    if (!has(x, y - 1)) edges.set(vKey({ x, y }), { x: x + 1, y });
+    if (!has(x + 1, y))
+      edges.set(vKey({ x: x + 1, y }), { x: x + 1, y: y + 1 });
+    if (!has(x, y + 1))
+      edges.set(vKey({ x: x + 1, y: y + 1 }), { x, y: y + 1 });
+    if (!has(x - 1, y)) edges.set(vKey({ x, y: y + 1 }), { x, y });
+  }
+  const startKey = edges.keys().next().value as string;
+  const [sx, sy] = startKey.split(",").map(Number);
+  const loop: Point[] = [{ x: sx, y: sy }];
+  let cur = edges.get(startKey) as Point;
+  let guard = 0;
+  while (vKey(cur) !== startKey && guard++ < 200) {
+    loop.push(cur);
+    cur = edges.get(vKey(cur)) as Point;
+  }
+  // Merge collinear runs into single segments.
+  const simplified: Point[] = [];
+  for (let i = 0; i < loop.length; i++) {
+    const prev = loop[(i - 1 + loop.length) % loop.length];
+    const here = loop[i];
+    const next = loop[(i + 1) % loop.length];
+    const collinear =
+      (prev.x === here.x && here.x === next.x) ||
+      (prev.y === here.y && here.y === next.y);
+    if (!collinear) simplified.push(here);
+  }
+  // Recenter on the vertex centroid so rotations pivot around the figure.
+  const cx = simplified.reduce((a, p) => a + p.x, 0) / simplified.length;
+  const cy = simplified.reduce((a, p) => a + p.y, 0) / simplified.length;
+  return simplified.map((p) => ({
+    x: Math.round((p.x - cx) * 1000) / 1000,
+    y: Math.round((p.y - cy) * 1000) / 1000,
+  }));
+}
+
+/** A figure is chiral if its mirror equals no rotation of itself. */
 function isChiral(shape: Point[]): boolean {
   const mirror = shape.map(reflectPoint);
   return !ALL_ANGLES.some((a) => samePointSet(mirror, rotateAll(shape, a)));
-}
-
-/** Generate a chiral base shape, re-seeding until one is found. */
-function chiralShape(seed: string, verts: number): Point[] {
-  for (let i = 0; i < 30; i++) {
-    const shape = makeShape(makeRng(deriveSeed(seed, "shape", i)), verts);
-    if (isChiral(shape)) return shape;
-  }
-  // Extremely unlikely fallback: an explicitly asymmetric "flag" polygon.
-  return [
-    { x: -0.6, y: -0.6 },
-    { x: 0.6, y: -0.6 },
-    { x: 0.6, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0.6 },
-    { x: -0.6, y: 0.6 },
-  ].slice(0, Math.max(4, verts));
 }
 
 /** True if `shape` is congruent (rotation or reflection) to `base`. */
@@ -79,14 +151,47 @@ function congruent(shape: Point[], base: Point[]): boolean {
   );
 }
 
-/** Distinct angles for distractors, avoiding the correct angle. */
-function distractorAngles(rng: Rng, exclude: number, n: number): number[] {
-  const pool = shuffle(
-    rng,
-    ALL_ANGLES.filter((a) => a !== exclude),
-  );
-  return pool.slice(0, n);
+export interface BlockFigure {
+  points: Point[];
+  segments: number;
 }
+
+/**
+ * Build a deterministic block figure of `[min,max]` segments. When
+ * `requireChiral` (mirror foils in play) the figure's mirror is verified to
+ * equal no rotation of itself.
+ */
+export function blockFigure(
+  seed: string,
+  label: string,
+  segments: readonly [number, number],
+  requireChiral: boolean,
+): BlockFigure {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const rng = makeRng(deriveSeed(seed, label, attempt));
+    const n = intInRange(rng, segments[0], segments[1]);
+    // Chirality needs ≥4 cells (all dominoes/trominoes are achiral).
+    const cells = growCells(rng, requireChiral ? Math.max(4, n) : n);
+    if (!cells) continue;
+    const points = outlineOf(cells);
+    if (requireChiral && !isChiral(points)) continue;
+    return { points, segments: cells.length };
+  }
+  // Deterministic fallback: an L-tetromino (chiral).
+  return {
+    points: [
+      { x: -0.5, y: -1.5 },
+      { x: 0.5, y: -1.5 },
+      { x: 0.5, y: 1.5 },
+      { x: -1.5, y: 1.5 },
+      { x: -1.5, y: 0.5 },
+      { x: -0.5, y: 0.5 },
+    ],
+    segments: 4,
+  };
+}
+
+// ── Options ───────────────────────────────────────────────────────────────────
 
 function option(
   base: Point[],
@@ -108,27 +213,63 @@ function allDistinct(options: GvOption[]): boolean {
   return true;
 }
 
-function generateRotation(level: number, seed: string): GvItem {
+/**
+ * Distinct different-shape figures, non-congruent to the base and each other.
+ * Small cell counts have very few free polyominoes (one domino, two trominoes),
+ * so exhausted attempts widen the segment range by ±1 before giving up.
+ */
+function otherFigures(
+  seed: string,
+  count: number,
+  segments: readonly [number, number],
+  base: Point[],
+): Point[][] {
+  const ranges: (readonly [number, number])[] = [
+    segments,
+    [segments[0], segments[1] + 1],
+    [Math.max(2, segments[0] - 1), segments[1] + 1],
+  ];
+  const out: Point[][] = [];
+  for (let i = 0; i < count; i++) {
+    let fig = blockFigure(seed, `other${i}`, segments, false).points;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const clash = congruent(fig, base) || out.some((o) => congruent(fig, o));
+      if (!clash) break;
+      const range = ranges[Math.min(2, Math.floor(attempt / 10))];
+      fig = blockFigure(seed, `other${i}-${attempt}`, range, false).points;
+    }
+    out.push(fig);
+  }
+  return out;
+}
+
+function generateRotation(level: number, seed: string, age?: number): GvItem {
   const cfg = gvLevel(level);
   const rng = makeRng(deriveSeed(seed, "gv-rot"));
-  const base = chiralShape(deriveSeed(seed, "base0"), cfg.vertices);
+  const optionCount = clampOptionCount(cfg.optionCount, age);
+  const mirrors = cfg.mirrorDistractor
+    ? Math.min(cfg.mirrorFoilCount, optionCount - 1)
+    : 0;
+  const otherCount = optionCount - 1 - mirrors;
 
-  // A different shape for the "wrong shape" distractor.
-  let other = chiralShape(deriveSeed(seed, "base1"), cfg.vertices);
-  for (let i = 0; i < 10 && congruent(other, base); i++)
-    other = chiralShape(deriveSeed(seed, "base1", i), cfg.vertices);
+  const fig = blockFigure(seed, "base0", cfg.segments, mirrors > 0);
+  const base = fig.points;
+  const others = otherFigures(seed, otherCount, cfg.segments, base);
 
   let options: GvOption[] = [];
-  let correctAngle = pick(rng, cfg.angles);
-  for (let attempt = 0; attempt < 12; attempt++) {
+  let correctAngle: number = cfg.angles[0];
+  for (let attempt = 0; attempt < 16; attempt++) {
     correctAngle = pick(rng, cfg.angles);
-    const [mirrorA, otherA, mirrorB] = distractorAngles(rng, correctAngle, 3);
-    options = [
-      option(base, 0, false, correctAngle), // correct: pure rotation of base
-      option(base, 0, true, mirrorA), // mirror (chiral → not a rotation)
-      option(other, 1, false, otherA), // different shape
-      option(base, 0, true, mirrorB), // mirror at another angle
-    ];
+    const anglePool = shuffle(rng, ALL_ANGLES);
+    options = [option(base, 0, false, correctAngle)];
+    for (let m = 0; m < mirrors; m++) {
+      options.push(option(base, 0, true, anglePool[m % anglePool.length]));
+    }
+    others.forEach((o, i) => {
+      options.push(
+        option(o, i + 1, false, anglePool[(mirrors + i) % anglePool.length]),
+      );
+    });
     if (allDistinct(options)) break;
   }
 
@@ -141,28 +282,44 @@ function generateRotation(level: number, seed: string): GvItem {
     stimulus: { family: "rotation", base },
     options: shuffled,
     answer,
-    meta: { family: "rotation", correctAngle },
+    meta: {
+      family: "rotation",
+      correctAngle,
+      mirrorFoilCount: mirrors,
+      segments: fig.segments,
+    },
   };
 }
 
-function generateOddOneOut(level: number, seed: string): GvItem {
+function generateOddOneOut(level: number, seed: string, age?: number): GvItem {
   const cfg = gvLevel(level);
   const rng = makeRng(deriveSeed(seed, "gv-odd"));
-  const base = chiralShape(deriveSeed(seed, "base0"), cfg.vertices);
+  const optionCount = clampOptionCount(cfg.optionCount, age);
+  // From L4 the odd one is the MIRROR of the base; below it is a different shape.
+  const mirrorOdd = cfg.mirrorDistractor;
+
+  const fig = blockFigure(seed, "base0", cfg.segments, mirrorOdd);
+  const base = fig.points;
+  const otherFig = mirrorOdd
+    ? null
+    : otherFigures(seed, 1, cfg.segments, base)[0];
 
   let options: GvOption[] = [];
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const angles = shuffle(rng, ALL_ANGLES).slice(0, 4);
-    options = [
-      option(base, 0, false, angles[0]), // rotation
-      option(base, 0, false, angles[1]), // rotation
-      option(base, 0, false, angles[2]), // rotation
-      option(base, 0, true, angles[3]), // the odd one (mirror)
-    ];
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const angles = shuffle(rng, ALL_ANGLES);
+    options = [];
+    for (let i = 0; i < optionCount - 1; i++) {
+      options.push(option(base, 0, false, angles[i]));
+    }
+    options.push(
+      mirrorOdd
+        ? option(base, 0, true, angles[optionCount - 1])
+        : option(otherFig as Point[], 1, false, angles[optionCount - 1]),
+    );
     if (allDistinct(options)) break;
   }
 
-  const odd = options[3];
+  const odd = options[options.length - 1];
   const shuffled = shuffle(rng, options);
   const answer = shuffled.indexOf(odd);
 
@@ -171,23 +328,31 @@ function generateOddOneOut(level: number, seed: string): GvItem {
     stimulus: { family: "oddOneOut", base },
     options: shuffled,
     answer,
-    meta: { family: "oddOneOut" },
+    meta: {
+      family: "oddOneOut",
+      mirrorFoilCount: mirrorOdd ? 1 : 0,
+      segments: fig.segments,
+    },
   };
 }
 
 /**
  * Generate a Gv item. Family is chosen deterministically from the seed unless
- * `opts.family` ("rotation" | "oddOneOut") forces one.
+ * `opts.family` ("rotation" | "oddOneOut") forces one. Odd-one-out needs at
+ * least 3 options to be decidable ("which of TWO doesn't belong" is a coin
+ * flip), so below that the rotation family is served instead.
  */
 export function generate(
   level: number,
   seed: string,
-  opts?: { family?: string },
+  opts?: { family?: string; age?: number },
 ): GvItem {
   const family =
     opts?.family ??
     (makeRng(`${seed}|gv-family`)() < 0.5 ? "rotation" : "oddOneOut");
-  return family === "oddOneOut"
-    ? generateOddOneOut(level, seed)
-    : generateRotation(level, seed);
+  const optionCount = clampOptionCount(gvLevel(level).optionCount, opts?.age);
+  if (family === "oddOneOut" && optionCount >= 3) {
+    return generateOddOneOut(level, seed, opts?.age);
+  }
+  return generateRotation(level, seed, opts?.age);
 }

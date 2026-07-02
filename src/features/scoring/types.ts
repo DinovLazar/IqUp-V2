@@ -25,6 +25,7 @@ export type ValidityCode =
   | "same_position"
   | "idle_pauses"
   | "gs_mashing"
+  | "gs_omission"
   | "random_accuracy";
 
 export interface ValidityFlag {

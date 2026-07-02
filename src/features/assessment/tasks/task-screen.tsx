@@ -34,6 +34,8 @@ export interface TaskScreenProps {
   hint?: string;
   /** Glr only. */
   rounds?: number;
+  /** Child age — forwarded to the renderers for the UX_BY_AGE tap minimums. */
+  age?: number;
   onRespond: (response: RawResponse) => void;
   onAdvance?: () => void;
   onCalibration?: (cal: DeviceCalibration) => void;
@@ -48,6 +50,7 @@ export function TaskScreen({
   instruction,
   hint,
   rounds,
+  age,
   onRespond,
   onAdvance,
   onCalibration,
@@ -133,6 +136,7 @@ export function TaskScreen({
           onAnswer={handleAnswer}
           practice={mode === "practice"}
           rounds={rounds}
+          age={age}
         />
       </div>
 

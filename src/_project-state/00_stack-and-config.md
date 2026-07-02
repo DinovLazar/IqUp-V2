@@ -301,3 +301,23 @@
   - **Next 16.2 deprecation kept** (D-128): `src/middleware.ts` works (registered as "Proxy (Middleware)") but prints a `middleware`→`proxy` deprecation warning; rename is a trivial future change.
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓ (routes `ƒ /admin`, `ƒ /admin/contacts`, `○ /admin/login`, `ƒ /api/admin/export`; middleware registered), `npm test` ✓ (**56 files, 384 tests**), `npm run format:check` ✓. Live: all four migrations applied; `scripts/verify-admin-db.ts` → ALL CHECKS PASSED (tables exist + RLS-locked, RPC returns aggregates for the service role, anon denied `42501`).
+
+- **2026-07-02 · Phase 2.06 (Code) — task bank v2: research-calibrated difficulty + stimulus upgrade.**
+
+  **No new dependencies.** All work is content/config/logic on the existing pinned stack (Next 16 / React 19 / TS strict / Vitest 4.1.9).
+
+  **Version stamps (semver, stored per anonymous record):**
+  | Constant | Old | New | Why |
+  |---|---|---|---|
+  | `TASK_BANK_VERSION` | 1.0.0 | **2.0.0** | items + answer keys change for a given seed (MAJOR) |
+  | `NORMS_VERSION` | 1.0.0 | **2.0.0** | every ladder/start/expectation/threshold recalibrated from research |
+  | `SCORING_VERSION` | 1.0.0 | **2.0.0** | accuracy family recentred per signal × age; EF/Glr level-weighted; banded attention normalisation; Corsi backward offset 2 → 0.5 (D-138) |
+
+  Old `scores` rows stay comparable via their stored stamps (D-134); `meta.normsStage` stays `"seed"` (the persist schema pins the literal; norms remain pre-pilot).
+
+  **Config surface changes (no env vars, no DB changes):**
+  - `src/content/tasks/levels.ts` — v2 ladders for all 7 families + `UX_BY_AGE` + `GS_BY_AGE` (absorbs `GS_LEVEL_BY_AGE`/`GS_WINDOW_SEC`) + `GSM_ISI_MS = 400`, board-size + under-8-substitution lookups.
+  - `src/content/norms/seed-norms.ts` — per-signal `START_LEVELS` (shared table deleted), v2 item caps (lone 5/6/7, shared 4/5/6), `ATTENTION_BANDS`, `PROVISIONAL_NORMS` register, per-age anchors; deleted: `START_LEVEL_BY_AGE`, `GS_LEVEL_BY_AGE`, `GS_WINDOW_SEC`, `GLR_LEVEL_BY_AGE`, `GLR_ROUNDS_BY_AGE`, `BACKWARD_SPAN_OFFSET` (→ `CORSI_BACKWARD_OFFSET = 0.5`), `SPAN_CEILING_CONSECUTIVE_ERRORS`, `GSM_MIN_SPAN`, `ATTENTION.cvCap`, `TOO_FAST_FRACTION_STRONG`, `CHANCE_ACCURACY_4OPT` (→ `chanceAccuracyForAge`).
+  - `.claude/launch.json` added (dev-server config for local preview tooling; not runtime config).
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓, `npm test` ✓ (**59 files, 448 tests**), `npm run format:check` ✓.

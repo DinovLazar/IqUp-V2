@@ -170,3 +170,24 @@
     }
   }
 }
+
+/* EF illegal-move shake (2.06): a brief, calm refusal wiggle. Neutralised by
+   the global prefers-reduced-motion rule above. */
+@keyframes ef-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+.animate-shake {
+  animation: ef-shake 320ms ease-in-out;
+}

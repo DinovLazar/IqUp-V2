@@ -1,11 +1,18 @@
 /**
- * EF — Planning (Tower of London). 3 pegs (capacities 3/2/1), 3 coloured balls.
- * Generate a start and a goal state, then compute the TRUE minimum move count by
- * breadth-first search over the (tiny) state space. Spec A.5, Дел 4.
+ * EF — Planning (Tower of London), calibration v2. 3 pegs (capacities 3/2/1),
+ * 3 coloured balls. Generate a start and a goal state at the level's EXACT
+ * minimum-move distance (BFS-verified over the tiny state space), honouring the
+ * level's structural properties:
  *
- * `minMoves` is both the answer reference and the difficulty target (config gives
- * 2→5 by level). The goal is guaranteed reachable (BFS finds it) and one optimal
- * solution path is stored; the test suite re-verifies minMoves with its own BFS.
+ *   • constrained (L4/L6/L8): every optimal path requires ≥1 counter-intuitive
+ *     move — moving a ball somewhere other than its goal peg (or off it). The
+ *     greedy "always place a correct ball if possible" strategy therefore
+ *     cannot reach minMoves. Verified by enumerating all optimal paths.
+ *   • distractorGoal (L2): the goal shares ≥1 ball position with the start, so
+ *     the child must notice which balls actually move.
+ *
+ * `minMoves` is both the answer reference and the difficulty target; one optimal
+ * solution path is stored; the test suite re-verifies with its own BFS.
  */
 
 import {
@@ -13,7 +20,7 @@ import {
   EF_PEG_CAPACITIES,
   efLevel,
 } from "@/content/tasks/levels";
-import { deriveSeed, intInRange, makeRng, pick, type Rng } from "@/lib/prng";
+import { deriveSeed, makeRng, pick, shuffle, type Rng } from "@/lib/prng";
 import { makeBase } from "./shared";
 import type { EfItem, TowerMove, TowerState } from "./types";
 
@@ -104,31 +111,122 @@ function reconstruct(search: Bfs, goalKey: string): TowerMove[] {
   return moves.reverse();
 }
 
+/** The peg each ball occupies in a state (ball id → peg index). */
+function ballPegs(state: TowerState): number[] {
+  const pegs: number[] = [];
+  state.forEach((peg, i) => peg.forEach((ball) => (pegs[ball] = i)));
+  return pegs;
+}
+
+/**
+ * Constrained-problem verification (v2 §6): true iff EVERY optimal path
+ * start→goal contains ≥1 counter-intuitive move — moving a ball AWAY from its
+ * goal peg (it already sits on the peg where it finally belongs, but must
+ * vacate first, e.g. to let another ball slide underneath). The greedy "always
+ * place a correct ball if possible" strategy never vacates a correctly-placed
+ * ball, so it cannot reach minMoves on a constrained problem. (Instrumental
+ * moves onto a third peg are NOT counter-intuitive — with 3 balls, any ≥4-move
+ * problem needs one, so they can't be the discriminator.)
+ */
+export function isConstrained(
+  start: TowerState,
+  goal: TowerState,
+  caps: readonly number[],
+): boolean {
+  const goalPegOf = ballPegs(goal);
+  const fromGoal = bfs(goal, caps);
+  if (fromGoal.dist.get(stateKey(start)) === undefined) return false; // unreachable — never emitted
+  const goalKey = stateKey(goal);
+
+  // DFS over distance-decreasing (optimal) edges, refusing any move that lifts
+  // a ball OFF its goal peg. If the goal is still reachable, some optimal path
+  // needs no counter-intuitive move → not constrained.
+  const visited = new Set<string>();
+  const dfs = (state: TowerState): boolean => {
+    const key = stateKey(state);
+    if (key === goalKey) return true;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    const d = fromGoal.dist.get(key) as number;
+    for (const { move, next } of neighbors(state, caps)) {
+      const nd = fromGoal.dist.get(stateKey(next));
+      if (nd === undefined || nd !== d - 1) continue; // not on an optimal path
+      const ball = state[move.from][state[move.from].length - 1];
+      if (move.from === goalPegOf[ball]) continue; // vacates its goal peg — counter-intuitive
+      if (dfs(next)) return true;
+    }
+    return false;
+  };
+  const intuitivePathExists = dfs(start);
+  return !intuitivePathExists;
+}
+
+/** How many balls sit in the exact same (peg, height) slot in both states. */
+function sharedBallPositions(a: TowerState, b: TowerState): number {
+  let shared = 0;
+  a.forEach((peg, i) =>
+    peg.forEach((ball, h) => {
+      if (b[i]?.[h] === ball) shared += 1;
+    }),
+  );
+  return shared;
+}
+
 export function generate(level: number, seed: string): EfItem {
   const caps = EF_PEG_CAPACITIES;
-  const target = efLevel(level).minMoves;
+  const cfg = efLevel(level);
+  const target = cfg.minMoves;
 
-  // Try starts until one has a goal at the exact target distance; otherwise fall
-  // back to that start's farthest state (minMoves stays the true BFS distance).
-  let start!: TowerState;
-  let search!: Bfs;
-  let goalKey = "";
-  for (let attempt = 0; attempt < 80; attempt++) {
+  // Try starts until one has a goal at the exact target distance satisfying the
+  // level's structural properties; degrade gracefully (property, then distance).
+  let best: {
+    start: TowerState;
+    search: Bfs;
+    goalKey: string;
+    constrained: boolean;
+  } | null = null;
+  let fallback: { start: TowerState; search: Bfs; goalKey: string } | null =
+    null;
+
+  for (let attempt = 0; attempt < 240 && !best; attempt++) {
     const rng = makeRng(deriveSeed(seed, "ef-start", attempt));
-    start = randomState(rng, caps, EF_BALL_COUNT);
-    search = bfs(start, caps);
-    const exact = search.byDist.get(target);
-    if (exact && exact.length > 0) {
-      goalKey = exact[intInRange(rng, 0, exact.length - 1)];
+    const start = randomState(rng, caps, EF_BALL_COUNT);
+    const search = bfs(start, caps);
+    const exact = search.byDist.get(target) ?? [];
+    if (exact.length === 0) {
+      if (!fallback) {
+        const maxD = Math.max(...search.byDist.keys());
+        fallback = {
+          start,
+          search,
+          goalKey: (search.byDist.get(maxD) as string[])[0],
+        };
+      }
+      continue;
+    }
+    const ordered = shuffle(rng, exact);
+    for (const goalKey of ordered) {
+      const goal = search.states.get(goalKey) as TowerState;
+      const constrained = isConstrained(start, goal, caps);
+      if (constrained !== cfg.constrained) continue;
+      if (cfg.distractorGoal && sharedBallPositions(start, goal) === 0)
+        continue;
+      best = { start, search, goalKey, constrained };
       break;
     }
-  }
-  if (!goalKey) {
-    // Fallback: deepest reachable state from the last start tried.
-    const maxD = Math.max(...search.byDist.keys());
-    goalKey = (search.byDist.get(maxD) as string[])[0];
+    if (!best && !fallback) {
+      // Remember a distance-exact goal in case no attempt matches the property.
+      fallback = { start, search, goalKey: ordered[0] };
+    }
   }
 
+  // Every attempt records either a property-exact `best` or a distance/depth
+  // `fallback`, so one of the two always exists after the loop.
+  const { start, search, goalKey } = (best ?? fallback) as {
+    start: TowerState;
+    search: Bfs;
+    goalKey: string;
+  };
   const goal = search.states.get(goalKey) as TowerState;
   const optimalPath = reconstruct(search, goalKey);
 
@@ -136,6 +234,9 @@ export function generate(level: number, seed: string): EfItem {
     ...makeBase("ef", level, seed),
     stimulus: { pegCapacities: caps.slice(), start, goal },
     answer: { minMoves: optimalPath.length, optimalPath },
-    meta: { ballCount: EF_BALL_COUNT },
+    meta: {
+      ballCount: EF_BALL_COUNT,
+      constrained: best ? best.constrained : isConstrained(start, goal, caps),
+    },
   };
 }

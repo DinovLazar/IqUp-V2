@@ -1,22 +1,29 @@
 /**
  * finalize — fold a completed session state into the deterministic
- * `AssessmentResult`: per-signal raw scores + 0–100 indices (spec Дел 6.1/6.2),
- * the derived attention signal (Дел 3.1 #5), the five composites (Дел 6.3) with
- * bands (Дел 6.4), confidence (Дел 6.5), validity (Дел 7.1) and extremes (Дел 7.3).
+ * `AssessmentResult`: per-signal raw scores + 0–100 indices (spec Дел 6.1/6.2,
+ * calibration v2 anchors), the derived attention signal (Дел 3.1 #5), the five
+ * composites (Дел 6.3) with bands (Дел 6.4), confidence (Дел 6.5), validity
+ * (Дел 7.1, age-banded) and extremes (Дел 7.3).
+ *
+ * v2: the laddered accuracy signals (Gf, Gv, EF, Glr, CT) are level-weighted
+ * WITH the basal credits and anchored per signal × age (typical ≈ 50); Gsm
+ * ladders over direction-carrying rows (offset 0.5); Gs aggregates 2 rounds.
  *
  * Pure: same final state ⇒ deep-equal result, always.
  */
 
 import {
+  ATTENTION_EXPECTED_SCORE,
   EXPECTED_FORWARD_SPAN_BY_AGE,
   GS_EXPECTED_NET_PER_MIN_BY_AGE,
   GS_MASHING_FRACTION,
   NORMS_VERSION,
   SCORING_VERSION,
   byAge,
+  expectedWeightedAccuracy,
   type ScoredSignal,
 } from "@/content/norms";
-import { TASK_BANK_VERSION } from "@/content/tasks";
+import { TASK_BANK_VERSION, gsmLevelForAge } from "@/content/tasks";
 import { INDEX_ORDER, type IndexKey } from "@/lib/indices";
 import type { GradedItem, SessionState } from "@/features/assessment/types";
 import { deriveAttention } from "./attention";
@@ -86,71 +93,89 @@ function timeObservables(items: readonly GradedItem[]): {
   };
 }
 
+interface LadderedCollected {
+  items: GradedItem[];
+  creditLevels: number[];
+  maxLevelCorrect: number;
+}
+
 /** Collect each domain's graded items + one flat list of everything. */
 function collectItems(state: SessionState): {
-  laddered: Record<"gf" | "gv" | "ef" | "ct", GradedItem[]>;
+  laddered: Record<
+    "gf" | "gv" | "ef" | "ct" | "glr" | "gsm",
+    LadderedCollected
+  >;
   gsmForward: GradedItem[];
   gsmBackward: GradedItem[];
-  gsItem: GradedItem | null;
-  glrItem: GradedItem | null;
+  gsItems: GradedItem[];
   all: GradedItem[];
 } {
-  const laddered = { gf: [], gv: [], ef: [], ct: [] } as Record<
-    "gf" | "gv" | "ef" | "ct",
-    GradedItem[]
-  >;
-  let gsmForward: GradedItem[] = [];
-  let gsmBackward: GradedItem[] = [];
-  let gsItem: GradedItem | null = null;
-  let glrItem: GradedItem | null = null;
+  const empty = (): LadderedCollected => ({
+    items: [],
+    creditLevels: [],
+    maxLevelCorrect: 0,
+  });
+  const laddered = {
+    gf: empty(),
+    gv: empty(),
+    ef: empty(),
+    ct: empty(),
+    glr: empty(),
+    gsm: empty(),
+  };
+  let gsItems: GradedItem[] = [];
 
   for (const signal of state.order) {
     const d = state.domains[signal];
     if (d.kind === "laddered") {
-      laddered[d.signal as "gf" | "gv" | "ef" | "ct"] = d.items;
-    } else if (d.kind === "span") {
-      gsmForward = d.forward;
-      gsmBackward = d.backward;
-    } else if (d.signal === "gs") {
-      gsItem = d.item;
+      laddered[d.signal as keyof typeof laddered] = {
+        items: d.items,
+        creditLevels: d.basalCreditLevels,
+        maxLevelCorrect: d.maxLevelCorrect,
+      };
     } else {
-      glrItem = d.item;
+      gsItems = d.items;
     }
   }
 
+  const gsmForward = laddered.gsm.items.filter(
+    (it) => it.direction === "forward",
+  );
+  const gsmBackward = laddered.gsm.items.filter(
+    (it) => it.direction === "backward",
+  );
+
   const all = [
-    ...laddered.gf,
-    ...laddered.gv,
-    ...laddered.ct,
-    ...laddered.ef,
-    ...gsmForward,
-    ...gsmBackward,
-    ...(gsItem ? [gsItem] : []),
-    ...(glrItem ? [glrItem] : []),
+    ...laddered.gf.items,
+    ...laddered.gv.items,
+    ...laddered.ct.items,
+    ...laddered.ef.items,
+    ...laddered.gsm.items,
+    ...laddered.glr.items,
+    ...gsItems,
   ];
-  return { laddered, gsmForward, gsmBackward, gsItem, glrItem, all };
+  return { laddered, gsmForward, gsmBackward, gsItems, all };
 }
 
 /** Produce the full deterministic assessment result for a completed session. */
 export function finalize(state: SessionState): AssessmentResult {
   const { age } = state;
-  const { laddered, gsmForward, gsmBackward, gsItem, glrItem, all } =
+  const { laddered, gsmForward, gsmBackward, gsItems, all } =
     collectItems(state);
 
-  const attention = deriveAttention(all);
+  const attention = deriveAttention(all, age);
 
   // ── per-signal results ──────────────────────────────────────────────────────
   const signals = {} as Record<ScoredSignal, SignalResult>;
   const signalIndex = {} as Record<ScoredSignal, number>;
   const evidence = {} as Record<ScoredSignal, Evidence>;
 
-  // Accuracy-family laddered domains (Gf, Gv, CT) — weighted accuracy.
+  // Accuracy-family laddered domains (Gf, Gv, CT) — level-weighted accuracy
+  // with basal credit, anchored per signal × age.
   for (const signal of ["gf", "gv", "ct"] as const) {
-    const items = laddered[signal];
-    const d = state.domains[signal];
-    const maxLevelCorrect = d.kind === "laddered" ? d.maxLevelCorrect : 0;
-    const raw = weightedAccuracy(items);
-    const index = accuracyIndex(raw);
+    const { items, creditLevels, maxLevelCorrect } = laddered[signal];
+    const raw = weightedAccuracy(items, creditLevels);
+    const index = accuracyIndex(raw, expectedWeightedAccuracy(signal, age));
     signalIndex[signal] = index;
     evidence[signal] = evidenceFromCount(items.length);
     signals[signal] = {
@@ -165,13 +190,11 @@ export function finalize(state: SessionState): AssessmentResult {
     };
   }
 
-  // EF — accuracy family via planning-efficiency ratio.
+  // EF — accuracy family via LEVEL-WEIGHTED planning efficiency (v2).
   {
-    const items = laddered.ef;
-    const d = state.domains.ef;
-    const maxLevelCorrect = d.kind === "laddered" ? d.maxLevelCorrect : 0;
-    const raw = efEfficiency(items);
-    const index = accuracyIndex(raw);
+    const { items, creditLevels, maxLevelCorrect } = laddered.ef;
+    const raw = efEfficiency(items, creditLevels);
+    const index = accuracyIndex(raw, expectedWeightedAccuracy("ef", age));
     signalIndex.ef = index;
     evidence.ef = evidenceFromCount(items.length);
     signals.ef = {
@@ -186,16 +209,35 @@ export function finalize(state: SessionState): AssessmentResult {
     };
   }
 
-  // Gsm — span family (forward, + backward from age 8).
+  // Gsm — span family over the direction-carrying ladder (offset 0.5, v2).
   {
-    const items = [...gsmForward, ...gsmBackward];
-    const forwardSpan = maxCorrectSpan(gsmForward);
-    const backwardSpan = maxCorrectSpan(gsmBackward);
-    const ran = gsmBackward.length > 0;
+    const items = laddered.gsm.items;
+    // Basal credit applies to spans too: every credited ladder row below the
+    // first-correct level counts as a passed span in ITS direction (under-8
+    // substitution included via the same level lookup the engine uses).
+    let creditedForward = 0;
+    let creditedBackward = 0;
+    for (const l of laddered.gsm.creditLevels) {
+      const row = gsmLevelForAge(l, age);
+      if (row.direction === "backward") {
+        creditedBackward = Math.max(creditedBackward, row.length);
+      } else {
+        creditedForward = Math.max(creditedForward, row.length);
+      }
+    }
+    const forwardSpan = Math.max(maxCorrectSpan(gsmForward), creditedForward);
+    const backwardSpan = Math.max(
+      maxCorrectSpan(gsmBackward),
+      creditedBackward,
+    );
+    // Average the directions only when backward shows EVIDENCE (a correct
+    // trial or a credited row) — a failed-only backward run must not average
+    // a zero into an otherwise demonstrated forward span.
+    const ran = correctCount(gsmBackward) > 0 || creditedBackward > 0;
     const raw = spanForIndex(forwardSpan, backwardSpan, age, ran);
     const index = spanIndex(raw, byAge(EXPECTED_FORWARD_SPAN_BY_AGE, age));
     signalIndex.gsm = index;
-    evidence.gsm = evidenceFromCount(gsmForward.length);
+    evidence.gsm = evidenceFromCount(items.length);
     signals.gsm = {
       rawScore: raw,
       index,
@@ -204,67 +246,79 @@ export function finalize(state: SessionState): AssessmentResult {
       span: { forward: forwardSpan, backward: backwardSpan },
       ...timeObservables(items),
       ceiling: spanCeiling(forwardSpan, backwardSpan),
-      // Floor = no evidence of mastery in ANY administered direction (keeps
-      // floor/ceiling mutually exclusive even if backward outruns a failed
-      // forward; D-066). Backward only runs from age 8.
+      // Floor = no evidence of mastery in ANY direction — administered or
+      // basal-credited (keeps floor/ceiling mutually exclusive; D-066).
       floor:
         gsmForward.length > 0 &&
         correctCount(gsmForward) === 0 &&
-        (gsmBackward.length === 0 || correctCount(gsmBackward) === 0),
+        (gsmBackward.length === 0 || correctCount(gsmBackward) === 0) &&
+        creditedForward === 0 &&
+        creditedBackward === 0,
     };
   }
 
-  // Gs — speed family (one timed grid; the one time-dependent score).
+  // Gs — speed family over the 2 scored rounds (the one time-dependent score).
   {
-    const items = gsItem ? [gsItem] : [];
-    const raw = gsNetPerMin(gsItem);
+    const raw = gsNetPerMin(gsItems);
     const index = speedIndex(raw, byAge(GS_EXPECTED_NET_PER_MIN_BY_AGE, age));
     signalIndex.gs = index;
-    const mashing =
-      !!gsItem?.gs &&
-      gsItem.gs.cellCount > 0 &&
-      gsItem.gs.tappedCount / gsItem.gs.cellCount >= GS_MASHING_FRACTION;
-    evidence.gs = mashing ? 0 : gsItem ? 2 : 0;
+    let tapped = 0;
+    let cells = 0;
+    let found = 0;
+    let targets = 0;
+    let falseTaps = 0;
+    for (const it of gsItems) {
+      if (!it.gs) continue;
+      tapped += it.gs.tappedCount;
+      cells += it.gs.cellCount;
+      found += it.gs.found;
+      targets += it.gs.targetCount;
+      falseTaps += it.gs.falseTaps;
+    }
+    const mashing = cells > 0 && tapped / cells >= GS_MASHING_FRACTION;
+    evidence.gs = mashing ? 0 : gsItems.length > 0 ? 2 : 0;
     signals.gs = {
       rawScore: raw,
       index,
-      itemsAdministered: items.length,
-      perItem: perItemOf(items),
-      meanEffectiveTimeMs: gsItem?.effectiveTimeMs ?? 0,
+      itemsAdministered: gsItems.length,
+      perItem: perItemOf(gsItems),
+      meanEffectiveTimeMs: mean(gsItems.map((it) => it.effectiveTimeMs)),
+      // Ceiling: every target found, zero errors, across BOTH scored rounds.
       ceiling:
-        !!gsItem?.gs &&
-        gsItem.gs.found === gsItem.gs.targetCount &&
-        gsItem.gs.falseTaps === 0 &&
-        gsItem.level !== undefined &&
-        gsItem.level >= 9,
-      floor: !!gsItem?.gs && gsItem.gs.found === 0,
+        gsItems.length > 0 &&
+        targets > 0 &&
+        found === targets &&
+        falseTaps === 0,
+      floor: gsItems.length > 0 && found === 0,
     };
   }
 
-  // Glr — accuracy family via recall accuracy + learning slope.
+  // Glr — accuracy family via LEVEL-WEIGHTED recall accuracy + learning slope (v2).
   {
-    const items = glrItem ? [glrItem] : [];
-    const raw = glrRecall(glrItem);
-    const index = accuracyIndex(raw);
+    const { items, creditLevels, maxLevelCorrect } = laddered.glr;
+    const raw = glrRecall(items, creditLevels);
+    const index = accuracyIndex(raw, expectedWeightedAccuracy("glr", age));
     signalIndex.glr = index;
-    const rounds = glrItem?.glr?.roundAccuracies ?? [];
-    evidence.glr = evidenceFromGlrRounds(rounds.length);
-    const lastAcc = rounds.length > 0 ? rounds[rounds.length - 1] : 0;
+    const totalRounds = items.reduce(
+      (a, it) => a + (it.glr?.roundAccuracies.length ?? 0),
+      0,
+    );
+    evidence.glr = evidenceFromGlrRounds(totalRounds);
     signals.glr = {
       rawScore: raw,
       index,
       itemsAdministered: items.length,
       perItem: perItemOf(items),
-      meanEffectiveTimeMs: glrItem?.effectiveTimeMs ?? 0,
-      learningSlope: learningSlope(glrItem),
-      ceiling: lastAcc === 1 && (glrItem?.level ?? 0) >= 9,
-      floor: rounds.length > 0 && lastAcc === 0,
+      meanEffectiveTimeMs: mean(items.map((it) => it.effectiveTimeMs)),
+      learningSlope: learningSlope(items),
+      ceiling: ladderCeiling(items, maxLevelCorrect),
+      floor: ladderFloor(items),
     };
   }
 
   // Attention — derived, never administered (no items).
   {
-    const index = accuracyIndex(attention.score);
+    const index = accuracyIndex(attention.score, ATTENTION_EXPECTED_SCORE);
     signalIndex.attention = index;
     evidence.attention = evidenceFromCount(attention.itemCount);
     signals.attention = {
@@ -281,7 +335,7 @@ export function finalize(state: SessionState): AssessmentResult {
   }
 
   // ── validity + confidence (confidence reads validity's flags) ───────────────
-  const validity = computeValidity(all);
+  const validity = computeValidity(all, age);
   const confidence = computeConfidence(evidence, validity);
 
   // ── composite indices ───────────────────────────────────────────────────────

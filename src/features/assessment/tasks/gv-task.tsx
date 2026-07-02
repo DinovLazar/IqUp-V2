@@ -3,15 +3,18 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 
+import { uxForAge } from "@/content/tasks/levels";
 import type { GvItem } from "@/features/tasks";
 import { AnswerOption } from "@/components/ui/answer-option";
 import { Button } from "@/components/ui/button";
 import { buildGvView, choiceResponse, type ResponseFields } from "./view";
 
-// Gv — Spatial. Mental rotation (pick the option that is the prompt shape, just
-// rotated) or odd-one-out (pick the mirror). Polygons come from `buildGvView`,
-// which scales every option by ONE factor so a pure rotation reads as same-size —
-// orientation is the only cue. Uniform fill (no colour cue to the answer).
+// Gv — Spatial (calibration v2). Mental rotation or odd-one-out over structured
+// BLOCK FIGURES (polyomino outlines from the generator — crisp, test-grade
+// shapes where mirror foils are fair but demanding). Polygons come from
+// `buildGvView`, which scales every option by ONE factor so a pure rotation
+// reads as same-size — orientation is the only cue. Uniform single-tone fill +
+// consistent outline (no colour cue to the answer).
 
 function Polygon({ path, box }: { path: string; box: number }) {
   return (
@@ -38,12 +41,16 @@ function Polygon({ path, box }: { path: string; box: number }) {
 export function GvTask({
   item,
   onAnswer,
+  age,
 }: {
   item: GvItem;
   onAnswer: (fields: ResponseFields) => void;
   practice?: boolean;
+  age?: number;
 }) {
   const t = useTranslations("common");
+  const ta = useTranslations("a11y");
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const [selected, setSelected] = React.useState<number | null>(null);
   const view = React.useMemo(() => buildGvView(item), [item]);
 
@@ -61,14 +68,20 @@ export function GvTask({
         </div>
       )}
 
-      <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:grid-cols-4">
+      <div
+        className="grid w-full max-w-md gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${Math.min(view.options.length, 4)}, minmax(0, 1fr))`,
+        }}
+      >
         {view.options.map((opt) => (
           <AnswerOption
             key={opt.index}
             selected={selected === opt.index}
             onSelect={() => setSelected(opt.index)}
-            aria-label={`Опција ${opt.index + 1}`}
+            aria-label={ta("option", { n: opt.index + 1 })}
             className="aspect-square p-2"
+            style={{ minWidth: minTap, minHeight: minTap }}
           >
             <Polygon path={opt.path} box={view.box} />
           </AnswerOption>

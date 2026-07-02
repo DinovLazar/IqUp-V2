@@ -5,37 +5,38 @@ import { useTranslations } from "next-intl";
 
 import type {
   CtConditionStimulus,
+  CtCounterStimulus,
   CtDebugStimulus,
   CtItem,
+  CtLoopEventStimulus,
   CtLoopStimulus,
-  CtMazeStimulus,
+  CtNestedLoopStimulus,
+  CtOptimizeStimulus,
   CtSequenceStimulus,
   Move,
   Point,
 } from "@/features/tasks";
 import { AnswerOption } from "@/components/ui/answer-option";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { ArrowGlyph, ConditionToken } from "./glyphs";
 import {
-  ctOptionResponse,
-  ctPathResponse,
-  ctStepResponse,
-  type ResponseFields,
-} from "./view";
+  ArrowGlyph,
+  ConditionToken,
+  EventSprite,
+  RobotSprite,
+  StarSprite,
+} from "./glyphs";
+import { uxForAge } from "@/content/tasks/levels";
+import { ctOptionResponse, ctStepResponse, type ResponseFields } from "./view";
 
-// CT — STEM (computational thinking). Five symbol-only sub-types, zero text in
-// the stimulus (instructions live in i18n chrome). sequence/loop/condition →
-// choose an option; debug → tap the broken step; maze → navigate to the goal.
-// The maze enforces a simple (no-revisit) walk so a goal-reaching path equals the
-// generator's unique solution exactly.
+// CT — STEM (computational thinking, calibration v2). Nine symbol-only task
+// families, zero text in the stimulus (instructions live in i18n chrome). The
+// board is a TILE BOARD: soft-cornered tiles, a friendly geometric robot
+// sprite, a star goal, obstacle tiles, and (for loopEvent) a teal event
+// beacon. Programs render as a token strip: arrows, ×n repeat badges, visual
+// grouping brackets for loops (double brackets for nesting) and colour+number
+// if-tokens. All option families → choose an option; debug → tap the broken
+// step.
 
-const DELTA: Record<Move, { dx: number; dy: number }> = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 },
-};
 const eq = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 
 // ── Shared bits ────────────────────────────────────────────────────────────────
@@ -56,81 +57,166 @@ function ArrowRow({
   );
 }
 
-function GridBoard({
+/** The ×n repeat badge used by every loop-family token strip. */
+function RepeatBadge({ times }: { times: number }) {
+  const t = useTranslations("task");
+  return (
+    <span className="rounded-md bg-tint-pur px-2 py-1 text-label font-semibold whitespace-nowrap text-pur">
+      {t("ctRepeat", { times })}
+    </span>
+  );
+}
+
+/** A bracketed loop group: [ ×n  body ] with a visible grouping bracket. */
+function LoopGroup({
+  times,
+  children,
+  nested,
+}: {
+  times: number;
+  children: React.ReactNode;
+  nested?: boolean;
+}) {
+  return (
+    <span
+      className={
+        "flex items-center gap-1.5 rounded-lg border-2 px-1.5 py-1 " +
+        (nested ? "border-teal/60" : "border-border-pur")
+      }
+    >
+      <RepeatBadge times={times} />
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The v2 tile board: soft-cornered tiles, obstacles, the robot at start, the
+ * star goal (or the teal event beacon for loopEvent).
+ */
+function TileBoard({
   size,
   start,
   goal,
-  box = 180,
+  obstacles,
+  goalKind = "star",
+  box = 200,
 }: {
   size: number;
   start: Point;
   goal: Point;
+  obstacles: readonly Point[];
+  goalKind?: "star" | "event";
   box?: number;
 }) {
-  const cell = box / size;
-  const cx = (p: Point) => p.x * cell + cell / 2;
-  const cy = (p: Point) => p.y * cell + cell / 2;
+  const label = useTranslations("a11y")("board");
+  const gap = 4;
+  const cell = (box - gap * (size + 1)) / size;
+  const at = (p: Point) => ({
+    x: gap + p.x * (cell + gap),
+    y: gap + p.y * (cell + gap),
+  });
+  const center = (p: Point) => ({
+    x: at(p).x + cell / 2,
+    y: at(p).y + cell / 2,
+  });
+  const spriteSize = cell * 0.82;
   return (
     <svg
       viewBox={`0 0 ${box} ${box}`}
       width="100%"
-      className="max-w-[220px] rounded-card border border-border bg-bg"
+      className="max-w-[240px] rounded-card border border-border bg-bg"
       role="img"
-      aria-label="Мрежа"
+      aria-label={label}
     >
-      {Array.from({ length: size + 1 }, (_, i) => (
-        <React.Fragment key={i}>
-          <line
-            x1={i * cell}
-            y1={0}
-            x2={i * cell}
-            y2={box}
-            stroke="#EAE6E0"
-            strokeWidth={1}
-          />
-          <line
-            x1={0}
-            y1={i * cell}
-            x2={box}
-            y2={i * cell}
-            stroke="#EAE6E0"
-            strokeWidth={1}
-          />
-        </React.Fragment>
-      ))}
-      <polygon
-        points={`${cx(goal)},${cy(goal) - cell * 0.3} ${cx(goal) + cell * 0.28},${cy(goal) + cell * 0.25} ${cx(goal) - cell * 0.28},${cy(goal) + cell * 0.25}`}
-        fill="#F7941D"
-      />
-      <circle cx={cx(start)} cy={cy(start)} r={cell * 0.26} fill="#762D90" />
+      {Array.from({ length: size * size }, (_, i) => {
+        const p = { x: i % size, y: Math.floor(i / size) };
+        const o = obstacles.some((ob) => eq(ob, p));
+        const { x, y } = at(p);
+        return (
+          <g key={i}>
+            <rect
+              x={x}
+              y={y}
+              width={cell}
+              height={cell}
+              rx={cell * 0.18}
+              fill={o ? "#5E5862" : "#FFFFFF"}
+              stroke={o ? "#231F26" : "#EAE6E0"}
+              strokeWidth={1.2}
+            />
+            {o && (
+              // obstacles are never colour-only: a cross-hatch marks them
+              <path
+                d={`M${x + cell * 0.3},${y + cell * 0.3} L${x + cell * 0.7},${y + cell * 0.7} M${x + cell * 0.7},${y + cell * 0.3} L${x + cell * 0.3},${y + cell * 0.7}`}
+                stroke="#FAF8F4"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+            )}
+          </g>
+        );
+      })}
+      <g
+        transform={`translate(${center(goal).x - spriteSize / 2} ${center(goal).y - spriteSize / 2})`}
+      >
+        <foreignObject width={spriteSize} height={spriteSize}>
+          {goalKind === "star" ? (
+            <StarSprite size={spriteSize} />
+          ) : (
+            <EventSprite size={spriteSize} />
+          )}
+        </foreignObject>
+      </g>
+      <g
+        transform={`translate(${center(start).x - spriteSize / 2} ${center(start).y - spriteSize / 2})`}
+      >
+        <foreignObject width={spriteSize} height={spriteSize}>
+          <RobotSprite size={spriteSize} />
+        </foreignObject>
+      </g>
     </svg>
   );
 }
 
-// ── sequence ───────────────────────────────────────────────────────────────────
-
-function CtSequence({
-  s,
+/** Shared select-an-option scaffold (board/strip stimulus + options + confirm). */
+function OptionPicker({
+  stimulus,
+  options,
   onAnswer,
+  wide,
+  minTap = 44,
 }: {
-  s: CtSequenceStimulus;
+  stimulus: React.ReactNode;
+  options: readonly React.ReactNode[];
   onAnswer: (f: ResponseFields) => void;
+  /** Wide options render one per row. */
+  wide?: boolean;
+  /** UX_BY_AGE tap minimum for the option controls. */
+  minTap?: number;
 }) {
   const tc = useTranslations("common");
+  const ta = useTranslations("a11y");
   const [sel, setSel] = React.useState<number | null>(null);
   return (
     <div className="flex w-full flex-col items-center gap-5">
-      <GridBoard size={s.gridSize} start={s.start} goal={s.goal} />
-      <div className="grid w-full max-w-md grid-cols-1 gap-3 sm:grid-cols-2">
-        {s.options.map((prog, i) => (
+      {stimulus}
+      <div
+        className={
+          "grid w-full max-w-md gap-3 " +
+          (wide ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2")
+        }
+      >
+        {options.map((content, i) => (
           <AnswerOption
             key={i}
             selected={sel === i}
             onSelect={() => setSel(i)}
-            aria-label={`Опција ${i + 1}`}
+            aria-label={ta("option", { n: i + 1 })}
             className="min-h-14 px-3"
+            style={{ minHeight: minTap }}
           >
-            <ArrowRow moves={prog} size={26} />
+            {content}
           </AnswerOption>
         ))}
       </div>
@@ -145,26 +231,65 @@ function CtSequence({
   );
 }
 
+// ── sequence ───────────────────────────────────────────────────────────────────
+
+function CtSequence({
+  s,
+  onAnswer,
+  minTap,
+}: {
+  s: CtSequenceStimulus;
+  onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
+}) {
+  return (
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <TileBoard
+          size={s.gridSize}
+          start={s.start}
+          goal={s.goal}
+          obstacles={s.obstacles}
+        />
+      }
+      options={s.options.map((prog, i) => (
+        <ArrowRow key={i} moves={prog} size={26} />
+      ))}
+      onAnswer={onAnswer}
+    />
+  );
+}
+
 // ── debug ────────────────────────────────────────────────────────────────────
 
 function CtDebug({
   s,
   onAnswer,
+  minTap = 44,
 }: {
   s: CtDebugStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
+  const ta = useTranslations("a11y");
   return (
     <div className="flex w-full flex-col items-center gap-5">
-      <GridBoard size={s.gridSize} start={s.start} goal={s.goal} />
+      <TileBoard
+        size={s.gridSize}
+        start={s.start}
+        goal={s.goal}
+        obstacles={s.obstacles}
+      />
       <div className="flex flex-wrap items-center justify-center gap-2">
         {s.program.map((m, i) => (
           <button
             key={i}
             type="button"
             onClick={() => onAnswer(ctStepResponse(i))}
-            aria-label={`Чекор ${i + 1}`}
-            className="flex flex-col items-center gap-1 rounded-card border-2 border-border bg-surface p-1.5 outline-none hover:border-pur focus-visible:ring-[3px] focus-visible:ring-focus"
+            aria-label={ta("step", { n: i + 1 })}
+            className="flex min-h-12 min-w-12 flex-col items-center gap-1 rounded-card border-2 border-border bg-surface p-1.5 outline-none hover:border-pur focus-visible:ring-[3px] focus-visible:ring-focus"
+            style={{ minWidth: minTap, minHeight: minTap }}
           >
             <ArrowGlyph move={m} size={30} />
             <span className="text-label font-normal text-muted">{i + 1}</span>
@@ -180,277 +305,241 @@ function CtDebug({
 function CtLoop({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtLoopStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
-  const t = useTranslations("task");
-  const tc = useTranslations("common");
-  const [sel, setSel] = React.useState<number | null>(null);
   return (
-    <div className="flex w-full flex-col items-center gap-5">
-      <div className="flex flex-col items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
-        <ArrowRow moves={s.sequence} size={26} />
-      </div>
-      <div className="grid w-full max-w-md grid-cols-1 gap-3 sm:grid-cols-2">
-        {s.options.map((loop, i) => (
-          <AnswerOption
-            key={i}
-            selected={sel === i}
-            onSelect={() => setSel(i)}
-            aria-label={`Опција ${i + 1}`}
-            className="min-h-14 gap-2 px-3"
-          >
-            <span className="flex items-center gap-2">
-              <span className="rounded-md bg-tint-pur px-2 py-1 text-label font-semibold text-pur">
-                {t("ctRepeat", { times: loop.times })}
-              </span>
-              <ArrowRow moves={loop.body} size={24} />
-            </span>
-          </AnswerOption>
-        ))}
-      </div>
-      <Button
-        onClick={() => sel != null && onAnswer(ctOptionResponse(sel))}
-        disabled={sel === null}
-        className="min-w-44"
-      >
-        {tc("confirm")}
-      </Button>
-    </div>
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <div className="flex flex-col items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
+          <ArrowRow moves={s.sequence} size={26} />
+        </div>
+      }
+      options={s.options.map((loop, i) => (
+        <LoopGroup key={i} times={loop.times}>
+          <ArrowRow moves={loop.body} size={24} />
+        </LoopGroup>
+      ))}
+      onAnswer={onAnswer}
+    />
   );
 }
 
-// ── condition ─────────────────────────────────────────────────────────────────
+// ── loopEvent ────────────────────────────────────────────────────────────────
+
+function CtLoopEvent({
+  s,
+  onAnswer,
+  minTap,
+}: {
+  s: CtLoopEventStimulus;
+  onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
+}) {
+  return (
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <TileBoard
+          size={s.gridSize}
+          start={s.start}
+          goal={s.eventTile}
+          obstacles={s.obstacles}
+          goalKind="event"
+        />
+      }
+      options={s.options.map((body, i) => (
+        // repeat-until-beacon group: the event sprite plays the ×n badge's role
+        <span
+          key={i}
+          className="flex items-center gap-1.5 rounded-lg border-2 border-border-pur px-1.5 py-1"
+        >
+          <span className="flex size-8 items-center justify-center rounded-md bg-tint-pur">
+            <EventSprite size={24} />
+          </span>
+          <ArrowRow moves={body} size={24} />
+        </span>
+      ))}
+      onAnswer={onAnswer}
+    />
+  );
+}
+
+// ── condition / conditionLoop ─────────────────────────────────────────────────
 
 function CtCondition({
   s,
   onAnswer,
+  minTap,
 }: {
   s: CtConditionStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
-  const tc = useTranslations("common");
-  const [sel, setSel] = React.useState<number | null>(null);
+  const pattern = s.patternLength ?? s.input.length;
+  const groups: number[][] = [];
+  for (let i = 0; i < s.input.length; i += pattern) {
+    groups.push(s.input.slice(i, i + pattern));
+  }
   return (
-    <div className="flex w-full flex-col items-center gap-5">
-      {/* rule legend */}
-      <div className="flex flex-wrap items-center justify-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
-        {s.rules.map((rule, i) => (
-          <span key={i} className="flex items-center gap-1.5">
-            <ConditionToken id={rule.when} />
-            <ArrowGlyph move={rule.then} size={26} />
-          </span>
-        ))}
-      </div>
-      {/* input */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {s.input.map((c, i) => (
-          <ConditionToken key={i} id={c} />
-        ))}
-      </div>
-      {/* options */}
-      <div className="grid w-full max-w-md grid-cols-1 gap-3 sm:grid-cols-2">
-        {s.options.map((out, i) => (
-          <AnswerOption
-            key={i}
-            selected={sel === i}
-            onSelect={() => setSel(i)}
-            aria-label={`Опција ${i + 1}`}
-            className="min-h-14 px-3"
-          >
-            <ArrowRow moves={out} size={24} />
-          </AnswerOption>
-        ))}
-      </div>
-      <Button
-        onClick={() => sel != null && onAnswer(ctOptionResponse(sel))}
-        disabled={sel === null}
-        className="min-w-44"
-      >
-        {tc("confirm")}
-      </Button>
-    </div>
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <div className="flex flex-col items-center gap-3">
+          {/* rule legend: if-token (colour+number input → arrow outcome) */}
+          <div className="flex flex-wrap items-center justify-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
+            {s.rules.map((rule, i) => (
+              <span key={i} className="flex items-center gap-1.5">
+                <ConditionToken id={rule.when} />
+                <span className="text-muted" aria-hidden>
+                  →
+                </span>
+                <ArrowGlyph move={rule.then} size={26} />
+              </span>
+            ))}
+          </div>
+          {/* input — conditionLoop groups the repeating pattern visually */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {groups.map((group, gi) => (
+              <span
+                key={gi}
+                className={
+                  "flex items-center gap-2 " +
+                  (s.subtype === "conditionLoop"
+                    ? "rounded-lg border-2 border-border-pur px-1.5 py-1"
+                    : "")
+                }
+              >
+                {group.map((c, i) => (
+                  <ConditionToken key={i} id={c} />
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      }
+      options={s.options.map((out, i) => (
+        <ArrowRow key={i} moves={out} size={24} />
+      ))}
+      onAnswer={onAnswer}
+    />
   );
 }
 
-// ── maze ─────────────────────────────────────────────────────────────────────
+// ── nestedLoop ───────────────────────────────────────────────────────────────
 
-function CtMaze({
+function CtNestedLoop({
   s,
   onAnswer,
+  minTap,
 }: {
-  s: CtMazeStimulus;
+  s: CtNestedLoopStimulus;
   onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
-  const t = useTranslations("task");
-  const box = 220;
-  const cell = box / s.size;
-  const idx = (p: Point) => p.y * s.size + p.x;
-
-  const [path, setPath] = React.useState<Point[]>([s.start]);
-  const [moves, setMoves] = React.useState<Move[]>([]);
-  const doneRef = React.useRef(false);
-  const current = path[path.length - 1];
-
-  const open = (p: Point, m: Move): boolean => {
-    const w = s.cells[idx(p)];
-    if (m === "up") return !w.n;
-    if (m === "down") return !w.s;
-    if (m === "left") return !w.w;
-    return !w.e;
-  };
-
-  const go = (m: Move) => {
-    if (doneRef.current || !open(current, m)) return;
-    const target = { x: current.x + DELTA[m].dx, y: current.y + DELTA[m].dy };
-    let nextPath = path;
-    let nextMoves = moves;
-    if (path.length >= 2 && eq(target, path[path.length - 2])) {
-      nextPath = path.slice(0, -1); // undo
-      nextMoves = moves.slice(0, -1);
-    } else if (!path.some((c) => eq(c, target))) {
-      nextPath = [...path, target]; // advance to a fresh cell
-      nextMoves = [...moves, m];
-    } else {
-      return; // already-visited non-parent cell — keep the walk simple
-    }
-    setPath(nextPath);
-    setMoves(nextMoves);
-    if (eq(nextPath[nextPath.length - 1], s.goal)) {
-      doneRef.current = true;
-      onAnswer(ctPathResponse(nextMoves));
-    }
-  };
-
-  const reset = () => {
-    setPath([s.start]);
-    setMoves([]);
-  };
-
-  const cx = (p: Point) => p.x * cell + cell / 2;
-  const cy = (p: Point) => p.y * cell + cell / 2;
-  const wall = (p: Point) => s.cells[idx(p)];
-
-  const dirs: { m: Move; label: string }[] = [
-    { m: "up", label: t("ctMoveUp") },
-    { m: "left", label: t("ctMoveLeft") },
-    { m: "right", label: t("ctMoveRight") },
-    { m: "down", label: t("ctMoveDown") },
-  ];
-
   return (
-    <div className="flex w-full flex-col items-center gap-4">
-      <svg
-        viewBox={`0 0 ${box} ${box}`}
-        width="100%"
-        className="max-w-[240px] rounded-card border-2 border-ink/15 bg-bg"
-        role="img"
-        aria-label="Лавиринт"
-      >
-        {/* breadcrumb path */}
-        {path.map((p, i) =>
-          i === 0 ? null : (
-            <line
-              key={i}
-              x1={cx(path[i - 1])}
-              y1={cy(path[i - 1])}
-              x2={cx(p)}
-              y2={cy(p)}
-              stroke="#D2F3F0"
-              strokeWidth={cell * 0.4}
-              strokeLinecap="round"
-            />
-          ),
-        )}
-        {/* walls */}
-        {s.cells.map((_, i) => {
-          const p = { x: i % s.size, y: Math.floor(i / s.size) };
-          const w = wall(p);
-          const x0 = p.x * cell;
-          const y0 = p.y * cell;
-          return (
-            <g key={i} stroke="#762D90" strokeWidth={2.5} strokeLinecap="round">
-              {w.n && <line x1={x0} y1={y0} x2={x0 + cell} y2={y0} />}
-              {w.s && (
-                <line x1={x0} y1={y0 + cell} x2={x0 + cell} y2={y0 + cell} />
-              )}
-              {w.w && <line x1={x0} y1={y0} x2={x0} y2={y0 + cell} />}
-              {w.e && (
-                <line x1={x0 + cell} y1={y0} x2={x0 + cell} y2={y0 + cell} />
-              )}
-            </g>
-          );
-        })}
-        <polygon
-          points={`${cx(s.goal)},${cy(s.goal) - cell * 0.28} ${cx(s.goal) + cell * 0.26},${cy(s.goal) + cell * 0.24} ${cx(s.goal) - cell * 0.26},${cy(s.goal) + cell * 0.24}`}
-          fill="#F7941D"
-        />
-        <circle
-          cx={cx(current)}
-          cy={cy(current)}
-          r={cell * 0.24}
-          fill="#762D90"
-        />
-      </svg>
-
-      {/* d-pad */}
-      <div className="grid grid-cols-3 gap-1.5" style={{ width: 168 }}>
-        <span />
-        <DpadButton dir={dirs[0]} enabled={open(current, "up")} onGo={go} />
-        <span />
-        <DpadButton dir={dirs[1]} enabled={open(current, "left")} onGo={go} />
-        <span />
-        <DpadButton dir={dirs[2]} enabled={open(current, "right")} onGo={go} />
-        <span />
-        <DpadButton dir={dirs[3]} enabled={open(current, "down")} onGo={go} />
-        <span />
-      </div>
-
-      <div className="flex gap-3">
-        <Button variant="ghost" onClick={reset} disabled={moves.length === 0}>
-          {t("efReset")}
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => onAnswer(ctPathResponse(moves))}
-        >
-          {t("efGiveUp")}
-        </Button>
-      </div>
-    </div>
+    <OptionPicker
+      wide
+      minTap={minTap}
+      stimulus={
+        <div className="flex flex-col items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
+          <ArrowRow moves={s.sequence} size={22} />
+        </div>
+      }
+      options={s.options.map((expr, i) => (
+        <LoopGroup key={i} times={expr.outerTimes}>
+          {expr.pre.length > 0 && <ArrowRow moves={expr.pre} size={22} />}
+          <LoopGroup times={expr.innerTimes} nested>
+            <ArrowRow moves={expr.innerBody} size={22} />
+          </LoopGroup>
+          {expr.post.length > 0 && <ArrowRow moves={expr.post} size={22} />}
+        </LoopGroup>
+      ))}
+      onAnswer={onAnswer}
+    />
   );
 }
 
-function DpadButton({
-  dir,
-  enabled,
-  onGo,
+// ── counter ──────────────────────────────────────────────────────────────────
+
+function CtCounter({
+  s,
+  onAnswer,
+  minTap,
 }: {
-  dir: { m: Move; label: string };
-  enabled: boolean;
-  onGo: (m: Move) => void;
+  s: CtCounterStimulus;
+  onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
+}) {
+  const segments: Move[][] = [];
+  let at = 0;
+  for (const len of s.segmentLengths) {
+    segments.push(s.sequence.slice(at, at + len));
+    at += len;
+  }
+  return (
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <div className="flex flex-wrap items-center justify-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
+          {segments.map((seg, i) => (
+            <span
+              key={i}
+              className="flex items-center rounded-lg border-2 border-border px-1.5 py-1"
+            >
+              <ArrowRow moves={seg} size={20} />
+            </span>
+          ))}
+          <span className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border-2 border-dashed border-border-pur bg-tint-pur/40 px-2 text-xl font-bold text-pur">
+            ?
+          </span>
+        </div>
+      }
+      options={s.options.map((seg, i) => (
+        <ArrowRow key={i} moves={seg} size={22} />
+      ))}
+      onAnswer={onAnswer}
+    />
+  );
+}
+
+// ── optimize ─────────────────────────────────────────────────────────────────
+
+function CtOptimize({
+  s,
+  onAnswer,
+  minTap,
+}: {
+  s: CtOptimizeStimulus;
+  onAnswer: (f: ResponseFields) => void;
+  minTap?: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onGo(dir.m)}
-      disabled={!enabled}
-      aria-label={dir.label}
-      className={cn(
-        "flex size-12 items-center justify-center rounded-card border-2 outline-none",
-        "focus-visible:ring-[3px] focus-visible:ring-focus",
-        enabled
-          ? "border-pur bg-surface hover:bg-tint-pur"
-          : "border-border bg-disabled-bg opacity-50",
-      )}
-    >
-      <ArrowGlyph
-        move={dir.m}
-        size={26}
-        color={enabled ? "#762D90" : "#A99CB3"}
-      />
-    </button>
+    <OptionPicker
+      minTap={minTap}
+      stimulus={
+        <div className="flex flex-col items-center gap-3">
+          <TileBoard
+            size={s.gridSize}
+            start={s.start}
+            goal={s.goal}
+            obstacles={s.obstacles}
+          />
+          {/* the working-but-wasteful program the child should better */}
+          <div className="flex items-center gap-2 rounded-card border border-dashed border-border bg-surface px-3 py-2 opacity-80">
+            <ArrowRow moves={s.redundantProgram} size={20} />
+          </div>
+        </div>
+      }
+      options={s.options.map((prog, i) => (
+        <ArrowRow key={i} moves={prog} size={22} />
+      ))}
+      onAnswer={onAnswer}
+    />
   );
 }
 
@@ -459,22 +548,32 @@ function DpadButton({
 export function CtTask({
   item,
   onAnswer,
+  age,
 }: {
   item: CtItem;
   onAnswer: (fields: ResponseFields) => void;
   practice?: boolean;
+  age?: number;
 }) {
+  const minTap = age !== undefined ? uxForAge(age).minTapPx : 44;
   const s = item.stimulus;
   switch (s.subtype) {
     case "sequence":
-      return <CtSequence s={s} onAnswer={onAnswer} />;
+      return <CtSequence s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "debug":
-      return <CtDebug s={s} onAnswer={onAnswer} />;
+      return <CtDebug s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "loop":
-      return <CtLoop s={s} onAnswer={onAnswer} />;
+      return <CtLoop s={s} onAnswer={onAnswer} minTap={minTap} />;
+    case "loopEvent":
+      return <CtLoopEvent s={s} onAnswer={onAnswer} minTap={minTap} />;
     case "condition":
-      return <CtCondition s={s} onAnswer={onAnswer} />;
-    case "maze":
-      return <CtMaze s={s} onAnswer={onAnswer} />;
+    case "conditionLoop":
+      return <CtCondition s={s} onAnswer={onAnswer} minTap={minTap} />;
+    case "nestedLoop":
+      return <CtNestedLoop s={s} onAnswer={onAnswer} minTap={minTap} />;
+    case "counter":
+      return <CtCounter s={s} onAnswer={onAnswer} minTap={minTap} />;
+    case "optimize":
+      return <CtOptimize s={s} onAnswer={onAnswer} minTap={minTap} />;
   }
 }
