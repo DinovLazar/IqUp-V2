@@ -183,12 +183,48 @@ const SAMPLES: { label: string; item: Item; rounds?: number }[] = [
     }),
   },
   {
-    label: "CT · лавиринт",
+    label: "CT · циклус + настан",
     item: generateItem({
       signal: "ct",
-      level: 3,
-      seed: "kit-ct-maze",
-      subtype: "maze",
+      level: 5,
+      seed: "kit-ct-levt",
+      subtype: "loopEvent",
+    }),
+  },
+  {
+    label: "CT · услов + циклус",
+    item: generateItem({
+      signal: "ct",
+      level: 7,
+      seed: "kit-ct-cl",
+      subtype: "conditionLoop",
+    }),
+  },
+  {
+    label: "CT · вгнезден циклус",
+    item: generateItem({
+      signal: "ct",
+      level: 8,
+      seed: "kit-ct-nest",
+      subtype: "nestedLoop",
+    }),
+  },
+  {
+    label: "CT · бројач",
+    item: generateItem({
+      signal: "ct",
+      level: 9,
+      seed: "kit-ct-cnt",
+      subtype: "counter",
+    }),
+  },
+  {
+    label: "CT · најкраток пат",
+    item: generateItem({
+      signal: "ct",
+      level: 10,
+      seed: "kit-ct-opt",
+      subtype: "optimize",
     }),
   },
 ];

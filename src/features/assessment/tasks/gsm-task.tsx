@@ -8,18 +8,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { corsiResponse, type ResponseFields } from "./view";
 
-// Gsm — Memory (Corsi span). Watch a sequence flash on the fixed 6-tile board
-// (~700 ms/tile, from item.meta), then tap it back — forward, or reversed for
-// backward. The child controls when the flash starts ("Покажи ми"); tap order is
-// captured verbatim, so backward is judged by the engine, not pre-reversed here.
+// Gsm — Memory (Corsi span, calibration v2). Watch a sequence flash on the
+// board (6 tiles at ages 5–6, the canonical 9-tile Corsi layout from 7; 700 ms
+// highlight + 400 ms ISI from item.meta), then tap it back — forward, or
+// reversed for backward. The child controls when the flash starts ("Покажи
+// ми"); tap order is captured verbatim, so backward is judged by the engine,
+// not pre-reversed here.
 //
-// The board is a backdrop SVG for the flash visuals + real <button> tiles for the
-// taps, so the only control for answering this scored task is keyboard-operable,
-// named, and focus-visible — like every other control in the flow.
+// The highlight state uses SCALE + a glow ring + a fill change — never colour
+// alone (a11y). The board is a backdrop SVG for the flash visuals + real
+// <button> tiles for the taps, so the only control for answering this scored
+// task is keyboard-operable, named, and focus-visible.
 
 type Phase = "ready" | "watch" | "input";
-
-const ON_RATIO = 0.72;
 
 export function GsmTask({
   item,
@@ -33,7 +34,12 @@ export function GsmTask({
   const tc = useTranslations("common");
   const ta = useTranslations("a11y");
   const { tiles, sequence } = item.stimulus;
-  const presentationMs = item.meta.presentationMs;
+  const { presentationMs, isiMs } = item.meta;
+  // The young 6-tile board keeps larger tiles (≥72px); the 9-tile board stays
+  // ≥48px — the age-banded UX minimums ride on the board size.
+  const young = tiles.length <= 6;
+  const half = young ? 9 : 7.5;
+  const minTap = young ? 72 : 48;
 
   const [phase, setPhase] = React.useState<Phase>("ready");
   const [active, setActive] = React.useState<number | null>(null);
@@ -50,13 +56,13 @@ export function GsmTask({
     clearTimers();
     setTaps([]);
     setPhase("watch");
-    const onMs = presentationMs * ON_RATIO;
-    const offMs = presentationMs * (1 - ON_RATIO);
     let at = 400;
     sequence.forEach((tile) => {
       timers.current.push(setTimeout(() => setActive(tile), at));
-      timers.current.push(setTimeout(() => setActive(null), at + onMs));
-      at += onMs + offMs;
+      timers.current.push(
+        setTimeout(() => setActive(null), at + presentationMs),
+      );
+      at += presentationMs + isiMs;
     });
     timers.current.push(
       setTimeout(() => {
@@ -81,7 +87,7 @@ export function GsmTask({
   return (
     <div className="flex w-full flex-col items-center gap-5">
       <div
-        className="relative mx-auto aspect-square w-full max-w-[300px] rounded-card border border-border bg-bg"
+        className="relative mx-auto aspect-square w-full max-w-[320px] rounded-card border border-border bg-bg"
         role="group"
         aria-label="Корси табла"
       >
@@ -94,13 +100,28 @@ export function GsmTask({
           {tiles.map((tile, i) => {
             const isActive = active === i;
             const rank = tapRank(i);
+            const h = isActive ? half * 1.18 : half; // scale on highlight
             return (
               <g key={i}>
+                {isActive && (
+                  // glow ring — the highlight is never colour alone
+                  <rect
+                    x={tile.x - h - 2.4}
+                    y={tile.y - h - 2.4}
+                    width={(h + 2.4) * 2}
+                    height={(h + 2.4) * 2}
+                    rx={5.5}
+                    fill="none"
+                    stroke="#00B9AD"
+                    strokeOpacity={0.35}
+                    strokeWidth={3.5}
+                  />
+                )}
                 <rect
-                  x={tile.x - 9}
-                  y={tile.y - 9}
-                  width={18}
-                  height={18}
+                  x={tile.x - h}
+                  y={tile.y - h}
+                  width={h * 2}
+                  height={h * 2}
                   rx={4}
                   fill={isActive ? "#00B9AD" : rank ? "#D2F3F0" : "#FFFFFF"}
                   stroke={isActive ? "#007D75" : rank ? "#00B9AD" : "#EAE6E0"}
@@ -140,10 +161,10 @@ export function GsmTask({
             style={{
               left: `${tile.x}%`,
               top: `${tile.y}%`,
-              width: "19%",
-              height: "19%",
-              minWidth: 44,
-              minHeight: 44,
+              width: `${half * 2}%`,
+              height: `${half * 2}%`,
+              minWidth: minTap,
+              minHeight: minTap,
             }}
           />
         ))}

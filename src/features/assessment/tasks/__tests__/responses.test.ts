@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   generateItem,
   isGv,
-  type CtSubtype,
+  type CtFamily,
   type GvItem,
   type Item,
 } from "@/features/tasks";
@@ -24,12 +24,16 @@ import {
 } from "../view";
 
 const TIMING = { elapsedMs: 4_000 };
-const CT_SUBTYPES: CtSubtype[] = [
+const CT_FAMILIES: CtFamily[] = [
   "sequence",
   "debug",
   "loop",
+  "loopEvent",
   "condition",
-  "maze",
+  "conditionLoop",
+  "nestedLoop",
+  "counter",
+  "optimize",
 ];
 
 /** A broad, deterministic sample across every signal + variant. */
@@ -87,7 +91,7 @@ function buildSample(): Item[] {
     items.push(generateItem({ signal: "gs", level: 5, seed: `gs-${s}` }));
     items.push(generateItem({ signal: "ef", level: 6, seed: `ef-${s}` }));
     items.push(generateItem({ signal: "glr", level: 4, seed: `glr-${s}` }));
-    for (const subtype of CT_SUBTYPES) {
+    for (const subtype of CT_FAMILIES) {
       items.push(
         generateItem({
           signal: "ct",

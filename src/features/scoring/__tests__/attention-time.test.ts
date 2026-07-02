@@ -10,7 +10,7 @@ describe("derived attention (Дел 3.1 #5 / Дел 4 / Дел 8)", () => {
     const items = Array.from({ length: 4 }, () =>
       gradedItem({ signal: "gf", correct: true, effectiveTimeMs: 4_000 }),
     );
-    const a = deriveAttention(items);
+    const a = deriveAttention(items, 9);
     expect(a.timeVariability).toBe(0);
     expect(a.impulsiveErrorRate).toBe(0);
     expect(a.score).toBe(1);
@@ -20,7 +20,7 @@ describe("derived attention (Дел 3.1 #5 / Дел 4 / Дел 8)", () => {
     const items = [2_000, 4_000, 6_000, 8_000].map((t) =>
       gradedItem({ signal: "gf", correct: true, effectiveTimeMs: t }),
     );
-    const a = deriveAttention(items);
+    const a = deriveAttention(items, 9);
     expect(a.timeVariability).toBeGreaterThan(0);
     expect(a.score).toBeLessThan(1);
   });
@@ -34,7 +34,7 @@ describe("derived attention (Дел 3.1 #5 / Дел 4 / Дел 8)", () => {
         effectiveTimeMs: 300,
       }),
     );
-    const a = deriveAttention(items);
+    const a = deriveAttention(items, 9);
     expect(a.impulsiveErrorRate).toBe(1);
     expect(a.score).toBe(0);
   });

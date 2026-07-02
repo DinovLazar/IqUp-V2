@@ -40,10 +40,10 @@ describe("result feeds the 1.03 UI kit with no adapter", () => {
     }
   });
 
-  it("meta carries the versions + honest seed-norm stage", () => {
+  it("meta carries the v2 versions + the pre-pilot norms stage", () => {
     expect(r.meta.normsStage).toBe("seed");
-    expect(r.meta.scoringVersion).toBe("1.0.0");
-    expect(r.meta.normsVersion).toBe("1.0.0");
-    expect(r.meta.taskBankVersion).toBe("1.0.0");
+    expect(r.meta.scoringVersion).toBe("2.0.0");
+    expect(r.meta.normsVersion).toBe("2.0.0");
+    expect(r.meta.taskBankVersion).toBe("2.0.0");
   });
 });

@@ -1,26 +1,34 @@
 /**
- * Validity flags + graduated session verdict (spec Дел 7.1). Flags guard against a
- * confident profile built on garbage data; they are quality metadata, never framed
- * negatively toward the child (this layer emits codes only — wording is 1.07).
+ * Validity flags + graduated session verdict (spec Дел 7.1, calibration v2).
+ * Flags guard against a confident profile built on garbage data; they are
+ * quality metadata, never framed negatively toward the child (this layer emits
+ * codes only — wording is 1.07).
  *
- *   too_fast        > 30% of answers under ~500 ms        → STRONG  (session)
- *   same_position   > 60% of MC answers same option slot  → mild
- *   idle_pauses     > N excluded long idle gaps           → mild
- *   gs_mashing      ~all Gs cells tapped                  → mild    (Gs only)
- *   random_accuracy a whole MC domain at chance level     → mild    (per signal)
+ *   too_fast        > age band's COMMISSION cut-off of answers under ~500 ms
+ *                                                          → STRONG (session)
+ *   same_position   > 60% of MC answers same option slot   → mild
+ *   idle_pauses     > N excluded long idle gaps            → mild
+ *   gs_mashing      ~all Gs cells tapped                   → mild (Gs only)
+ *   gs_omission     > age band's OMISSION cut-off of Gs targets missed
+ *                                                          → mild (Gs only)
+ *   random_accuracy a whole MC domain at chance level      → mild (per signal)
  *
- * Verdict: any strong flag ⇒ `strong` (no confident profile, 1.06 shows retry);
- * else any flag ⇒ `mild` (usable, soft note); else `ok`.
+ * v2: the too-fast and omission cut-offs are AGE-BANDED (ATTENTION_BANDS,
+ * [provisional]); chance accuracy follows the age's option-count clamp.
+ *
+ * Verdict: any strong flag ⇒ `strong` (no confident profile, the UI shows the
+ * graceful retry); else any flag ⇒ `mild` (usable, soft note); else `ok`.
  */
 
 import {
-  CHANCE_ACCURACY_4OPT,
   GS_MASHING_FRACTION,
+  GS_TYPICAL_MISS_FRACTION,
   MAX_IDLE_PAUSES,
   RANDOM_ACCURACY_DELTA,
   RANDOM_ACCURACY_MIN_ITEMS,
   SAME_POSITION_FRACTION,
-  TOO_FAST_FRACTION_STRONG,
+  attentionBand,
+  chanceAccuracyForAge,
   type ScoredSignal,
 } from "@/content/norms";
 import type { GradedItem } from "@/features/assessment/types";
@@ -38,14 +46,16 @@ export interface ValidityResult {
 /** Compute validity flags + verdict from every graded item in the session. */
 export function computeValidity(
   allItems: readonly GradedItem[],
+  age: number,
 ): ValidityResult {
+  const band = attentionBand(age);
   const flags: ValidityFlag[] = [];
   const total = allItems.length;
 
-  // too-fast — > 30% of answers under the RT floor ⇒ strong.
+  // too-fast — more than the band's commission cut-off under the RT floor ⇒ strong.
   if (total > 0) {
     const tooFast = allItems.filter((it) => it.tooFast).length;
-    if (tooFast / total > TOO_FAST_FRACTION_STRONG) {
+    if (tooFast / total > band.commission) {
       flags.push({ code: "too_fast", severity: "strong" });
     }
   }
@@ -69,20 +79,40 @@ export function computeValidity(
     flags.push({ code: "idle_pauses", severity: "mild" });
   }
 
-  // Gs mashing — tapping ~all cells invalidates the speed grid.
-  const gsItem = allItems.find((it) => it.signal === "gs");
-  if (gsItem?.gs && gsItem.gs.cellCount > 0) {
-    if (gsItem.gs.tappedCount / gsItem.gs.cellCount >= GS_MASHING_FRACTION) {
+  // Gs mashing + omission — over the scored rounds together.
+  const gsItems = allItems.filter((it) => it.signal === "gs" && it.gs);
+  if (gsItems.length > 0) {
+    let tapped = 0;
+    let cells = 0;
+    let found = 0;
+    let targets = 0;
+    for (const it of gsItems) {
+      tapped += it.gs!.tappedCount;
+      cells += it.gs!.cellCount;
+      found += it.gs!.found;
+      targets += it.gs!.targetCount;
+    }
+    if (cells > 0 && tapped / cells >= GS_MASHING_FRACTION) {
       flags.push({ code: "gs_mashing", signal: "gs", severity: "mild" });
+    }
+    // Symbol search is throughput-scored (a typical child leaves ~35% of the
+    // grid uncleared), so the CPT-derived omission cut-off applies to misses
+    // BEYOND that typical baseline.
+    if (
+      targets > 0 &&
+      1 - found / targets > GS_TYPICAL_MISS_FRACTION + band.omission
+    ) {
+      flags.push({ code: "gs_omission", signal: "gs", severity: "mild" });
     }
   }
 
   // random-level accuracy across a whole MC domain ⇒ reduced confidence (per signal).
+  const chance = chanceAccuracyForAge(age);
   for (const signal of MC_SIGNALS) {
     const items = allItems.filter((it) => it.signal === signal);
     if (items.length >= RANDOM_ACCURACY_MIN_ITEMS) {
       const acc = correctCount(items) / items.length;
-      if (Math.abs(acc - CHANCE_ACCURACY_4OPT) <= RANDOM_ACCURACY_DELTA) {
+      if (Math.abs(acc - chance) <= RANDOM_ACCURACY_DELTA) {
         flags.push({ code: "random_accuracy", signal, severity: "mild" });
       }
     }

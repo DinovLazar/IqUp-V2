@@ -8,10 +8,12 @@ import { AnswerOption } from "@/components/ui/answer-option";
 import { Button } from "@/components/ui/button";
 import { buildGvView, choiceResponse, type ResponseFields } from "./view";
 
-// Gv — Spatial. Mental rotation (pick the option that is the prompt shape, just
-// rotated) or odd-one-out (pick the mirror). Polygons come from `buildGvView`,
-// which scales every option by ONE factor so a pure rotation reads as same-size —
-// orientation is the only cue. Uniform fill (no colour cue to the answer).
+// Gv — Spatial (calibration v2). Mental rotation or odd-one-out over structured
+// BLOCK FIGURES (polyomino outlines from the generator — crisp, test-grade
+// shapes where mirror foils are fair but demanding). Polygons come from
+// `buildGvView`, which scales every option by ONE factor so a pure rotation
+// reads as same-size — orientation is the only cue. Uniform single-tone fill +
+// consistent outline (no colour cue to the answer).
 
 function Polygon({ path, box }: { path: string; box: number }) {
   return (
@@ -61,7 +63,12 @@ export function GvTask({
         </div>
       )}
 
-      <div className="grid w-full max-w-md grid-cols-2 gap-3 sm:grid-cols-4">
+      <div
+        className="grid w-full max-w-md gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${Math.min(view.options.length, 4)}, minmax(0, 1fr))`,
+        }}
+      >
         {view.options.map((opt) => (
           <AnswerOption
             key={opt.index}

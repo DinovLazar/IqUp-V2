@@ -13,7 +13,6 @@ import type {
   CtItem,
   EfItem,
   Item,
-  Move,
   TowerMove,
   TowerState,
 } from "@/features/tasks";
@@ -26,9 +25,6 @@ import type {
 
 const numbersEqual = (a: readonly number[], b: readonly number[]): boolean =>
   a.length === b.length && a.every((v, i) => v === b[i]);
-
-const movesEqual = (a: readonly Move[], b: readonly Move[]): boolean =>
-  a.length === b.length && a.every((m, i) => m === b[i]);
 
 const towerEqual = (a: TowerState, b: TowerState): boolean =>
   a.length === b.length && a.every((peg, i) => numbersEqual(peg, b[i]));
@@ -50,7 +46,7 @@ function applyTowerMoves(
   return state;
 }
 
-/** Correctness of a CT response against its (sub-type-specific) verified key. */
+/** Correctness of a CT response against its (family-specific) verified key. */
 function gradeCt(
   item: CtItem,
   r: Extract<RawResponse, { signal: "ct" }>,
@@ -64,10 +60,6 @@ function gradeCt(
       };
     case "stepIndex":
       return { correct: r.stepIndex === answer.value };
-    case "path":
-      return {
-        correct: r.path !== undefined && movesEqual(r.path, answer.moves),
-      };
   }
 }
 

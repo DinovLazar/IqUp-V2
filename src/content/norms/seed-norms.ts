@@ -1,26 +1,37 @@
 /**
- * Seed norms & scoring config — the SINGLE tuning surface for Phase 1.05.
+ * Norms & scoring config — CALIBRATION v2 (Phase 2.06).
  *
- * Every tunable number the adaptive engine and the scoring layer use lives here,
- * and EVERY value is a **seed / initial reference value** (spec Дел 6.6 / Дел
- * 19.4): a defensible starting point to be **recalibrated** from pilot data and
- * the anonymous score corpus. Nothing here is a measured norm yet — that is what
- * `normsStage: "seed"` in the result announces.
+ * (The filename keeps its 1.05 name to avoid an import churn; the "seed" framing
+ * is superseded: as of v2 the start levels, expectations, caps and thresholds are
+ * grounded in published developmental research — Raven's CPM medians, Corsi
+ * normative studies (Farrell Pagulayan 2006; Isaacs & Vargha-Khadem 1989;
+ * Kessels 2008), WISC-V speeded-subtest scaling, Tower of London child norms,
+ * KABC-II paired-associate tradition, Bebras/CSTA bands, and RT-variability
+ * development research. Values that are interpolated/extrapolated rather than
+ * directly research-backed are marked `[provisional]` and registered in
+ * {@link PROVISIONAL_NORMS} — the Phase-3 pilot-recalibration worklist.)
  *
  * Like the rest of the engine this is PURE DATA: no randomness, no clock, no env.
  * Age-keyed tables are accessed through the small `byAge` helper, which clamps
  * the age into the supported 5–13 band first.
- *
- * Seed sources / rationale are logged in `Decisions.md` (D-054 … D-060).
  */
 
 import type { IndexKey } from "@/lib/indices";
 import type { Signal } from "@/features/tasks";
+import {
+  GSM_BACKWARD_FROM_AGE,
+  WEIGHT_BY_LEVEL,
+  clampLevel,
+  uxForAge,
+} from "@/content/tasks/levels";
 
-/** Bumped when a scoring formula or composite changes (carried in result.meta). */
-export const SCORING_VERSION = "1.0.0";
-/** Bumped when any seed norm / threshold here changes (carried in result.meta). */
-export const NORMS_VERSION = "1.0.0";
+/** Bumped when a scoring formula or composite changes (carried in result.meta).
+ * v2: level-weighted EF/Glr scores, per-age accuracy anchors, banded attention
+ * normalisation, Corsi backward offset 2 → 0.5, two-round Gs aggregation. */
+export const SCORING_VERSION = "2.0.0";
+/** Bumped when any norm / threshold here changes (carried in result.meta).
+ * v2 = the research calibration; MAJOR because items + answer keys change. */
+export const NORMS_VERSION = "2.0.0";
 
 /** Supported age band (years). Ages outside are clamped in. */
 export const AGE_MIN = 5;
@@ -35,7 +46,7 @@ export function clampAge(age: number): number {
   return Math.min(AGE_MAX, Math.max(AGE_MIN, Math.round(age)));
 }
 
-/** An age-keyed seed table (ages 5–13). */
+/** An age-keyed table (ages 5–13). */
 export type AgeTable<T> = Readonly<Record<number, T>>;
 
 /** Read an age-keyed table with the age clamped into range first. */
@@ -44,63 +55,117 @@ export function byAge<T>(table: AgeTable<T>, age: number): T {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADAPTIVE — start levels, span expectations, caps, termination
+// PROVISIONAL-NORMS REGISTER (v2 §10) — the Phase-3 pilot recalibration worklist
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * SEED — start level by age for the laddered domains (spec Дел 5 / Прилог A, the
- * Gf table). Used as the **shared default for every level-laddered domain** (Gf,
- * Gv, EF, CT). The Gf curve as a shared start default beyond Gf is a seed
- * assumption (D-054): per-domain start curves should be split out once pilot data
- * shows the domains diverge.
- */
-export const START_LEVEL_BY_AGE: AgeTable<number> = {
-  5: 1,
-  6: 2,
-  7: 2,
-  8: 3,
-  9: 4,
-  10: 5,
-  11: 6,
-  12: 7,
-  13: 8,
-};
+export interface ProvisionalNorm {
+  /** Stable key — the completeness test pins the exact set. */
+  key: string;
+  /** What is provisional and why (interpolated / extrapolated / tuned). */
+  reason: string;
+}
 
 /**
- * SEED — expected forward Corsi span by age (Прилог B.1). The spec lists half-step
- * bands (e.g. 6→"4–5"); each is resolved **down to the lower integer** (D-055) so
- * the seed expectation sits at the safely-attainable end of the published band —
- * pre-calibration this keeps early results from reading as "below typical."
- *
- *   spec band:  5→4  6→4-5  7→5  8→5  9→5-6  10→6  11→6  12→6-7  13→7
- *   resolved:   5→4  6→4    7→5  8→5  9→5    10→6  11→6  12→6    13→7
+ * Every norm value below that is interpolated/extrapolated/tuned rather than
+ * directly research-backed. Pilot recalibration (Phase 3) works this list off;
+ * a norms test asserts the register is non-empty and lists exactly these keys.
+ */
+export const PROVISIONAL_NORMS: readonly ProvisionalNorm[] = [
+  {
+    key: "corsi-expected-span-ages-8-13",
+    reason:
+      "Ages 8–13 interpolated between the Isaacs & Vargha-Khadem age-7 point (4.1) and the Farrell Pagulayan grade-8 endpoint (6.9 plateau).",
+  },
+  {
+    key: "corsi-backward-offset",
+    reason:
+      "Kessels 2008 shows Corsi backward ≈ forward; the 0.5 offset is a conservative estimate, not a published value (the old 2 was a digit-span convention).",
+  },
+  {
+    key: "glr-ladder-starts-expectations",
+    reason:
+      "KABC-II per-age pair counts are proprietary; the whole Glr ladder, start levels and expectations are reconstructed from the PAL literature.",
+  },
+  {
+    key: "attention-cv-bands",
+    reason:
+      "Per-age RT-CV bands are inferred from group means (ABCD, SART/flanker studies); no published clean age-banded tables exist.",
+  },
+  {
+    key: "attention-omission-commission-cutoffs",
+    reason:
+      "Omission/commission validity cut-offs extrapolated from CPT error-rate development; not directly normed.",
+  },
+  {
+    key: "gs-expected-net-per-min",
+    reason:
+      "Derived from the v2 per-age grid geometry assuming a typical child clears ~60–70% of targets; pilot-calibrate.",
+  },
+  {
+    key: "accuracy-index-anchors",
+    reason:
+      "The accuracy scale (75) and the closed-form expected weighted accuracy per signal/age (incl. the attention expected score 0.5) are tuned so a typical staircase run lands at index ≈ 50 — they are anchor constants, not research-given.",
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADAPTIVE — per-signal start levels, caps, termination (v2 §0–§8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Every laddered signal (all but the fixed-by-age, speeded Gs). */
+export type LadderedSignal = Exclude<Signal, "gs">;
+
+/**
+ * v2 per-signal start levels (replaces the shared START_LEVEL_BY_AGE — the
+ * research shows starts differ by domain; a 13-year-old starts Gf at L7 but CT
+ * at L9). Glr values are [provisional] (see PROVISIONAL_NORMS).
+ */
+export const START_LEVELS: Readonly<Record<LadderedSignal, AgeTable<number>>> =
+  {
+    gf: { 5: 1, 6: 1, 7: 2, 8: 3, 9: 4, 10: 5, 11: 6, 12: 6, 13: 7 },
+    gv: { 5: 1, 6: 2, 7: 3, 8: 4, 9: 5, 10: 6, 11: 7, 12: 8, 13: 8 },
+    gsm: { 5: 1, 6: 2, 7: 2, 8: 3, 9: 4, 10: 4, 11: 5, 12: 6, 13: 6 },
+    ef: { 5: 1, 6: 1, 7: 3, 8: 3, 9: 4, 10: 5, 11: 6, 12: 7, 13: 7 },
+    glr: { 5: 1, 6: 1, 7: 3, 8: 3, 9: 4, 10: 6, 11: 6, 12: 7, 13: 7 },
+    ct: { 5: 1, 6: 2, 7: 3, 8: 4, 9: 5, 10: 6, 11: 7, 12: 8, 13: 9 },
+  };
+
+/** Start level for a laddered signal at a (clamped) age. */
+export function startLevel(signal: LadderedSignal, age: number): number {
+  return byAge(START_LEVELS[signal], age);
+}
+
+/**
+ * v2 expected forward Corsi span by age. Ages 5–7 are research points (Farrell
+ * Pagulayan; Isaacs & Vargha-Khadem); ages 8–13 are interpolated [provisional].
  */
 export const EXPECTED_FORWARD_SPAN_BY_AGE: AgeTable<number> = {
-  5: 4,
+  5: 3.5,
   6: 4,
-  7: 5,
-  8: 5,
+  7: 4.1,
+  8: 4.5,
   9: 5,
-  10: 6,
-  11: 6,
-  12: 6,
-  13: 7,
+  10: 5.3,
+  11: 5.5,
+  12: 5.8,
+  13: 6,
 };
 
-/** SEED — backward expected span ≈ forward − this, applied from `BACKWARD_FROM_AGE`. */
-export const BACKWARD_SPAN_OFFSET = 2;
-/** Backward Corsi runs only from this age up (spec Дел 5). */
-export const BACKWARD_FROM_AGE = 8;
-/** Hard span bounds (the 6-tile board comfortably supports up to 9). */
-export const GSM_MIN_SPAN = 2;
-export const GSM_MAX_SPAN = 9;
-
 /**
- * SEED — item caps per laddered domain, by age cluster (spec Дел 5: 5–6 short,
- * 7–9 mid, 10–13 longer; target 4–6 items). Per spec Дел 3.2 the lone-signal
- * indices (Gf→Logic, Gv→Spatial) get a slightly higher cap than the shared-index
- * domains (EF, CT) for stability (D-056).
+ * Corsi backward expectation = forward − this [provisional]. Kessels 2008:
+ * backward is NOT meaningfully harder than forward — the old offset of 2 was a
+ * digit-span convention and is deleted; 0.5 is a conservative Corsi-specific
+ * estimate.
  */
+export const CORSI_BACKWARD_OFFSET = 0.5;
+
+/** Backward Corsi runs only from this age (single source: the task-bank config). */
+export const BACKWARD_FROM_AGE = GSM_BACKWARD_FROM_AGE;
+
+/** Top span the v2 Gsm ladder reaches (L9/L10 length 7) — the ceiling marker. */
+export const GSM_MAX_SPAN = 7;
+
+/** Age clusters (battery length + session guards). */
 export type AgeCluster = "young" | "mid" | "older";
 
 /** Map an age to its battery-length cluster. */
@@ -111,15 +176,18 @@ export function ageCluster(age: number): AgeCluster {
   return "older";
 }
 
-/** SEED — lone-signal laddered domains (their index rests on one signal). */
+/** Lone-signal laddered domains (their index rests on one signal) get +1 cap. */
 export const LONE_SIGNAL_DOMAINS: readonly Signal[] = ["gf", "gv"];
 
-/** SEED — item caps: lone-signal domains slightly higher than shared ones. */
+/**
+ * v2 item caps (scored items per laddered domain, §0): sized to land inside the
+ * attention-span session guards (young ≈ 8–10 min, mid ≈ 12–14, older ≈ 16–18).
+ */
 export const ITEM_CAPS: Readonly<
   Record<"lone" | "shared", Record<AgeCluster, number>>
 > = {
-  lone: { young: 5, mid: 6, older: 6 },
-  shared: { young: 4, mid: 5, older: 5 },
+  lone: { young: 5, mid: 6, older: 7 },
+  shared: { young: 4, mid: 5, older: 6 },
 };
 
 /** Item cap for a laddered domain at an age. */
@@ -128,65 +196,17 @@ export function itemCap(signal: Signal, age: number): number {
   return ITEM_CAPS[kind][ageCluster(age)];
 }
 
-/** SEED — terminate a laddered domain after this many consecutive errors (spec Дел 5). */
+/** Terminate a laddered domain after this many consecutive errors (post-basal). */
 export const CEILING_CONSECUTIVE_ERRORS = 2;
-/** SEED — terminate a Corsi direction after this many consecutive errors. */
-export const SPAN_CEILING_CONSECUTIVE_ERRORS = 2;
+
 /**
- * SEED — backstop trial cap per Corsi direction. The consecutive-error rule
- * normally ends a direction first, but a child sitting exactly at their span
- * boundary oscillates pass/fail and never hits two errors in a row — this caps
- * that staircase so a direction never runs long (worst case 6 + 6 from age 8).
+ * Backstop trial cap per Corsi direction (kept from v1): the v2 item caps end
+ * the domain first in practice, but no direction may ever run past this.
  */
 export const GSM_MAX_TRIALS_PER_DIRECTION = 6;
 
 /**
- * SEED — Gs grid level by age (the grid grows 18→28 cells across the 1.04 Gs level
- * table; Прилог A.4). Gs is administered as ONE timed grid sized by age, not a
- * ladder, so age picks a fixed level row.
- */
-export const GS_LEVEL_BY_AGE: AgeTable<number> = {
-  5: 1,
-  6: 2,
-  7: 3,
-  8: 4,
-  9: 5,
-  10: 6,
-  11: 7,
-  12: 8,
-  13: 9,
-};
-
-/**
- * SEED — Glr difficulty level by age (pairs grow 4→8 across the 1.04 Glr level
- * table; Прилог A.6) and the number of recall rounds (spec: 2–3). Younger ⇒ 2
- * rounds, 9+ ⇒ 3 rounds (D-057).
- */
-export const GLR_LEVEL_BY_AGE: AgeTable<number> = {
-  5: 1,
-  6: 2,
-  7: 3,
-  8: 4,
-  9: 5,
-  10: 6,
-  11: 7,
-  12: 8,
-  13: 9,
-};
-export const GLR_ROUNDS_BY_AGE: AgeTable<number> = {
-  5: 2,
-  6: 2,
-  7: 2,
-  8: 2,
-  9: 3,
-  10: 3,
-  11: 3,
-  12: 3,
-  13: 3,
-};
-
-/**
- * SEED — the order domains are administered (spec Дел 5 leaves the order open).
+ * The order domains are administered (spec Дел 5 leaves the order open).
  * Interleaves heavy reasoning (Gf) with lighter memory/spatial/speed beats so the
  * battery doesn't front-load fatigue. Tunable; deterministic regardless (D-058).
  */
@@ -205,58 +225,96 @@ export const DOMAIN_ORDER: readonly Signal[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * SEED — an idle gap longer than this (ms) is treated as a real pause and excluded
+ * An idle gap longer than this (ms) is treated as a real pause and excluded
  * from a task's effective time (spec Дел 8 rule 3 / Дел 7.1). Set above the
- * ~20–25 s gentle-nudge window so only inactivity that *continues past* the nudge
- * is formally excluded (D-059).
+ * ~20–25 s gentle-nudge window so only inactivity that *continues past* the
+ * nudge is formally excluded (D-059). Unchanged in v2.
  */
 export const IDLE_GAP_EXCLUDE_MS = 30_000;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RAW → 0–100 INDEX (spec Дел 6.2 / Прилог B.2) — three formula families
+// RAW → 0–100 INDEX (v2) — three formula families, anchored so 50 = typical
+// for the EXACT age under the v2 ladders and start levels.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Every signal index is clamped into this band; the number is never shown raw. */
 export const INDEX_MIN = 8;
 export const INDEX_MAX = 99;
 
-/** accuracy family: index = base + accuracy_weighted · scale  (1.0 → 95). */
-export const ACCURACY_INDEX = { base: 20, scale: 75 } as const;
-/** span family: index = base + (span − expected) · perUnit  (span = expected → 50). */
+/**
+ * accuracy family (v2): index = center + (acc − expectedAcc(signal, age)) · scale.
+ * `expectedAcc` is the closed-form typical staircase outcome (see
+ * {@link expectedWeightedAccuracy}), so a typical child lands at ≈ 50 at every
+ * age. The scale is an anchor constant [provisional].
+ */
+export const ACCURACY_INDEX = { center: 50, scale: 75 } as const;
+/** span family: index = base + (span − expected) · perUnit (span = expected → 50). */
 export const SPAN_INDEX = { base: 50, perUnit: 14 } as const;
-/** speed family: index = base + (netPerMin − expected) · perUnit  (= expected → 50). */
+/** speed family: index = base + (netPerMin − expected) · perUnit (= expected → 50). */
 export const SPEED_INDEX = { base: 50, perUnit: 6 } as const;
 
-/** Which raw→index family each scored signal uses (D-060 marks the seed mappings). */
+/** Which raw→index family each scored signal uses. */
 export const INDEX_FAMILY: Readonly<
   Record<ScoredSignal, "accuracy" | "span" | "speed">
 > = {
   gf: "accuracy",
   gv: "accuracy",
   ct: "accuracy",
-  ef: "accuracy", // SEED: EF efficiency ratio (minMoves/moves) mapped to accuracy family
-  glr: "accuracy", // SEED: Glr recall accuracy mapped to accuracy family
-  attention: "accuracy", // SEED: attention 0–1 score mapped to accuracy family
+  ef: "accuracy", // level-weighted planning efficiency (v2)
+  glr: "accuracy", // level-weighted recall accuracy (v2)
+  attention: "accuracy",
   gsm: "span",
   gs: "speed",
 };
 
+/** The attention score of a typical child (CV at band midpoint, no impulsive
+ * errors) — the accuracy-family anchor for the derived signal [provisional]. */
+export const ATTENTION_EXPECTED_SCORE = 0.5;
+
 /**
- * SEED — expected Gs net throughput in (correct − 0.5·errors) per MINUTE, by age.
- * The spec gives the Gs raw score but not an expected rate, so this whole table is
- * a seed (D-060). Per-minute units keep the ×6 speed multiplier in a sensible
- * range (a few items/min off typical ⇒ a meaningful, not explosive, index shift).
+ * Closed-form expected level-weighted accuracy of a TYPICAL child for a
+ * laddered accuracy-family signal at an age: the child alternates pass (at the
+ * start level S) / fail (at S+1) up to the item cap, with basal credit for
+ * every level below S. Used as the per-signal, per-age accuracy anchor so a
+ * typical run maps to index ≈ 50 [provisional — anchor construction, not a
+ * research value].
+ */
+export function expectedWeightedAccuracy(
+  signal: Exclude<LadderedSignal, "gsm">,
+  age: number,
+): number {
+  const s = startLevel(signal, age);
+  const cap = itemCap(signal, age);
+  const passes = Math.ceil(cap / 2);
+  const fails = Math.floor(cap / 2);
+  const wPass = WEIGHT_BY_LEVEL[clampLevel(s) - 1];
+  const wFail = WEIGHT_BY_LEVEL[clampLevel(s + 1) - 1];
+  let credit = 0;
+  for (let l = 1; l < clampLevel(s); l++) credit += WEIGHT_BY_LEVEL[l - 1];
+  const num = credit + passes * wPass;
+  const den = num + fails * wFail;
+  return den > 0 ? num / den : 0;
+}
+
+/**
+ * v2 expected Gs net throughput in (correct − 0.5·errors) per MINUTE, by age
+ * [provisional — pilot-calibrate]. Derived from the v2 per-age grid table
+ * (GS_BY_AGE): expected = 0.65 · gridTargets(age) · 60 / windowSec(age) — a
+ * typical child clears ~65% of the grid's targets in the window; anchors the
+ * speed index so that child lands at ≈ 50. (Not strictly monotone: the grid's
+ * target count dips where the 1:N density coarsens — a geometry artifact the
+ * pilot will smooth.)
  */
 export const GS_EXPECTED_NET_PER_MIN_BY_AGE: AgeTable<number> = {
-  5: 8,
-  6: 10,
-  7: 12,
-  8: 13,
-  9: 14,
-  10: 16,
-  11: 17,
-  12: 18,
-  13: 20,
+  5: 4,
+  6: 5.5,
+  7: 8,
+  8: 8,
+  9: 9.5,
+  10: 10.5,
+  11: 10,
+  12: 10,
+  13: 11.5,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -284,7 +342,7 @@ export const COMPOSITE_WEIGHTS: Readonly<
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * SEED-but-spec'd band cut-offs (spec Дел 6.4). The enum values
+ * Spec'd band cut-offs (Дел 6.4). The enum values
  * (development/solid/strong/exceptional) match `components/ui/band-label.tsx`
  * exactly so the result feeds the UI kit with no adapter.
  */
@@ -299,7 +357,7 @@ export const BAND_THRESHOLDS = {
 // CONFIDENCE (spec Дел 6.5) — high / medium / low; enum matches confidence-label.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** SEED — laddered/Corsi item counts for the confidence tiers. */
+/** Laddered/Corsi item counts for the confidence tiers. */
 export const CONFIDENCE_ITEMS = {
   /** ≥ this many scored items in a contributing domain ⇒ high evidence. */
   high: 4,
@@ -307,45 +365,91 @@ export const CONFIDENCE_ITEMS = {
   medium: 3,
 } as const;
 
-/** SEED — Glr recall rounds for the confidence tiers. */
+/** Glr recall rounds (summed across items in v2) for the confidence tiers. */
 export const CONFIDENCE_GLR_ROUNDS = { high: 3, medium: 2 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VALIDITY (spec Дел 7.1) — flags + graduated verdict
+// VALIDITY (spec Дел 7.1) — flags + graduated verdict, v2 age-banded
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** SEED — per-item reaction time below this (ms) counts as "too fast" (spec Дел 7.1). */
+/** Per-item reaction time below this (ms) counts as "too fast" (unchanged). */
 export const TOO_FAST_MS = 500;
-/** SEED — > this fraction of answers too-fast ⇒ STRONG session flag (spec: >30%). */
-export const TOO_FAST_FRACTION_STRONG = 0.3;
-/** SEED — > this fraction of multiple-choice answers on the same option position ⇒ flag (spec: >60%). */
+/** > this fraction of MC answers on the same option position ⇒ flag (spec: >60%). */
 export const SAME_POSITION_FRACTION = 0.6;
-/** SEED — more than this many excluded idle pauses ⇒ flag (spec Дел 7.1). */
+/** More than this many excluded idle pauses ⇒ flag (spec Дел 7.1; unchanged). */
 export const MAX_IDLE_PAUSES = 3;
-/** SEED — Gs: tapping ≥ this fraction of all cells ⇒ "mashing" flag on Gs (spec Дел 7.1). */
+/** Gs: tapping ≥ this fraction of all cells ⇒ "mashing" flag on Gs (unchanged). */
 export const GS_MASHING_FRACTION = 0.9;
 
-/** SEED — chance accuracy for a 4-option multiple-choice domain. */
-export const CHANCE_ACCURACY_4OPT = 0.25;
-/** SEED — accuracy within ±this of chance (with enough items) ⇒ random-level ⇒ reduced confidence. */
+/**
+ * The miss fraction a TYPICAL child leaves on the Gs grid (symbol search is
+ * throughput-scored: ~65% capture is normal — unlike CPT go-trials, where the
+ * omission bands originate). The omission validity flag fires only on misses
+ * beyond this baseline + the age band's omission cut-off [provisional].
+ */
+export const GS_TYPICAL_MISS_FRACTION = 0.35;
+
+/**
+ * Chance accuracy for the multiple-choice domains, by age: young ages see at
+ * most 3 options (UX_BY_AGE), so chance is higher for them.
+ */
+export function chanceAccuracyForAge(age: number): number {
+  return 1 / Math.min(4, uxForAge(clampAge(age)).maxOptions);
+}
+/** Accuracy within ±this of chance (with enough items) ⇒ random-level ⇒ flag. */
 export const RANDOM_ACCURACY_DELTA = 0.1;
-/** SEED — minimum scored items before random-level accuracy is judged. */
+/** Minimum scored items before random-level accuracy is judged. */
 export const RANDOM_ACCURACY_MIN_ITEMS = 3;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ATTENTION (derived signal — spec Дел 3.1 #5 / Дел 4 / Дел 8)
+// ATTENTION (derived signal) — v2 age-banded (all [provisional — extrapolated])
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface AttentionBand {
+  /** Inclusive age range this band covers. */
+  ages: readonly [number, number];
+  /** Expected RT coefficient-of-variation range on go items. */
+  cv: readonly [number, number];
+  /** Omission flag: Gs target-miss fraction above this ⇒ validity flag. */
+  omission: number;
+  /** Commission flag: too-fast answer fraction above this ⇒ strong flag. */
+  commission: number;
+}
+
 /**
- * SEED — attention = clamp01(1 − normVariability − impulsiveErrorRate), where
- * normVariability = min(1, CV / cvCap) and CV is the coefficient of variation of
- * effective times across the reasoning items below.
+ * v2 per-age-band attention/validity thresholds [provisional — extrapolated
+ * from group means; see PROVISIONAL_NORMS]. The attention signal normalises
+ * its CV against the band midpoint; the Дел 7.1 flags use the omission /
+ * commission cut-offs instead of flat values.
  */
+export const ATTENTION_BANDS: readonly AttentionBand[] = [
+  { ages: [5, 6], cv: [0.4, 0.55], omission: 0.3, commission: 0.4 },
+  { ages: [7, 8], cv: [0.35, 0.45], omission: 0.25, commission: 0.35 },
+  { ages: [9, 10], cv: [0.3, 0.4], omission: 0.2, commission: 0.3 },
+  { ages: [11, 13], cv: [0.25, 0.35], omission: 0.15, commission: 0.25 },
+];
+
+/** The attention band covering a (clamped) age. */
+export function attentionBand(age: number): AttentionBand {
+  const a = clampAge(age);
+  const band = ATTENTION_BANDS.find(
+    (b) => a >= b.ages[0] && a <= b.ages[1],
+  ) as AttentionBand;
+  return band;
+}
+
+/** Midpoint of the band's expected CV range — the normalisation anchor. A CV at
+ * the midpoint maps to normalised variability 0.5 (⇒ attention score 0.5 with
+ * no impulsive errors ⇒ index ≈ 50). */
+export function expectedCvMidpoint(age: number): number {
+  const band = attentionBand(age);
+  return (band.cv[0] + band.cv[1]) / 2;
+}
+
+/** Which signals feed the derived-attention inputs (unchanged from v1). */
 export const ATTENTION = {
-  /** CV at/above this maps to full normalised variability (1.0). */
-  cvCap: 1.0,
   /** Signals whose effective-time variability feeds attention. */
   variabilitySignals: ["gf", "gv", "ef", "ct"] as readonly Signal[],
-  /** Signals whose too-fast-and-wrong rate feeds the impulsive-error term (clean binary MC). */
+  /** Signals whose too-fast-and-wrong rate feeds the impulsive-error term. */
   impulsiveSignals: ["gf", "gv", "ct"] as readonly Signal[],
 } as const;

@@ -7,4 +7,4 @@
  * records' comparability), MINOR = new generators or levels, PATCH = tuning that
  * does not change answers. Starts at the MVP baseline.
  */
-export const TASK_BANK_VERSION = "1.0.0";
+export const TASK_BANK_VERSION = "2.0.0";

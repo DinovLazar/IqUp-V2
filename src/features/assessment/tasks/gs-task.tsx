@@ -6,14 +6,17 @@ import { useTranslations } from "next-intl";
 import type { GsItem } from "@/features/tasks";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SymbolGlyph } from "./glyphs";
+import { GsSymbolGlyph } from "./glyphs";
 import { searchResponse, type ResponseFields } from "./view";
 
-// Gs — Processing speed (symbol search). THE ONE task with a visible timer: a
-// calm orange ring that depletes over the 20–25 s window (brand §5.2 — never a
-// red counting-down number, no flashing). Tap every cell holding the target
-// symbol; on timeout the current selection auto-submits. Selected cells map
-// straight to the answer key — time only feeds the Gs *score*, never correctness.
+// Gs — Processing speed (symbol search, calibration v2). THE ONE task with a
+// visible timer: a calm orange ring that depletes over the per-age window
+// (brand §5.2 — never a red counting-down number, no flashing). Distractor
+// similarity tiers are REAL: tier-2 cells are rotations/reflections of the
+// target glyph, tier-3 near-miss detail variants (GsSymbolGlyph decodes the
+// family+variant ids). Tap every cell holding the target symbol; on timeout
+// the current selection auto-submits. Selected cells map straight to the
+// answer key — time only feeds the Gs *score*, never correctness.
 
 function CountdownRing({ fraction }: { fraction: number }) {
   const r = 26;
@@ -54,7 +57,7 @@ export function GsTask({
 }) {
   const t = useTranslations("task");
   const { cells, columns, targets } = item.stimulus;
-  const windowMs = item.meta.windowSec[1] * 1000;
+  const windowMs = item.meta.windowSec * 1000;
 
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
   const [remainingMs, setRemainingMs] = React.useState(windowMs);
@@ -109,7 +112,7 @@ export function GsTask({
                 key={sym}
                 className="flex size-11 items-center justify-center rounded-card bg-tint-pur"
               >
-                <SymbolGlyph id={sym} size={32} color="#762D90" />
+                <GsSymbolGlyph id={sym} size={32} color="#762D90" />
               </span>
             ))}
           </span>
@@ -145,9 +148,9 @@ export function GsTask({
                   : "border-border bg-surface hover:border-border-pur",
               )}
             >
-              <SymbolGlyph
+              <GsSymbolGlyph
                 id={sym}
-                size={26}
+                size={30}
                 color={isSel ? "#762D90" : "#231F26"}
               />
             </button>

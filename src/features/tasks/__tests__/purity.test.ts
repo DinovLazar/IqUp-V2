@@ -5,7 +5,7 @@ import {
   generateItem,
   generatePractice,
   TESTABLE_SIGNALS,
-  type CtSubtype,
+  type CtFamily,
 } from "@/features/tasks";
 
 /** Recursively list .ts files under a dir, skipping the test folder. */
@@ -71,12 +71,16 @@ describe("language neutrality — generators emit no text", () => {
     else if (v && typeof v === "object") Object.values(v).forEach(walk);
   };
 
-  const CT_SUBTYPES: CtSubtype[] = [
+  const CT_FAMILIES: CtFamily[] = [
     "sequence",
     "debug",
     "loop",
+    "loopEvent",
     "condition",
-    "maze",
+    "conditionLoop",
+    "nestedLoop",
+    "counter",
+    "optimize",
   ];
   for (const signal of TESTABLE_SIGNALS)
     for (const level of [1, 5, 10])
@@ -84,7 +88,7 @@ describe("language neutrality — generators emit no text", () => {
         walk(generateItem({ signal, level, seed }));
         walk(generatePractice(signal, seed));
       }
-  for (const subtype of CT_SUBTYPES)
+  for (const subtype of CT_FAMILIES)
     for (const level of [1, 5, 10])
       walk(generateItem({ signal: "ct", level, seed: "tc", subtype }));
 

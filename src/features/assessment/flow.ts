@@ -10,6 +10,8 @@
  * practice item, a real administration, or completion.
  */
 
+import { startLevel, type LadderedSignal } from "@/content/norms";
+import { gsNominalLevel } from "@/content/tasks";
 import { generatePractice, type Item, type Signal } from "@/features/tasks";
 import { deriveSeed } from "@/lib/prng";
 import { INDEX_ORDER, type IndexKey } from "@/lib/indices";
@@ -110,9 +112,15 @@ export function nextStep(
 
   const signal = action.signal;
   if (!practiceShown.has(signal)) {
+    // v2: the example previews the age's START level (and age-clamped options).
+    const level =
+      signal === "gs"
+        ? gsNominalLevel(state.age)
+        : startLevel(signal as LadderedSignal, state.age);
     const item = generatePractice(
       signal,
       deriveSeed(state.sessionSeed, "practice", signal),
+      { level, age: state.age },
     );
     return {
       kind: "practice",

@@ -25,10 +25,19 @@ export function clampIndex(raw: number): number {
   return Math.min(INDEX_MAX, Math.max(INDEX_MIN, Math.round(raw)));
 }
 
-/** accuracy family: 20 + accuracy_weighted·75 (1.0 → 95). Input clamped to [0,1]. */
-export function accuracyIndex(accuracyWeighted: number): number {
+/**
+ * accuracy family (v2): 50 + (acc − expectedForAge)·75, where `expectedForAge`
+ * is the per-signal, per-age anchor (a typical staircase run → index ≈ 50).
+ * Input clamped to [0,1].
+ */
+export function accuracyIndex(
+  accuracyWeighted: number,
+  expectedForAge: number,
+): number {
   const a = Math.min(1, Math.max(0, accuracyWeighted));
-  return clampIndex(ACCURACY_INDEX.base + a * ACCURACY_INDEX.scale);
+  return clampIndex(
+    ACCURACY_INDEX.center + (a - expectedForAge) * ACCURACY_INDEX.scale,
+  );
 }
 
 /** span family: 50 + (span − expected)·14 (span = expected → 50). */
