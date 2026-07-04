@@ -377,6 +377,13 @@ export const CONFIDENCE_GLR_ROUNDS = { high: 3, medium: 2 } as const;
 
 /** Per-item reaction time below this (ms) counts as "too fast" (unchanged). */
 export const TOO_FAST_MS = 500;
+/**
+ * BASE fraction of too-fast answers that tips a session to a STRONG verdict —
+ * the non-young / unassisted default the Phase 3.01 resolver relaxes from
+ * (`resolveValidityThresholds`). Absent an age it is the base case used verbatim
+ * by the 1.05 tests, so a session with no context is judged exactly as before.
+ */
+export const TOO_FAST_FRACTION_STRONG = 0.3;
 /** > this fraction of MC answers on the same option position ⇒ flag (spec: >60%). */
 export const SAME_POSITION_FRACTION = 0.6;
 /** More than this many excluded idle pauses ⇒ flag (spec Дел 7.1; unchanged). */
@@ -403,6 +410,110 @@ export function chanceAccuracyForAge(age: number): number {
 export const RANDOM_ACCURACY_DELTA = 0.1;
 /** Minimum scored items before random-level accuracy is judged. */
 export const RANDOM_ACCURACY_MIN_ITEMS = 3;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDITY THRESHOLD MODULATION (Phase 3.01) — age band · parent-assist · device
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Spec Дел 6.4 / 7.2 / 7.4 / 8: the §7.1 thresholds are not one-size-fits-all.
+// Young children (5–7) pause and mis-tap more; a parent reading items aloud
+// (`parentAssistMode`, typically 5–7yo) adds legitimate pauses + quick post-read
+// taps; and "too fast" is only meaningful RELATIVE to how fast the child taps on
+// THEIR device (§7.2 device calibration, D-071). These mechanics RELAX the base
+// thresholds so young / assisted / slow-device sessions are not false-flagged,
+// while leaving the BASE case (mid/older age, unassisted, no calibration)
+// byte-identical to the 1.05 thresholds above — so existing behaviour and every
+// existing test are preserved. Every value here is a SEED (Дел 6.6) to recalibrate
+// from pilot data; the 1.05 base thresholds are UNCHANGED (this phase adds
+// mechanics, it does not re-tune the seed values — D-141/D-133).
+
+/** Ages at/below this get the relaxed "young" validity band (spec Дел 7.4). */
+export const YOUNG_VALIDITY_MAX_AGE = 7;
+
+/** SEED — too-fast fraction for a STRONG verdict, relaxed for the young band. */
+export const TOO_FAST_FRACTION_STRONG_YOUNG = 0.45;
+/** SEED — and relaxed further when a parent reads items aloud (Дел 7.4). */
+export const TOO_FAST_FRACTION_STRONG_ASSISTED = 0.5;
+
+/** SEED — max excluded idle pauses before the flag, relaxed for young / assisted. */
+export const MAX_IDLE_PAUSES_YOUNG = 5;
+export const MAX_IDLE_PAUSES_ASSISTED = 6;
+
+/**
+ * SEED — device-relative "too fast" (spec Дел 7.2 / D-071): an item answered in
+ * less than `baselineTapMs · TOO_FAST_BASELINE_MULT` had no time for real
+ * cognition on THIS device. The threshold SCALES with the child's own tap
+ * cadence, so the same *relative* behaviour (e.g. answering at 2× one's baseline)
+ * gets the same verdict on a fast and a slow device — not the absolute-ms bias
+ * that would penalise a slow device or miss mashing on a fast one. Clamped to
+ * [floor, ceil] so a very fast device still has an impossibility floor and a very
+ * slow baseline can't flag everything. With NO calibration, the absolute
+ * `TOO_FAST_MS` (500) is used — identical to 1.05.
+ */
+export const TOO_FAST_BASELINE_MULT = 2.5;
+export const TOO_FAST_MS_FLOOR = 250;
+export const TOO_FAST_MS_CEIL = 1_500;
+
+/** Session context that modulates the §7.1 validity thresholds (absent ⇒ base). */
+export interface ValidityContext {
+  /** Child age (years) — the young band relaxes thresholds for 5–7yo. */
+  age?: number;
+  /** Parent reads items aloud (typically 5–7yo) — relaxes time-based thresholds. */
+  parentAssistMode?: boolean;
+  /** Device tap baseline (ms) from the first practice item (§7.2, D-071). */
+  deviceBaselineMs?: number;
+}
+
+/** The resolved, context-modulated §7.1 thresholds a session is judged against. */
+export interface ValidityThresholds {
+  /** Per-item raw-elapsed threshold (ms) under which a response is "too fast". */
+  tooFastMs: number;
+  /** Fraction of too-fast answers that tips the session to a STRONG verdict. */
+  tooFastFractionStrong: number;
+  /** Excluded idle pauses tolerated before the idle-count flag. */
+  maxIdlePauses: number;
+}
+
+const isYoungBand = (age: number | undefined): boolean =>
+  age !== undefined && clampAge(age) <= YOUNG_VALIDITY_MAX_AGE;
+
+/**
+ * Resolve the §7.1 thresholds for a session from its age / assist / device
+ * context. Relaxations are the MOST lenient applicable (assisted ≥ young ≥ base)
+ * so a young *and* assisted session gets the fullest protection; the device
+ * baseline sets the too-fast MS independently. `{}` ⇒ the exact 1.05 base values.
+ */
+export function resolveValidityThresholds(
+  ctx: ValidityContext = {},
+): ValidityThresholds {
+  const young = isYoungBand(ctx.age);
+  const assisted = ctx.parentAssistMode === true;
+
+  const tooFastFractionStrong = assisted
+    ? TOO_FAST_FRACTION_STRONG_ASSISTED
+    : young
+      ? TOO_FAST_FRACTION_STRONG_YOUNG
+      : TOO_FAST_FRACTION_STRONG;
+
+  const maxIdlePauses = assisted
+    ? MAX_IDLE_PAUSES_ASSISTED
+    : young
+      ? MAX_IDLE_PAUSES_YOUNG
+      : MAX_IDLE_PAUSES;
+
+  const tooFastMs =
+    ctx.deviceBaselineMs !== undefined && ctx.deviceBaselineMs > 0
+      ? Math.min(
+          TOO_FAST_MS_CEIL,
+          Math.max(
+            TOO_FAST_MS_FLOOR,
+            Math.round(ctx.deviceBaselineMs * TOO_FAST_BASELINE_MULT),
+          ),
+        )
+      : TOO_FAST_MS;
+
+  return { tooFastMs, tooFastFractionStrong, maxIdlePauses };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ATTENTION (derived signal) — v2 age-banded (all [provisional — extrapolated])

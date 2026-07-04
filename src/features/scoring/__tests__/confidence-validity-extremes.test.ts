@@ -103,7 +103,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
         optionIndex: i % 4,
       }),
     );
-    const v = computeValidity(items, 9);
+    const v = computeValidity(items, { age: 9 });
     expect(v.session).toBe("strong");
     expect(
       v.flags.some((f) => f.code === "too_fast" && f.severity === "strong"),
@@ -121,7 +121,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
         optionIndex: i % 4,
       }),
     );
-    const v = computeValidity(items, 5);
+    const v = computeValidity(items, { age: 5 });
     expect(v.flags.some((f) => f.code === "too_fast")).toBe(false);
   });
 
@@ -133,7 +133,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
         optionIndex: i < 7 ? 0 : i - 6,
       }),
     );
-    const v = computeValidity(items, 9);
+    const v = computeValidity(items, { age: 9 });
     expect(v.flags.some((f) => f.code === "same_position")).toBe(true);
     expect(v.session).toBe("mild");
   });
@@ -160,7 +160,9 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
       }),
     ];
     expect(
-      computeValidity(items, 9).flags.some((f) => f.code === "idle_pauses"),
+      computeValidity(items, { age: 9 }).flags.some(
+        (f) => f.code === "idle_pauses",
+      ),
     ).toBe(true);
   });
 
@@ -177,7 +179,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
         },
       }),
     ];
-    const v = computeValidity(items, 9);
+    const v = computeValidity(items, { age: 9 });
     expect(
       v.flags.some((f) => f.code === "gs_mashing" && f.signal === "gs"),
     ).toBe(true);
@@ -197,7 +199,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
         },
       }),
     ];
-    const v = computeValidity(missedMost, 9);
+    const v = computeValidity(missedMost, { age: 9 });
     expect(
       v.flags.some((f) => f.code === "gs_omission" && f.signal === "gs"),
     ).toBe(true);
@@ -216,7 +218,9 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
       }),
     ];
     expect(
-      computeValidity(typical, 9).flags.some((f) => f.code === "gs_omission"),
+      computeValidity(typical, { age: 9 }).flags.some(
+        (f) => f.code === "gs_omission",
+      ),
     ).toBe(false);
   });
 
@@ -224,7 +228,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
     const items = Array.from({ length: 4 }, (_, i) =>
       gradedItem({ signal: "gf", correct: i === 0, optionIndex: i }),
     );
-    const v = computeValidity(items, 9);
+    const v = computeValidity(items, { age: 9 });
     expect(
       v.flags.some((f) => f.code === "random_accuracy" && f.signal === "gf"),
     ).toBe(true);
@@ -236,7 +240,9 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
       gradedItem({ signal: "gf", correct: i < 2, optionIndex: i % 3 }),
     );
     expect(
-      computeValidity(items, 6).flags.some((f) => f.code === "random_accuracy"),
+      computeValidity(items, { age: 6 }).flags.some(
+        (f) => f.code === "random_accuracy",
+      ),
     ).toBe(true);
   });
 
@@ -244,7 +250,7 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
     const items = Array.from({ length: 5 }, (_, i) =>
       gradedItem({ signal: "gf", correct: true, optionIndex: i % 4 }),
     );
-    const v = computeValidity(items, 9);
+    const v = computeValidity(items, { age: 9 });
     expect(v.session).toBe("ok");
     expect(v.flags).toHaveLength(0);
   });

@@ -157,8 +157,27 @@ function collectItems(state: SessionState): {
   return { laddered, gsmForward, gsmBackward, gsItems, all };
 }
 
+/**
+ * Session-level context the scoring layer consumes but the pure engine state does
+ * not carry (Phase 3.01). Captured alongside the session in the flow — parent
+ * assist and the device tap baseline from the first practice item — and passed in
+ * here to modulate the §7.1 validity thresholds. This deliberately does NOT widen
+ * the per-item `ResponseTiming` / `CapturedTiming` contract (D-071 left that call
+ * to 3.01; the decision is to keep it unchanged — D-142). Omit for the 1.05
+ * behaviour (used verbatim by the existing tests + fixtures).
+ */
+export interface ScoringContext {
+  /** 5–7yo parent-assist mode — relaxes the time-based validity thresholds (§7.4). */
+  parentAssistMode?: boolean;
+  /** Device tap baseline (ms) from the first practice item (§7.2, D-071). */
+  deviceBaselineMs?: number;
+}
+
 /** Produce the full deterministic assessment result for a completed session. */
-export function finalize(state: SessionState): AssessmentResult {
+export function finalize(
+  state: SessionState,
+  context: ScoringContext = {},
+): AssessmentResult {
   const { age } = state;
   const { laddered, gsmForward, gsmBackward, gsItems, all } =
     collectItems(state);
@@ -335,7 +354,13 @@ export function finalize(state: SessionState): AssessmentResult {
   }
 
   // ── validity + confidence (confidence reads validity's flags) ───────────────
-  const validity = computeValidity(all, age);
+  // Age is authoritative in the engine state; parent-assist + the device baseline
+  // ride in the session context (Phase 3.01). Absent context ⇒ 1.05 thresholds.
+  const validity = computeValidity(all, {
+    age,
+    parentAssistMode: context.parentAssistMode,
+    deviceBaselineMs: context.deviceBaselineMs,
+  });
   const confidence = computeConfidence(evidence, validity);
 
   // ── composite indices ───────────────────────────────────────────────────────

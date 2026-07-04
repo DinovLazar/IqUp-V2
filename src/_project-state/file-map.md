@@ -58,7 +58,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
 - `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
-- `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once; session seed + `parentAssistMode` (inert); nothing persisted (1.06/1.08)
+- `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once. **+3.01:** `parentAssistMode` + the device calibration baseline now feed `finalize(state, ctx)`; each finished run's anonymous summary is persisted on-device via `@/features/progress` (repeat ⇒ fresh seed); still no server/PII (1.06/1.08/3.01)
 - `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
 - `src/app/(site)/procena/prestart-screen.tsx` — instructions + mandatory 5–7 parent screen + confirmation checkbox; +1.10: the shared `<Disclaimer variant="short">` (§16.1 placement #2)
 - `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge; +1.08: optional `onProceed` primary button to the lead form
@@ -153,7 +153,7 @@ path/to/file.ext — one-line description of what it does
 - `__tests__/{prng,determinism,coverage,answer-key,distractors,purity}.test.ts` — Vitest suite (v2: per-family key re-derivation incl. the 9 CT families, mirror-foil + constrained-EF + distinctiveness + tier-realness properties, age-clamp coverage)
 
 **Seed norms — versioned config (`src/content/norms/`) (Phase 1.05) — pure data:**
-- `seed-norms.ts` — **calibration v2 (2.06; filename kept to avoid import churn)**: per-signal start tables (`START_LEVELS`), Corsi expectations + 0.5 backward offset, v2 item caps, age-banded attention/validity thresholds (`ATTENTION_BANDS`), per-age index anchors (`expectedWeightedAccuracy`, Gs throughput), the `PROVISIONAL_NORMS` register, `SCORING_VERSION`/`NORMS_VERSION` = 2.0.0
+- `seed-norms.ts` — **calibration v2 (2.06; filename kept to avoid import churn)**: per-signal start tables (`START_LEVELS`), Corsi expectations + 0.5 backward offset, v2 item caps, age-banded attention/validity thresholds (`ATTENTION_BANDS`), per-age index anchors (`expectedWeightedAccuracy`, Gs throughput), the `PROVISIONAL_NORMS` register, `SCORING_VERSION`/`NORMS_VERSION` = 2.0.0. **+3.01:** validity-threshold MODULATION — `resolveValidityThresholds(ctx)` + new seeds for the young-5–7 band, parent-assist relaxation, and the device-relative too-fast ms (`baseline·mult`, clamped); `{}` ⇒ the exact 1.05 base values (D-143)
 - `index.ts` — barrel
 - `__tests__/calibration-v2.test.ts` — v2 config contract: ladder monotonicity, start-level snapshots, under-8 Gsm substitution, series ×-cap, provisional-register completeness, UX clamp (2.06)
 
@@ -171,12 +171,15 @@ path/to/file.ext — one-line description of what it does
 - `raw.ts` — raw scores per signal (Дел 6.1) + extremes helpers; v2: basal-credit level weighting, level-weighted EF efficiency + Glr recall, 2-round Gs throughput, 0.5 Corsi backward offset
 - `indices.ts` — raw→0–100 families (v2 accuracy recentred: 50 + (acc − expected(signal, age))·75), composites (Дел 6.3), bands (Дел 6.4)
 - `attention.ts` — derived attention; v2: CV normalised against the age band's expected midpoint (typical CV → 0.5 → index ≈ 50)
-- `validity.ts` — validity flags + graduated verdict ok/mild/strong (Дел 7.1); v2: age-banded too-fast commission cut-off, `gs_omission` over the typical-miss baseline, age-aware chance accuracy
+- `validity.ts` — validity flags + graduated verdict ok/mild/strong (Дел 7.1); v2: age-banded omission (`gs_omission` over the typical-miss baseline) + age-aware chance accuracy; **+3.01:** `computeValidity(items, ctx)` — too-fast counted device-relatively (`rawElapsedMs < resolved threshold`), fraction + idle count age/assist-modulated via the resolver; `ctx` absent ⇒ 1.05 behaviour
 - `confidence.ts` — per-index confidence high/medium/low (Дел 6.5)
-- `finalize.ts` — folds a completed session into the `AssessmentResult`; v2: per-signal anchored indices with basal credits, Gsm direction split from the ladder, aggregated Gs rounds, laddered Glr (slope = mean per-item)
-- `index.ts` — public barrel
+- `finalize.ts` — folds a completed session into the `AssessmentResult`; v2: per-signal anchored indices with basal credits, Gsm direction split from the ladder, aggregated Gs rounds, laddered Glr; **+3.01:** `finalize(state, context?)` threads a session-level `ScoringContext` (`parentAssistMode`, `deviceBaselineMs`) into validity without widening the per-item contract (D-142)
+- `index.ts` — public barrel (+3.01 `ScoringContext`)
 - `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite (the `purity` scan also covers `persist/`); v2 formula + banded-validity coverage
 - `__tests__/anchors.test.ts` — the v2 "typical ≈ 50" anchor tests: formula anchors exact + simulated typical child per age 5–13 (2.06)
+- `__tests__/validity-context.test.ts` — **(3.01)** the resolver + wired verdict: base-case = 1.05, young/assist relaxation (age-held-fixed flip), device-relative comparable-across-devices verdicts + the absolute-ms regression guard
+- `__tests__/finalize-context.test.ts` — **(3.01)** `ScoringContext` threads end-to-end (device baseline flips ok→strong; changes ONLY validity + its confidence, never a score); determinism with context
+- `__tests__/extremes-floor-vs-invalid.test.ts` — **(3.01)** an engaged floor session (not strong, keeps floor + gentle profile) reads differently from a masher (strong → retry), separated by the verdict (Дел 7.3 vs 7.1)
 - `persist/score-row.ts` — **pure `buildScoreRow` + strict `scoreRowSchema` (2.01)**: `AssessmentResult` + `{city,childGender,language}` → the no-PII "Store A" row; `ScoreRow = z.infer<schema>` (exactly the allowed keys — no PII/lead-id/timestamp compiles); the one tested `INDEX_COLUMN` map + `SIGNAL_KEYS`; enums tied to live `Confidence`/`SessionValidity`
 - `persist/index.ts` — barrel (`buildScoreRow`, `scoreRowSchema`, `SCORE_ROW_KEYS`, `SIGNAL_KEYS`, `INDEX_COLUMN`, types); separate from the scoring barrel so it's client/route/test-importable
 - `persist/__tests__/score-row.test.ts` — Vitest (2.01): exact allowed key-set, no-PII/lead-id/timestamp, strict-schema rejections, age/version/validity/confidence mapping, index→column correctness, ranges, purity + determinism
@@ -190,6 +193,7 @@ path/to/file.ext — one-line description of what it does
 - `use-item-timer.ts` — React hook: the app's only clock (`performance.now`); idle watcher + visibility listener; `finish()` → `{ timing, calibration }`
 - `index.ts` — barrel
 - `__tests__/timing.test.ts` — stopwatch idle/finish, calibration, captured-timing↔scoring contract
+- `__tests__/idle-blur.test.ts` — **(3.01)** idle AND `visibilitychange` record the same gap → `effectiveTime` excludes >30 s → the idle-count validity flag; end-to-end blur path through `gradeItem`; the nudge is timer-free + penalty-free (Дел 8)
 
 **Task renderers (`src/features/assessment/tasks/`) (Phase 1.06) — thin `.tsx` over a pure `.ts` core:**
 - `view.ts` — pure presenters + response builders (`buildGvView`, `correctFields`/`wrongFields`, `withTiming`, `instructionKey` incl. the 9 CT families + object-series); node-tested
@@ -203,6 +207,17 @@ path/to/file.ext — one-line description of what it does
 **Flow controller (`src/features/assessment/`) (Phase 1.06 + 1.08):**
 - `flow.ts` — pure running-phase logic on the engine: `settle` past domainComplete, `nextStep` (practice at the age's per-signal START level, v2), 5 index-group progress; +1.08: the `advanceEndPhase` end-phase controller (completion → form → confirmation)
 - `__tests__/flow.test.ts` — flow over the 5 fixture profiles (reproduces the engine path), determinism, one practice per task type
+
+**Local progress store (`src/features/progress/`) (Phase 3.01) — anonymous, on-device, unjoinable (spec Дел 14.2 / §14.1):** pure-core / thin-IO split (like the timing layer); a THIRD store that shares no key with Store A (scores) or Store B (Brevo), holds NO PII.
+- `schema.ts` — the strict Zod `storedProfileSchema` + `StoredProfile = z.infer<…>` (exactly: `schema`/`setSeed`/`attempt`/`age`/`indices`/`validity`/`stamps` — a name/email/phone/city cannot compile or validate); `isStoredProfile` guard; `STORED_PROFILE_KEYS`; enums tied to live `Band`/`Confidence`/`SessionValidity` (D-144)
+- `summary.ts` — pure `buildStoredProfile(result, {setSeed, attempt})` → the no-PII on-device summary
+- `repeat.ts` — pure `nextRepeatSeed(prior)` (a fresh derived session seed ⇒ a NEW item set, deterministic + provably ≠ prior) + `sessionSeedFor(prior, freshSeed)`
+- `compare.ts` — pure `compareToPrior(prior, current)` → per-index growth deltas + band movement, OR the cross-major fallback (`majorVersion`/`isCrossMajor`; different `taskBankVersion` major ⇒ no numeric comparison, D-145)
+- `storage.ts` — the ONLY browser touchpoint: a defensive `localStorage` adapter (`load`/`save`/`clear`), fails SOFT on SSR / disabled / quota / corrupt / tampered blob (versioned key `iqup:progress:v1`)
+- `index.ts` — barrel + the composed read API: `loadPriorProfile`, `resolveSessionSeed`, `saveSessionProfile`, `readGrowth`
+- `__tests__/{summary,repeat,compare}.test.ts` — pure Node: PII-free + no-join shape; repeat determinism + freshness (disjoint item set + different first-item content at the engine level); growth deltas + the cross-major guard (stored v1 vs injected v2)
+- `__tests__/storage.test.tsx` — **jsdom:** save↔load round-trip; empty/corrupt/wrong-shape → null (fails soft); versioned key
+- `__tests__/guards.test.ts` — static scan: imports neither Supabase nor Brevo (unjoinable), and only `storage.ts` reads `window`/`localStorage`
 - `__tests__/end-phase.test.ts` — `advanceEndPhase` walks completion → form → confirmation and rests at confirmation (1.08)
 
 **Report engine (`src/features/report/`) (Phase 1.07) — pure, deterministic; reads 1.05 read-only:**

@@ -4,32 +4,44 @@
  * quality metadata, never framed negatively toward the child (this layer emits
  * codes only — wording is 1.07).
  *
- *   too_fast        > age band's COMMISSION cut-off of answers under ~500 ms
- *                                                          → STRONG (session)
- *   same_position   > 60% of MC answers same option slot   → mild
- *   idle_pauses     > N excluded long idle gaps            → mild
- *   gs_mashing      ~all Gs cells tapped                   → mild (Gs only)
+ *   too_fast        > the resolved fraction of answers under the resolved
+ *                     (device-relative) too-fast threshold      → STRONG (session)
+ *   same_position   > 60% of MC answers same option slot         → mild
+ *   idle_pauses     > N excluded long idle gaps                  → mild
+ *   gs_mashing      ~all Gs cells tapped                         → mild   (Gs only)
  *   gs_omission     > age band's OMISSION cut-off of Gs targets missed
- *                                                          → mild (Gs only)
- *   random_accuracy a whole MC domain at chance level      → mild (per signal)
+ *                                                                → mild   (Gs only)
+ *   random_accuracy a whole MC domain at chance level            → mild   (per signal)
  *
- * v2: the too-fast and omission cut-offs are AGE-BANDED (ATTENTION_BANDS,
- * [provisional]); chance accuracy follows the age's option-count clamp.
+ * Two calibration layers modulate the flags:
+ *   • v2 (Phase 2.06): the omission cut-off is AGE-BANDED (ATTENTION_BANDS,
+ *     [provisional]); chance accuracy follows the age's option-count clamp.
+ *   • Phase 3.01: the too-fast threshold (the per-item ms floor and the strong
+ *     fraction F%) and the idle count N are MODULATED by the session context —
+ *     the young 5–7 band, parent-assist (reading aloud), and the device tap
+ *     baseline all relax the time-based thresholds so those sessions are not
+ *     false-flagged (spec Дел 7.2 / 7.4, D-071). With no context those thresholds
+ *     are the exact 1.05 base values, and the too-fast comparison uses each item's
+ *     raw elapsed time against the resolved threshold, so it is device-relative
+ *     when a baseline is present — not an absolute-ms bias.
  *
  * Verdict: any strong flag ⇒ `strong` (no confident profile, the UI shows the
  * graceful retry); else any flag ⇒ `mild` (usable, soft note); else `ok`.
  */
 
 import {
+  AGE_MIN,
   GS_MASHING_FRACTION,
   GS_TYPICAL_MISS_FRACTION,
-  MAX_IDLE_PAUSES,
   RANDOM_ACCURACY_DELTA,
   RANDOM_ACCURACY_MIN_ITEMS,
   SAME_POSITION_FRACTION,
   attentionBand,
   chanceAccuracyForAge,
+  clampAge,
+  resolveValidityThresholds,
   type ScoredSignal,
+  type ValidityContext,
 } from "@/content/norms";
 import type { GradedItem } from "@/features/assessment/types";
 import { correctCount } from "./raw";
@@ -43,19 +55,35 @@ export interface ValidityResult {
   flags: ValidityFlag[];
 }
 
-/** Compute validity flags + verdict from every graded item in the session. */
+/**
+ * Compute validity flags + verdict from every graded item in the session.
+ *
+ * @param ctx  Age / parent-assist / device-baseline context. `age` bands the
+ *             omission + chance-accuracy checks (v2) and, with parent-assist and
+ *             the device baseline, modulates the time-based thresholds (Phase
+ *             3.01). Omit `age` (or pass `{}`) for the 1.05 base thresholds —
+ *             absent age is treated as the youngest band for the age-banded
+ *             checks, and as the *base* (non-young) case by the threshold
+ *             resolver, matching the pre-3.01 behaviour the unit tests pin.
+ */
 export function computeValidity(
   allItems: readonly GradedItem[],
-  age: number,
+  ctx: ValidityContext = {},
 ): ValidityResult {
+  const age = clampAge(ctx.age ?? AGE_MIN);
   const band = attentionBand(age);
   const flags: ValidityFlag[] = [];
   const total = allItems.length;
+  const { tooFastMs, tooFastFractionStrong, maxIdlePauses } =
+    resolveValidityThresholds(ctx);
 
-  // too-fast — more than the band's commission cut-off under the RT floor ⇒ strong.
+  // too-fast — > the resolved fraction of answers under the resolved
+  // (device-relative) threshold ⇒ strong. Compared against raw elapsed so the
+  // same *relative* speed gets the same verdict across devices when a baseline
+  // is present (§7.2, D-071).
   if (total > 0) {
-    const tooFast = allItems.filter((it) => it.tooFast).length;
-    if (tooFast / total > band.commission) {
+    const tooFast = allItems.filter((it) => it.rawElapsedMs < tooFastMs).length;
+    if (tooFast / total > tooFastFractionStrong) {
       flags.push({ code: "too_fast", severity: "strong" });
     }
   }
@@ -74,8 +102,9 @@ export function computeValidity(
   }
 
   // too-many idle pauses — long gaps already excluded from time; many ⇒ flag.
+  // The tolerated count is relaxed for young / assisted sessions (Дел 7.4).
   const excludedGaps = allItems.reduce((a, it) => a + it.excludedIdleGaps, 0);
-  if (excludedGaps > MAX_IDLE_PAUSES) {
+  if (excludedGaps > maxIdlePauses) {
     flags.push({ code: "idle_pauses", severity: "mild" });
   }
 
