@@ -355,7 +355,8 @@ export function finalize(
 
   // ── validity + confidence (confidence reads validity's flags) ───────────────
   // Age is authoritative in the engine state; parent-assist + the device baseline
-  // ride in the session context (Phase 3.01). Absent context ⇒ 1.05 thresholds.
+  // ride in the session context (Phase 3.01). With no context the age (always
+  // present) drives the pure post-2.06 age-banded verdict (D-146).
   const validity = computeValidity(all, {
     age,
     parentAssistMode: context.parentAssistMode,

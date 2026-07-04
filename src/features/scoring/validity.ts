@@ -13,17 +13,20 @@
  *                                                                → mild   (Gs only)
  *   random_accuracy a whole MC domain at chance level            → mild   (per signal)
  *
- * Two calibration layers modulate the flags:
- *   • v2 (Phase 2.06): the omission cut-off is AGE-BANDED (ATTENTION_BANDS,
- *     [provisional]); chance accuracy follows the age's option-count clamp.
- *   • Phase 3.01: the too-fast threshold (the per-item ms floor and the strong
- *     fraction F%) and the idle count N are MODULATED by the session context —
- *     the young 5–7 band, parent-assist (reading aloud), and the device tap
- *     baseline all relax the time-based thresholds so those sessions are not
- *     false-flagged (spec Дел 7.2 / 7.4, D-071). With no context those thresholds
- *     are the exact 1.05 base values, and the too-fast comparison uses each item's
- *     raw elapsed time against the resolved threshold, so it is device-relative
- *     when a baseline is present — not an absolute-ms bias.
+ * Two calibration layers compose over the flags, reconciled so age is counted once
+ * (Phase 3.01R, D-146):
+ *   • v2 (Phase 2.06) sets the AGE-BANDED cut-off VALUES (ATTENTION_BANDS,
+ *     [provisional]): the omission cut-off, the too-fast commission (STRONG)
+ *     fraction, and — via the option-count clamp — chance accuracy.
+ *   • Phase 3.01 adds two NON-age modifiers on top: parent-assist (reading aloud)
+ *     relaxes the too-fast fraction + the idle count, and the device tap baseline
+ *     makes the too-fast MS device-relative (spec Дел 7.2 / 7.4, D-071). The young
+ *     5–7 relaxation now applies ONLY to the idle count (2.06 does not age-band
+ *     idle); it no longer touches the too-fast fraction, which the 2.06 band already
+ *     ages. With no parent-assist / device context the thresholds are the pure
+ *     post-2.06 age-banded values, and the too-fast comparison uses each item's raw
+ *     elapsed time against the resolved threshold — device-relative when a baseline
+ *     is present, not an absolute-ms bias.
  *
  * Verdict: any strong flag ⇒ `strong` (no confident profile, the UI shows the
  * graceful retry); else any flag ⇒ `mild` (usable, soft note); else `ok`.
@@ -59,12 +62,12 @@ export interface ValidityResult {
  * Compute validity flags + verdict from every graded item in the session.
  *
  * @param ctx  Age / parent-assist / device-baseline context. `age` bands the
- *             omission + chance-accuracy checks (v2) and, with parent-assist and
- *             the device baseline, modulates the time-based thresholds (Phase
- *             3.01). Omit `age` (or pass `{}`) for the 1.05 base thresholds —
- *             absent age is treated as the youngest band for the age-banded
- *             checks, and as the *base* (non-young) case by the threshold
- *             resolver, matching the pre-3.01 behaviour the unit tests pin.
+ *             omission, chance-accuracy AND too-fast commission checks (2.06);
+ *             parent-assist and the device baseline modulate the time-based
+ *             thresholds on top (Phase 3.01). Omit `age` (or pass `{}`) and the
+ *             age-banded checks fall back to the youngest band while the too-fast
+ *             fraction falls back to the flat ageless default — the base case the
+ *             ageless unit tests pin.
  */
 export function computeValidity(
   allItems: readonly GradedItem[],

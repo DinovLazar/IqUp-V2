@@ -321,3 +321,13 @@
   - `.claude/launch.json` added (dev-server config for local preview tooling; not runtime config).
 
   **Verification:** `npm run typecheck` ✓, `npm run lint` ✓ (0 problems), `npm run build` ✓, `npm test` ✓ (**59 files, 448 tests**), `npm run format:check` ✓.
+
+- **2026-07-04 · Phase 3.01 + 3.01R (Code) — validity/time hardening, reconciled with 2.06's age-banded cut-offs.**
+
+  **No new dependencies, no env vars, no DB changes.** Mechanics-only on the existing pinned stack (Next 16 / React 19 / TS strict / Vitest 4.1.9). All three version stamps stay **2.0.0** — no item / norm / scoring VALUE is re-tuned.
+
+  **Config surface (validity threshold seeds, `src/content/norms/seed-norms.ts`):**
+  - **3.01** added the threshold-modulation block — `resolveValidityThresholds(ctx)` + `ValidityContext` / `ValidityThresholds`, `YOUNG_VALIDITY_MAX_AGE`, `MAX_IDLE_PAUSES_{YOUNG,ASSISTED}`, `TOO_FAST_BASELINE_MULT`, `TOO_FAST_MS_{FLOOR,CEIL}` — and re-introduced `TOO_FAST_FRACTION_STRONG` (the flat base; 2.06 had deleted it). A session-level `ScoringContext` on `finalize(state, context?)` (scoring `index.ts`) threads `parentAssistMode` + `deviceBaselineMs` without widening the per-item `ResponseTiming` contract (D-142). New tree `src/features/progress/` (localStorage, anonymous, unjoinable — D-144).
+  - **3.01R reconciliation (D-146):** the too-fast STRONG **fraction**'s age axis is now 2.06's `ATTENTION_BANDS[].commission` (the single source of age); the young-band fraction seeds `TOO_FAST_FRACTION_STRONG_{YOUNG,ASSISTED}` are **removed**; parent-assist is now the additive `TOO_FAST_FRACTION_ASSIST_DELTA = 0.1` clamped by `TOO_FAST_FRACTION_STRONG_MAX = 0.6`; the young 5–7 relaxation survives only for the idle count; device-relative ms unchanged; `TOO_FAST_FRACTION_STRONG` kept as the ageless fallback. New seeds stay OUT of `PROVISIONAL_NORMS` (mirroring 3.01's other threshold seeds, so the register's pinned key-set is untouched). Shipped on branch `phase-3.01R-threshold-reconcile` off the merged `main` `fb54d1d` (D-147), since the original 3.01 branch already merged as PR #14.
+
+  **Verification:** `npm run build` ✓ (TypeScript + all 10 routes generate; the `middleware`→`proxy` deprecation warning is the pre-existing D-128 carryover), `npm test` ✓ (**68 files, 500 tests**).
