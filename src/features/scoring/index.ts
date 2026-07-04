@@ -9,7 +9,7 @@
  */
 
 export * from "./types";
-export { finalize } from "./finalize";
+export { finalize, type ScoringContext } from "./finalize";
 export { gradeItem } from "./grade";
 export { deriveAttention, type AttentionResult } from "./attention";
 export { computeValidity, type ValidityResult } from "./validity";

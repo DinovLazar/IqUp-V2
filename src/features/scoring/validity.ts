@@ -3,11 +3,19 @@
  * confident profile built on garbage data; they are quality metadata, never framed
  * negatively toward the child (this layer emits codes only — wording is 1.07).
  *
- *   too_fast        > 30% of answers under ~500 ms        → STRONG  (session)
- *   same_position   > 60% of MC answers same option slot  → mild
- *   idle_pauses     > N excluded long idle gaps           → mild
- *   gs_mashing      ~all Gs cells tapped                  → mild    (Gs only)
- *   random_accuracy a whole MC domain at chance level     → mild    (per signal)
+ *   too_fast        > F% of answers under the too-fast threshold → STRONG (session)
+ *   same_position   > 60% of MC answers same option slot         → mild
+ *   idle_pauses     > N excluded long idle gaps                  → mild
+ *   gs_mashing      ~all Gs cells tapped                         → mild   (Gs only)
+ *   random_accuracy a whole MC domain at chance level            → mild   (per signal)
+ *
+ * The too-fast threshold (F% and the per-item ms floor) and the idle count N are
+ * MODULATED by the session context (Phase 3.01): the young 5–7 band, parent-assist
+ * (reading aloud), and the device tap baseline all relax the time-based thresholds
+ * so those sessions are not false-flagged (spec Дел 7.2 / 7.4, D-071). With no
+ * context the thresholds are the exact 1.05 base values. The too-fast comparison
+ * uses each item's raw elapsed time against the resolved threshold, so it is
+ * device-relative when a baseline is present — not an absolute-ms bias.
  *
  * Verdict: any strong flag ⇒ `strong` (no confident profile, 1.06 shows retry);
  * else any flag ⇒ `mild` (usable, soft note); else `ok`.
@@ -16,12 +24,12 @@
 import {
   CHANCE_ACCURACY_4OPT,
   GS_MASHING_FRACTION,
-  MAX_IDLE_PAUSES,
   RANDOM_ACCURACY_DELTA,
   RANDOM_ACCURACY_MIN_ITEMS,
   SAME_POSITION_FRACTION,
-  TOO_FAST_FRACTION_STRONG,
+  resolveValidityThresholds,
   type ScoredSignal,
+  type ValidityContext,
 } from "@/content/norms";
 import type { GradedItem } from "@/features/assessment/types";
 import { correctCount } from "./raw";
@@ -35,17 +43,28 @@ export interface ValidityResult {
   flags: ValidityFlag[];
 }
 
-/** Compute validity flags + verdict from every graded item in the session. */
+/**
+ * Compute validity flags + verdict from every graded item in the session.
+ *
+ * @param ctx  Age / parent-assist / device-baseline context that modulates the
+ *             time-based thresholds (Phase 3.01). Omit (or `{}`) for the 1.05 base
+ *             thresholds — used verbatim by the existing unit tests.
+ */
 export function computeValidity(
   allItems: readonly GradedItem[],
+  ctx: ValidityContext = {},
 ): ValidityResult {
   const flags: ValidityFlag[] = [];
   const total = allItems.length;
+  const { tooFastMs, tooFastFractionStrong, maxIdlePauses } =
+    resolveValidityThresholds(ctx);
 
-  // too-fast — > 30% of answers under the RT floor ⇒ strong.
+  // too-fast — > F% of answers under the resolved (device-relative) threshold ⇒
+  // strong. Compared against raw elapsed so the same *relative* speed gets the
+  // same verdict across devices when a baseline is present (§7.2, D-071).
   if (total > 0) {
-    const tooFast = allItems.filter((it) => it.tooFast).length;
-    if (tooFast / total > TOO_FAST_FRACTION_STRONG) {
+    const tooFast = allItems.filter((it) => it.rawElapsedMs < tooFastMs).length;
+    if (tooFast / total > tooFastFractionStrong) {
       flags.push({ code: "too_fast", severity: "strong" });
     }
   }
@@ -64,8 +83,9 @@ export function computeValidity(
   }
 
   // too-many idle pauses — long gaps already excluded from time; many ⇒ flag.
+  // The tolerated count is relaxed for young / assisted sessions (Дел 7.4).
   const excludedGaps = allItems.reduce((a, it) => a + it.excludedIdleGaps, 0);
-  if (excludedGaps > MAX_IDLE_PAUSES) {
+  if (excludedGaps > maxIdlePauses) {
     flags.push({ code: "idle_pauses", severity: "mild" });
   }
 
