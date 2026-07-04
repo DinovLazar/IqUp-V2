@@ -1,10 +1,13 @@
 /**
- * Phase 3.01 — validity threshold MODULATION (spec Дел 7.2 / 7.4 / 8, D-071).
+ * Phase 3.01 + 3.01R — validity threshold MODULATION (spec Дел 7.2 / 7.4 / 8,
+ * D-071), reconciled with 2.06's age-banded cut-offs (D-146).
  *
- * The §7.1 too-fast + idle thresholds are relaxed for the young 5–7 band, for
- * parent-assist (reading aloud), and made device-relative from the tap baseline.
- * These tests cover the pure resolver AND the wired verdict via `computeValidity`,
- * and prove the base case (no context) is byte-identical to 1.05.
+ * The too-fast STRONG fraction's age axis is 2.06's per-band commission cut-off
+ * (the single source of age); parent-assist adds an allowance on top and the
+ * device tap baseline makes the too-fast ms device-relative; the young 5–7
+ * relaxation survives only for the idle count. These tests cover the pure resolver
+ * AND the wired verdict via `computeValidity`, proving the ageless fallback and the
+ * pure post-2.06 age-banded verdict.
  */
 
 import { describe, expect, it } from "vitest";
@@ -12,6 +15,8 @@ import {
   MAX_IDLE_PAUSES,
   TOO_FAST_MS,
   TOO_FAST_FRACTION_STRONG,
+  TOO_FAST_FRACTION_ASSIST_DELTA,
+  attentionBand,
   resolveValidityThresholds,
 } from "@/content/norms";
 import { computeValidity } from "../validity";
@@ -29,36 +34,59 @@ function items(n: number, fast: number, rawMs: number) {
   );
 }
 
-describe("resolveValidityThresholds (Дел 7.2 / 7.4)", () => {
-  it("no context ⇒ the exact 1.05 base thresholds", () => {
+describe("resolveValidityThresholds (Дел 7.2 / 7.4 · reconciled with 2.06, D-146)", () => {
+  it("no age ⇒ the flat ageless fallback thresholds", () => {
     expect(resolveValidityThresholds()).toEqual({
       tooFastMs: TOO_FAST_MS,
       tooFastFractionStrong: TOO_FAST_FRACTION_STRONG,
       maxIdlePauses: MAX_IDLE_PAUSES,
     });
-    // an 8-year-old is NOT in the young band → still base.
-    expect(resolveValidityThresholds({ age: 8 })).toEqual(
-      resolveValidityThresholds(),
+  });
+
+  it("the too-fast FRACTION is 2.06's age band — the single source of age (no young double-count)", () => {
+    // Each age pulls EXACTLY attentionBand(age).commission: younger ⇒ more lenient,
+    // older ⇒ stricter. This restores 2.06's calibration the mechanical merge lost.
+    for (const age of [5, 6, 7, 8, 9, 10, 11, 12, 13]) {
+      expect(resolveValidityThresholds({ age }).tooFastFractionStrong).toBe(
+        attentionBand(age).commission,
+      );
+    }
+    // Crucially age 5–6 resolves to the 0.40 band, NOT the dropped 3.01 young
+    // relaxation (0.45) — age is counted once (D-146). And age 8 (0.35) / 13 (0.25)
+    // are no longer flattened to the old base 0.30.
+    expect(resolveValidityThresholds({ age: 6 }).tooFastFractionStrong).toBe(
+      0.4,
+    );
+    expect(resolveValidityThresholds({ age: 8 }).tooFastFractionStrong).toBe(
+      0.35,
+    );
+    expect(resolveValidityThresholds({ age: 13 }).tooFastFractionStrong).toBe(
+      0.25,
     );
   });
 
-  it("the young 5–7 band relaxes the too-fast fraction + idle count", () => {
+  it("the young 5–7 band still relaxes the IDLE count (2.06 does not age-band idle)", () => {
     const t = resolveValidityThresholds({ age: 6 });
-    expect(t.tooFastFractionStrong).toBeGreaterThan(TOO_FAST_FRACTION_STRONG);
     expect(t.maxIdlePauses).toBeGreaterThan(MAX_IDLE_PAUSES);
     expect(t.tooFastMs).toBe(TOO_FAST_MS); // ms floor unchanged without a baseline
   });
 
-  it("parent-assist relaxes further than the young band alone", () => {
-    const young = resolveValidityThresholds({ age: 6 });
-    const assisted = resolveValidityThresholds({
-      age: 6,
-      parentAssistMode: true,
-    });
-    expect(assisted.tooFastFractionStrong).toBeGreaterThanOrEqual(
-      young.tooFastFractionStrong,
+  it("parent-assist adds its allowance ON TOP of the age band (fraction + idle)", () => {
+    const age = 6;
+    const base = resolveValidityThresholds({ age });
+    const assisted = resolveValidityThresholds({ age, parentAssistMode: true });
+    expect(assisted.tooFastFractionStrong).toBe(
+      base.tooFastFractionStrong + TOO_FAST_FRACTION_ASSIST_DELTA,
     );
-    expect(assisted.maxIdlePauses).toBeGreaterThanOrEqual(young.maxIdlePauses);
+    expect(assisted.tooFastFractionStrong).toBe(0.5); // 0.40 band + 0.10 = old assisted value
+    expect(assisted.maxIdlePauses).toBeGreaterThanOrEqual(base.maxIdlePauses);
+  });
+
+  it("the resolved too-fast fraction is clamped to the ceiling", () => {
+    expect(
+      resolveValidityThresholds({ age: 5, parentAssistMode: true })
+        .tooFastFractionStrong,
+    ).toBeLessThanOrEqual(0.6);
   });
 
   it("the device baseline SCALES the too-fast ms (device-relative, not absolute)", () => {
@@ -80,8 +108,8 @@ describe("resolveValidityThresholds (Дел 7.2 / 7.4)", () => {
 describe("parent-assist un-flags a false-positive too-fast session (Дел 7.4)", () => {
   it("an assisted 5–7 session that flags STRONG unassisted comes back ok/mild (age held fixed)", () => {
     // Same 6-year-old, same session (50% of answers under the floor); ONLY the
-    // parent-assist flag changes. Young-unassisted (0.45) ⇒ 0.5 > 0.45 ⇒ strong;
-    // assisted (0.5) ⇒ 0.5 > 0.5 is false ⇒ no too-fast flag.
+    // parent-assist flag changes. Age-band unassisted (0.40) ⇒ 0.5 > 0.40 ⇒ strong;
+    // assisted (0.40 + 0.10 = 0.50) ⇒ 0.5 > 0.5 is false ⇒ no too-fast flag.
     const session = items(20, 10, 200);
 
     const unassisted = computeValidity(session, { age: 6 });

@@ -2,7 +2,8 @@
  * Phase 3.01 — `finalize(state, context)` threads the session context (parent
  * assist + device baseline) end-to-end into the §7.1 validity verdict, WITHOUT
  * touching the pure engine state and WITHOUT changing any index/score (the context
- * only modulates validity thresholds). Same state + no context ⇒ the 1.05 result.
+ * only modulates validity thresholds). Same state + no context ⇒ the pure
+ * post-2.06 age-banded result (Phase 3.01R reconciliation, D-146).
  */
 
 import { describe, expect, it } from "vitest";
@@ -73,9 +74,9 @@ describe("finalize threads the device baseline (Дел 7.2, D-071)", () => {
 describe("finalize threads parent-assist (Дел 7.4)", () => {
   it("parentAssistMode threads through finalize into the verdict path", () => {
     // A 6-year-old answering every item at 300 ms is 100% too-fast — above BOTH
-    // the young (0.45) and assisted (0.5) fractions — so it stays strong either
-    // way. This proves finalize passes parentAssistMode into computeValidity; the
-    // fraction FLIP at the young↔assisted boundary is proven at the computeValidity
+    // the age band (0.40) and the assisted fraction (0.50) — so it stays strong
+    // either way. This proves finalize passes parentAssistMode into computeValidity;
+    // the fraction FLIP at the band↔assisted boundary is proven at the computeValidity
     // level in validity-context.test.ts (a 50%-fast session held at age 6).
     const state = runSession(
       startSession({ sessionSeed: "ctx-assist", age: 6 }),
@@ -99,5 +100,34 @@ describe("finalize threads parent-assist (Дел 7.4)", () => {
         { parentAssistMode: true, deviceBaselineMs: 320 },
       );
     expect(mk()).toEqual(mk());
+  });
+});
+
+describe("finalize with no context ⇒ the pure post-2.06 age-banded verdict (D-146)", () => {
+  it("no context ≡ empty / false context — no assist or device modifier leaks in", () => {
+    const state = runSession(
+      startSession({ sessionSeed: "no-ctx", age: 6 }),
+      atElapsed(4_000),
+    );
+    expect(finalize(state)).toEqual(finalize(state, {}));
+    expect(finalize(state)).toEqual(
+      finalize(state, { parentAssistMode: false }),
+    );
+  });
+
+  it("the too-fast verdict with no context is driven by the age band alone", () => {
+    // 100% too-fast (200 ms) at age 13 ⇒ strong with NO device/assist context, from
+    // the absolute floor + the age band; the same session judged deliberate (4 s) ⇒
+    // ok. The age band alone decides — exactly the post-2.06 behaviour.
+    const fast = runSession(
+      startSession({ sessionSeed: "band-fast", age: 13 }),
+      atElapsed(200),
+    );
+    const deliberate = runSession(
+      startSession({ sessionSeed: "band-slow", age: 13 }),
+      atElapsed(4_000),
+    );
+    expect(finalize(fast).validity.session).toBe("strong");
+    expect(finalize(deliberate).validity.session).toBe("ok");
   });
 });

@@ -378,10 +378,13 @@ export const CONFIDENCE_GLR_ROUNDS = { high: 3, medium: 2 } as const;
 /** Per-item reaction time below this (ms) counts as "too fast" (unchanged). */
 export const TOO_FAST_MS = 500;
 /**
- * BASE fraction of too-fast answers that tips a session to a STRONG verdict —
- * the non-young / unassisted default the Phase 3.01 resolver relaxes from
- * (`resolveValidityThresholds`). Absent an age it is the base case used verbatim
- * by the 1.05 tests, so a session with no context is judged exactly as before.
+ * AGELESS FALLBACK fraction of too-fast answers that tips a session to a STRONG
+ * verdict — used ONLY when no age is supplied (a non-production edge; a real
+ * session always carries the child's age). When an age IS present the too-fast
+ * cut-off is 2.06's age-banded `ATTENTION_BANDS[].commission` value — the single
+ * source of the age axis (see `resolveValidityThresholds`). This flat value is
+ * kept as the deterministic no-age default the ageless unit tests pin (0.30 = the
+ * pre-2.06 flat cut-off, which also equals the mid 9–10 commission band).
  */
 export const TOO_FAST_FRACTION_STRONG = 0.3;
 /** > this fraction of MC answers on the same option position ⇒ flag (spec: >60%). */
@@ -412,28 +415,46 @@ export const RANDOM_ACCURACY_DELTA = 0.1;
 export const RANDOM_ACCURACY_MIN_ITEMS = 3;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VALIDITY THRESHOLD MODULATION (Phase 3.01) — age band · parent-assist · device
+// VALIDITY THRESHOLD MODULATION (Phase 3.01, reconciled with 2.06 — D-146)
+//   age band (2.06) · parent-assist (3.01) · device (3.01)
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Spec Дел 6.4 / 7.2 / 7.4 / 8: the §7.1 thresholds are not one-size-fits-all.
-// Young children (5–7) pause and mis-tap more; a parent reading items aloud
-// (`parentAssistMode`, typically 5–7yo) adds legitimate pauses + quick post-read
-// taps; and "too fast" is only meaningful RELATIVE to how fast the child taps on
-// THEIR device (§7.2 device calibration, D-071). These mechanics RELAX the base
-// thresholds so young / assisted / slow-device sessions are not false-flagged,
-// while leaving the BASE case (mid/older age, unassisted, no calibration)
-// byte-identical to the 1.05 thresholds above — so existing behaviour and every
-// existing test are preserved. Every value here is a SEED (Дел 6.6) to recalibrate
-// from pilot data; the 1.05 base thresholds are UNCHANGED (this phase adds
-// mechanics, it does not re-tune the seed values — D-141/D-133).
+// Three axes modulate the too-fast + idle flags, and they compose WITHOUT
+// double-counting age (Phase 3.01R reconciliation, D-146):
+//   • AGE — the single source is 2.06's calibrated `ATTENTION_BANDS[].commission`
+//     cut-off (younger ⇒ more lenient). 3.01's original flat young-band relaxation
+//     of the too-fast FRACTION is DROPPED here — it duplicated the 2.06 band.
+//   • PARENT-ASSIST — a parent reading items aloud (`parentAssistMode`, typically
+//     5–7yo) adds legitimate pauses + quick post-read taps; it RELAXES the fraction
+//     and the idle count ON TOP of the age band.
+//   • DEVICE — "too fast" is only meaningful RELATIVE to how fast the child taps on
+//     THEIR device (§7.2 device calibration, D-071); the too-fast MS scales with
+//     the tap baseline.
+// The idle-pause count is NOT age-banded by 2.06, so 3.01's young / assisted idle
+// relaxation is kept unchanged (it duplicates no 2.06 axis). Every value here is a
+// SEED (Дел 6.6) to recalibrate from pilot data; no 2.06-calibrated VALUE is
+// re-tuned — this reconciles mechanics only (D-141/D-133/D-146).
 
-/** Ages at/below this get the relaxed "young" validity band (spec Дел 7.4). */
+/**
+ * Ages at/below this get the relaxed "young" IDLE-pause allowance (spec Дел 7.4).
+ * This young band no longer relaxes the too-fast FRACTION — 2.06's age-banded
+ * commission cut-off already encodes age there, and a second young relaxation would
+ * double-count it (D-146). It survives ONLY for the idle-pause count, which 2.06
+ * does not age-band.
+ */
 export const YOUNG_VALIDITY_MAX_AGE = 7;
 
-/** SEED — too-fast fraction for a STRONG verdict, relaxed for the young band. */
-export const TOO_FAST_FRACTION_STRONG_YOUNG = 0.45;
-/** SEED — and relaxed further when a parent reads items aloud (Дел 7.4). */
-export const TOO_FAST_FRACTION_STRONG_ASSISTED = 0.5;
+/**
+ * SEED — the allowance ADDED to the age-banded too-fast fraction when a parent
+ * reads items aloud (Дел 7.4): legitimate pauses + quick post-read taps push the
+ * too-fast rate up, so the STRONG cut-off relaxes by this much ON TOP of the age
+ * band (e.g. a 5–6yo's 0.40 band ⇒ 0.50 assisted — the pre-reconciliation assisted
+ * value). Parent-assist is the only non-age axis that shifts the fraction.
+ */
+export const TOO_FAST_FRACTION_ASSIST_DELTA = 0.1;
+/** SEED — hard ceiling on the resolved too-fast fraction (age band + assist). */
+export const TOO_FAST_FRACTION_STRONG_MAX = 0.6;
 
 /** SEED — max excluded idle pauses before the flag, relaxed for young / assisted. */
 export const MAX_IDLE_PAUSES_YOUNG = 5;
@@ -479,9 +500,15 @@ const isYoungBand = (age: number | undefined): boolean =>
 
 /**
  * Resolve the §7.1 thresholds for a session from its age / assist / device
- * context. Relaxations are the MOST lenient applicable (assisted ≥ young ≥ base)
- * so a young *and* assisted session gets the fullest protection; the device
- * baseline sets the too-fast MS independently. `{}` ⇒ the exact 1.05 base values.
+ * context, composing the three axes without double-counting age (D-146):
+ *   • too-fast FRACTION — the age band's `commission` cut-off (2.06) is the base;
+ *     parent-assist adds `TOO_FAST_FRACTION_ASSIST_DELTA` on top; clamped. No young
+ *     relaxation (age is already in the band). No age ⇒ the flat ageless fallback.
+ *   • idle count — 2.06 does not age-band this, so the young / assisted relaxation
+ *     is applied here as before (most lenient applicable: assisted ≥ young ≥ base).
+ *   • too-fast MS — device-relative from the tap baseline, else the absolute floor.
+ * `finalize(state)` always supplies the age, so with no parent-assist / device it
+ * reproduces the pure post-2.06 age-banded verdict exactly.
  */
 export function resolveValidityThresholds(
   ctx: ValidityContext = {},
@@ -489,18 +516,26 @@ export function resolveValidityThresholds(
   const young = isYoungBand(ctx.age);
   const assisted = ctx.parentAssistMode === true;
 
-  const tooFastFractionStrong = assisted
-    ? TOO_FAST_FRACTION_STRONG_ASSISTED
-    : young
-      ? TOO_FAST_FRACTION_STRONG_YOUNG
+  // Too-fast fraction: AGE axis = 2.06's per-band commission cut-off (single source
+  // of age); parent-assist adds its allowance on top; clamped. No young relaxation.
+  const ageBandFraction =
+    ctx.age !== undefined
+      ? attentionBand(clampAge(ctx.age)).commission
       : TOO_FAST_FRACTION_STRONG;
+  const tooFastFractionStrong = Math.min(
+    TOO_FAST_FRACTION_STRONG_MAX,
+    ageBandFraction + (assisted ? TOO_FAST_FRACTION_ASSIST_DELTA : 0),
+  );
 
+  // Idle pauses: 2.06 does not age-band this, so 3.01's young / assisted relaxation
+  // is kept as-is (it duplicates no 2.06 axis).
   const maxIdlePauses = assisted
     ? MAX_IDLE_PAUSES_ASSISTED
     : young
       ? MAX_IDLE_PAUSES_YOUNG
       : MAX_IDLE_PAUSES;
 
+  // Too-fast ms: device-relative (§7.2, D-071); absolute 500 ms floor with no baseline.
   const tooFastMs =
     ctx.deviceBaselineMs !== undefined && ctx.deviceBaselineMs > 0
       ? Math.min(

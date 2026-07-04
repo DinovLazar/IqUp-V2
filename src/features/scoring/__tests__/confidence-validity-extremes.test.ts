@@ -125,6 +125,29 @@ describe("validity flags + verdict (Дел 7.1, v2 age-banded)", () => {
     expect(v.flags.some((f) => f.code === "too_fast")).toBe(false);
   });
 
+  it("an OLDER child's stricter band is honoured — the age axis comes ONLY from 2.06 (D-146)", () => {
+    // A 30%-too-fast run. The verdict tracks 2.06's per-band commission cut-off,
+    // NOT a flat value: age 11–13 band 0.25 ⇒ 0.30 is above ⇒ strong; age 9 band
+    // 0.30 ⇒ 0.30 is NOT above ⇒ no flag. (The mechanical 3.01↔2.06 merge had
+    // flattened every age ≥ 8 to 0.30, so the age-13 run would have read `ok` —
+    // this locks 2.06's calibration back in.)
+    const items = Array.from({ length: 10 }, (_, i) =>
+      gradedItem({
+        signal: "gf",
+        correct: true,
+        tooFast: i < 3,
+        rawElapsedMs: i < 3 ? 200 : 4_000,
+        optionIndex: i % 4,
+      }),
+    );
+    expect(computeValidity(items, { age: 13 }).session).toBe("strong");
+    expect(
+      computeValidity(items, { age: 9 }).flags.some(
+        (f) => f.code === "too_fast",
+      ),
+    ).toBe(false);
+  });
+
   it("> 60% same option position ⇒ a (mild) flag", () => {
     const items = Array.from({ length: 10 }, (_, i) =>
       gradedItem({
