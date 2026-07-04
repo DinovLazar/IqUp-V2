@@ -33,10 +33,12 @@ import { Disclaimer } from "@/components/ui/disclaimer";
  */
 
 function Heading({ children }: { children: React.ReactNode }) {
+  // h3: one level below the /kit Section's h2 — no h3 exists in this tree
+  // otherwise, so h4 here previously skipped a level (axe heading-order).
   return (
-    <h4 className="text-label text-ink" style={{ letterSpacing: "0.01em" }}>
+    <h3 className="text-label text-ink" style={{ letterSpacing: "0.01em" }}>
       {children}
-    </h4>
+    </h3>
   );
 }
 
