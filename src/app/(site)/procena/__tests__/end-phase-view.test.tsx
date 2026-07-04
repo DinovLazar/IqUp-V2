@@ -59,9 +59,11 @@ describe("EndPhaseView", () => {
     expect(onProceed).toHaveBeenCalledTimes(1);
   });
 
-  it("form (with result): renders the lead form", () => {
+  it("form (with result): renders the lead form", async () => {
     renderView({ endPhase: "form", result: RESULT });
-    expect(screen.getByText("Земете го бесплатниот извештај")).toBeTruthy();
+    expect(
+      await screen.findByText("Земете го бесплатниот извештај"),
+    ).toBeTruthy();
   });
 
   it("form WITHOUT result: falls back to completion (guard)", () => {
@@ -72,10 +74,10 @@ describe("EndPhaseView", () => {
     expect(screen.queryByText("Земете го бесплатниот извештај")).toBeNull();
   });
 
-  it("confirmation (result + leadValues): renders it and the city reaches the CTA href", () => {
+  it("confirmation (result + leadValues): renders it and the city reaches the CTA href", async () => {
     renderView({ endPhase: "confirmation", result: RESULT, leadValues: LEAD });
     expect(
-      screen.getByText("Извештајот е пратен на вашата e-mail адреса."),
+      await screen.findByText("Извештајот е пратен на вашата e-mail адреса."),
     ).toBeTruthy();
     const href = screen.getByRole("link").getAttribute("href") ?? "";
     expect(decodeURIComponent(href.split("grad=")[1])).toBe("Битола");

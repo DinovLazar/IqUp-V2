@@ -1,11 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
 import type { EndPhase } from "@/features/assessment";
 import type { AssessmentResult } from "@/features/scoring";
 import type { LeadFormValues } from "@/features/lead";
 import { CompletionScreen } from "./completion-screen";
-import { LeadForm } from "./lead-form";
-import { Confirmation } from "./confirmation";
+
+// Only reachable after the test finishes, so they ship as their own chunks
+// rather than in /procena's initial bundle (spec §19.2 lazy-load by section).
+const LeadForm = dynamic(() => import("./lead-form").then((m) => m.LeadForm), {
+  ssr: false,
+});
+const Confirmation = dynamic(
+  () => import("./confirmation").then((m) => m.Confirmation),
+  { ssr: false },
+);
 
 // The post-assessment screen switch (Phase 1.08), split out of the flow machine so
 // the completion → form → confirmation wiring is testable in isolation. The guards

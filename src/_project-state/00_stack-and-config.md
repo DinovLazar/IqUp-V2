@@ -331,3 +331,16 @@
   - **3.01R reconciliation (D-146):** the too-fast STRONG **fraction**'s age axis is now 2.06's `ATTENTION_BANDS[].commission` (the single source of age); the young-band fraction seeds `TOO_FAST_FRACTION_STRONG_{YOUNG,ASSISTED}` are **removed**; parent-assist is now the additive `TOO_FAST_FRACTION_ASSIST_DELTA = 0.1` clamped by `TOO_FAST_FRACTION_STRONG_MAX = 0.6`; the young 5–7 relaxation survives only for the idle count; device-relative ms unchanged; `TOO_FAST_FRACTION_STRONG` kept as the ageless fallback. New seeds stay OUT of `PROVISIONAL_NORMS` (mirroring 3.01's other threshold seeds, so the register's pinned key-set is untouched). Shipped on branch `phase-3.01R-threshold-reconcile` off the merged `main` `fb54d1d` (D-147), since the original 3.01 branch already merged as PR #14.
 
   **Verification:** `npm run build` ✓ (TypeScript + all 10 routes generate; the `middleware`→`proxy` deprecation warning is the pre-existing D-128 carryover), `npm test` ✓ (**68 files, 500 tests**).
+
+- **2026-07-04 · Phase 3.02 (Code) — performance & accessibility tooling.**
+
+  **New devDependencies (pinned exact, local audit tooling only — not shipped to the app):**
+  | Package | Version | Purpose |
+  |---|---|---|
+  | `lighthouse` | `13.4.0` | CLI Lighthouse runs (Performance/A11y/Best-Practices/SEO) against a local production build. |
+  | `@axe-core/cli` | `4.12.1` | Automated axe-core WCAG scans via a real headless Chrome. |
+  | `chromedriver` | `149.0.4` | Pinned to match the local Chrome major version for `@axe-core/cli`'s selenium-webdriver driver — **re-pin per machine** if the installed Chrome version differs (see `docs/perf-a11y-audit.md`). |
+
+  No runtime dependency, env var, or DB change. `next.config.ts` unchanged. Four index `*-ink` hex values re-darkened in `globals.css` + `src/lib/indices.ts` (contrast fix, D-151) — same tokens, no new tokens added. New MK string: `common.loading`.
+
+  **Verification:** `npm run build` ✓, `npm run typecheck` ✓, `npm run lint` ✓, `npm test` ✓ (**69 files, 502 tests**). Full Lighthouse/axe/contrast numbers in `src/_project-state/completions/Part-3-Phase-02-Completion.md`.

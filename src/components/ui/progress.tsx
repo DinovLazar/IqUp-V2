@@ -20,12 +20,18 @@ interface ProgressProps extends React.ComponentProps<
 
 function Progress({ className, value = 0, label, ...props }: ProgressProps) {
   const clamped = Math.min(100, Math.max(0, value));
+  const labelId = React.useId();
   return (
     <div className="flex w-full flex-col gap-1.5">
-      {label != null && <span className="text-label text-muted">{label}</span>}
+      {label != null && (
+        <span id={labelId} className="text-label text-muted">
+          {label}
+        </span>
+      )}
       <ProgressPrimitive.Root
         data-slot="progress"
         value={clamped}
+        aria-labelledby={label != null ? labelId : undefined}
         className={cn(
           "relative h-2.5 w-full overflow-hidden rounded-full bg-tint-pur",
           className,

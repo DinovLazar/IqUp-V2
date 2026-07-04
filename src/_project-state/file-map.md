@@ -47,6 +47,7 @@ path/to/file.ext — one-line description of what it does
 - `docs/design-handovers/.gitkeep` — reserved for Design handovers
 - `docs/design-handovers/Part-1-Phase-02-Handover.md` — 1.02 design handover (visual source of truth for 1.03/1.06/1.07)
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
+- `docs/perf-a11y-audit.md` — **(3.02)** exact local reproduction steps for the Lighthouse + axe + contrast-script run, for re-verification against the real Vercel preview at 2.05
 
 **i18n:**
 - `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5); +2.04: `admin` namespace (internal staff tool, plain MK — login + 2FA, stats labels + gender map, contacts columns + filters + pagination + export); +2.06: `task` namespace reworked for v2 — object-series + 5 new CT-family instructions + EF move counter (`gfSeriesObjects`, `ctLoopEvent`, `ctConditionLoop`, `ctNestedLoop`, `ctCounter`, `ctOptimize`, `efMoves`); removed `ctMaze`/`ctMove*` (maze retired)
@@ -54,7 +55,7 @@ path/to/file.ext — one-line description of what it does
 
 **App (routes + backend):**
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
-- `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised)
+- `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised); +3.02: `blu/teal/org/yel-ink` re-darkened to clear 4.5:1 on their own soft tint (kept in sync with `src/lib/indices.ts`)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
 - `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
@@ -64,7 +65,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/procena/completion-screen.tsx` — "Тестот е завршен" + assembled puzzle-brain + reward badge; +1.08: optional `onProceed` primary button to the lead form
 - `src/app/(site)/procena/lead-form.tsx` — **lead form (1.08)**: RHF + Zod resolver over the 1.03 primitives; 8 fields (first name only), 3 separate never-pre-ticked consents, inline errors, `form_view` on mount; `CityField` swap-seam; preview seams (`autoValidate`/`defaultValues`); +2.01: passes the real `writeScore` into `runLeadSubmit`
 - `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant; +1.10: §D.4 = the shared `<Disclaimer variant="full">` (§16.1 placement #3, both branches)
-- `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable
+- `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable; +3.02: `LeadForm`/`Confirmation` load via `next/dynamic({ ssr: false })` (lazy-load by section)
 - `src/app/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
 - `src/app/(site)/page-shell.tsx` — shared chrome for the static pages (1.10): wordmark + back-to-home header + centered content column (sync Server Component)
 - `src/app/(site)/za-testot/page.tsx` — **About-the-test (1.10)**: §16.1 placement #6 — §1.1 "what it is / what it isn't" + the FULL shared `Disclaimer`; MK `metadata` + H1
@@ -75,12 +76,12 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/__tests__/disclaimer-placements.test.tsx` — jsdom (1.10): placement #2 (pre-start) render guard + placement #1 (async landing RSC) source-wiring guard
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
 - `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**; +2.06: task samples cover the 9 v2 CT families (maze retired)
-- `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
+- `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder); +3.02: internal `Heading` `h4`→`h3` (was skipping a level under the Section's `h2`, axe heading-order)
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/layout.tsx` — **admin panel layout (2.04)**: marks all `/admin/**` `noindex,nofollow` + neutral bg; renders NO authenticated chrome (login lives under it too)
 - `src/app/admin/admin-shell.tsx` — **authenticated admin chrome (2.04)**: header wordmark + nav (Статистика/Контакти) + `SignOutButton`, centered content column; sync Server Component (next-intl); used by the stats + contacts pages only
 - `src/app/admin/sign-out-button.tsx` — **(2.04)** client sign-out: clears the Supabase session via the browser client, routes to `/admin/login`
-- `src/app/admin/login/page.tsx` — **`/admin/login` (2.04)**: the one admin route reachable without a session; renders the client `LoginForm`
+- `src/app/admin/login/page.tsx` — **`/admin/login` (2.04)**: the one admin route reachable without a session; renders the client `LoginForm`; +3.02: root wrapped in `<main>` (was missing a landmark, axe)
 - `src/app/admin/login/login-form.tsx` — **(2.04)** client login state machine: email+password → TOTP enrol (QR/secret) or challenge → aal2 → `/admin`; friendly MK errors; NOT the security boundary
 - `src/app/admin/page.tsx` — **`/admin` stats (2.04)**: server, `requireAdminPage()`-gated; reads AGGREGATES only from `public.scores` via the `admin_score_stats` RPC (env-filtered); total + by age/gender/city/language + per-index band distribution; reads NO contacts
 - `src/app/admin/contacts/page.tsx` — **`/admin/contacts` (2.04)**: server, `requireAdminPage()`-gated; lists contacts LIVE from the env-resolved Brevo list (cols: first name/email/phone/city/gender/3 consents/signup — NO age, NO results); server-side filter (city/gender/marketing) + pagination + CSV export links; reads NO scores
@@ -97,12 +98,12 @@ path/to/file.ext — one-line description of what it does
 - `button.tsx` — Button: primary / secondary / ghost, full state set
 - `card.tsx` — Card (default + emphasis) + Header/Title/Description/Content/Footer
 - `badge.tsx` — 30px explorer/reward pill (filled + soft)
-- `progress.tsx` — word-labelled track with `--grad-brand` fill (Radix Progress)
+- `progress.tsx` — word-labelled track with `--grad-brand` fill (Radix Progress); +3.02: the visible `label` wires as `aria-labelledby` (was unnamed to AT, axe aria-progressbar-name)
 - `input.tsx` — text input with focus + error states
 - `label.tsx` — form label (Radix Label)
 - `field.tsx` — Field wrapper + FieldHelpText + FieldError (no form logic)
 - `checkbox.tsx` — consent checkbox (never pre-ticked; error-ready) (Radix Checkbox)
-- `select.tsx` — Select trigger/content/item/etc. (Radix Select; popover uses `--shadow-pop`)
+- `select.tsx` — Select trigger/content/item/etc. (Radix Select; popover uses `--shadow-pop`); +3.02: placeholder opacity `/70`→`/90` (was 3.39:1 on white, below 4.5:1)
 - `band-label.tsx` — index band-label: word + indicative range only (no number)
 - `confidence-label.tsx` — висока/средна/ниска chip + signal glyph (+1.09: exports `CONFIDENCE` {bars,color} as the single source the PDF theme mirrors)
 - `index-band-bar.tsx` — per-index row: dot + name + word pill + colored track + range (+1.09: exports `BAND_FILL` as the single source the PDF theme mirrors)
@@ -115,11 +116,12 @@ path/to/file.ext — one-line description of what it does
 - `__tests__/disclaimer.test.tsx` — jsdom (1.10): both registers render verbatim from mk.json; `DISCLAIMER_KEYS` resolve
 
 **Lib (`src/lib/`):**
-- `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe
+- `indices.ts` — single source of the 5 indices (order, MK labels, hex colors/tints/inks); PDF-safe; +3.02: `blu/teal/org/yel` `ink` re-darkened (kept in sync with `globals.css` by `__tests__/indices-contrast.test.ts`)
 - `pentagon.ts` — pure framework-agnostic pentagon geometry (shared by web + future PDF)
 - `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
 - `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
+- `__tests__/indices-contrast.test.ts` — **(3.02)** pins every index `ink` ≥4.5:1 on its own `soft` tint + the `globals.css`↔`indices.ts` hex sync
 - `env.ts` — **shared server-side environment resolver (2.02, extracted from 2.01)**: `resolveEnvironment()` (`APP_ENV` → `development|preview|production`, default development) + `ALLOWED_ENVIRONMENTS`; used by BOTH the score `environment` stamp and the Brevo list selection so they always agree (D-120)
 - `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; +2.04 also reads the `admin_users` allowlist, the `admin_score_stats` RPC, and writes `admin_export_log`; never imported client-side
 - `supabase/admin-browser.ts` — **(2.04)** browser Supabase Auth client (`@supabase/ssr` `createBrowserClient`, public keys only); used by `/admin/login` + sign-out
@@ -199,7 +201,7 @@ path/to/file.ext — one-line description of what it does
 - `view.ts` — pure presenters + response builders (`buildGvView`, `correctFields`/`wrongFields`, `withTiming`, `instructionKey` incl. the 9 CT families + object-series); node-tested
 - `glyphs.tsx` — shared SVG glyphs v2: the 4-hue rule palette, composed/tidy `CountedShape` + `ObjectCount` (Gf), pictorial + abstract Glr sets (conflict-group-aware), the two parametric Gs symbol families with real tier variants, CT robot/star/event sprites + arrows + if-tokens
 - `gf-task.tsx` · `gv-task.tsx` · `gsm-task.tsx` · `gs-task.tsx` · `ef-task.tsx` · `glr-task.tsx` · `ct-task.tsx` — one renderer per signal; v2 stimulus upgrade: composed Gf cells + object series, block-figure Gv, scaled/glowing 6- or 9-tile Corsi board (ISI-timed), tier-real Gs symbols + calm ring, ToL board with visible capacities + goal card + move counter + illegal-move shake, pictorial/abstract Glr, CT tile boards + robot + token strips with loop brackets
-- `task-renderer.tsx` — dispatch by signal (same guards as the scorer)
+- `task-renderer.tsx` — dispatch by signal (same guards as the scorer); +3.02: all 7 renderers load via `next/dynamic({ ssr: false })` (lazy-load by section) with a shared `TaskLoadingFallback`
 - `task-screen.tsx` — shared chrome (progress + section + dots), silent stopwatch wiring, idle nudge, practice/real routing
 - `index.ts` — barrel
 - `__tests__/responses.test.ts` — response→answer-key mapping per signal (v2: all 9 CT families), slow≠wrong, Gv render determinism
@@ -280,6 +282,7 @@ path/to/file.ext — one-line description of what it does
 - `scripts/dump-score-row.ts` — dev-only (2.01): print a sample `buildScoreRow` payload as JSON (the exact `/api/score` body; usable for a local e2e write)
 - `scripts/verify-scores-db.ts` — dev-only (2.01): live check that the service role can query `public.scores`, the anon key CANNOT read/write (RLS), and the latest row is date-only + version-stamped + PII-free (env from `.env.local`; prints nothing secret)
 - `scripts/verify-admin-db.ts` — dev-only (2.04): live check that the service role can query `admin_users`/`admin_export_log` + call the `admin_score_stats` RPC (aggregates only), and the anon key CANNOT read the allowlist or call the RPC (RLS + revoked execute); prints nothing secret
+- `scripts/check-contrast.ts` — **(3.02)** reproducible WCAG contrast calculator: reads hex tokens straight out of `globals.css`'s `@theme` and prints a pass/fail table for every ink/soft/bg/surface pair (`npx tsx scripts/check-contrast.ts`)
 
 **Supabase (anonymous scores DB) (Phase 2.01):**
 - `supabase/config.toml` — `supabase init` scaffold (local-dev defaults); used by the CLI for `db push`

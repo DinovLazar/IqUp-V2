@@ -24,7 +24,9 @@ function SelectTrigger({
       data-slot="select-trigger"
       className={cn(
         "flex min-h-11 w-full items-center justify-between gap-2 rounded-field border-[1.5px] border-border bg-surface px-3.5 py-2.5",
-        "text-body text-ink data-[placeholder]:text-muted/70",
+        // /70 measured 3.39:1 on white (axe color-contrast, below 4.5:1) — /90
+        // keeps the placeholder visually faded while passing AA.
+        "text-body text-ink data-[placeholder]:text-muted/90",
         "transition-[border-color,box-shadow] outline-none",
         "focus-visible:border-pur focus-visible:ring-[3px] focus-visible:ring-focus",
         "disabled:cursor-not-allowed disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-fg",

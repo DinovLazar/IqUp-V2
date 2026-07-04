@@ -5,10 +5,10 @@ import { LoginForm } from "./login-form";
 // (password → TOTP enrol/challenge → aal2 → /admin). No chrome, no nav.
 export default function AdminLoginPage() {
   return (
-    <div className="flex min-h-full items-center justify-center px-4 py-10">
+    <main className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <LoginForm />
       </div>
-    </div>
+    </main>
   );
 }

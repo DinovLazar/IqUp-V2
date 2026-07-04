@@ -46,7 +46,8 @@ export const INDICES: readonly IndexMeta[] = [
     labelShort: "Просторно",
     color: "#00B6F1",
     soft: "#D6F2FD",
-    ink: "#0090C4",
+    // 3.02: re-darkened — #0090C4 measured 3.1:1 on `soft` (axe color-contrast).
+    ink: "#00729C",
   },
   {
     key: "memory",
@@ -55,7 +56,8 @@ export const INDICES: readonly IndexMeta[] = [
     labelShort: "Меморија",
     color: "#00B9AD",
     soft: "#D2F3F0",
-    ink: "#007D75",
+    // 3.02: re-darkened — #007D75 measured 4.25:1 on `soft` (below 4.5:1).
+    ink: "#00776F",
   },
   {
     key: "planning",
@@ -64,7 +66,8 @@ export const INDICES: readonly IndexMeta[] = [
     labelShort: "Планирање",
     color: "#F7941D",
     soft: "#FDEBD3",
-    ink: "#9A6200",
+    // 3.02: re-darkened — #9A6200 measured 4.36:1 on `soft` (below 4.5:1).
+    ink: "#955F00",
   },
   {
     key: "stem",
@@ -73,7 +76,8 @@ export const INDICES: readonly IndexMeta[] = [
     labelShort: "STEM",
     color: "#FFC20E",
     soft: "#FFF2CC",
-    ink: "#9A7400",
+    // 3.02: re-darkened — #9A7400 measured 3.86:1 on `soft` (axe color-contrast).
+    ink: "#8B6800",
   },
 ] as const;
 
