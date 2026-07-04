@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-07-04
 **Branch:** `phase-3.01R-threshold-reconcile` (off the current `main` tip `fb54d1d`)
-**Commits:** _see PR_
-**PR:** _opened after push — backfilled below_
+**Commits:** `5919461` (+ this docs backfill)
+**PR:** [#15](https://github.com/DinovLazar/IqUp-V2/pull/15) into `main` (left unmerged for the owner)
 
 ## TL;DR — the premise had already changed
 
