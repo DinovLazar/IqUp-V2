@@ -27,9 +27,9 @@ export const REGISTRY: Record<Signal, GeneratorFn> = {
   gf: (l, s, o) => gf(l, s, o),
   gv: (l, s, o) => gv(l, s, o),
   gsm: (l, s, o) => gsm(l, s, o),
-  gs: (l, s) => gs(l, s),
+  gs: (l, s, o) => gs(l, s, o),
   ef: (l, s) => ef(l, s),
-  glr: (l, s) => glr(l, s),
+  glr: (l, s, o) => glr(l, s, o),
   ct: (l, s, o) => ct(l, s, o),
 };
 
@@ -58,13 +58,16 @@ export function generateItem(args: GenerateItemArgs): Item {
 
 /**
  * Generate the un-scored practice example for a task type (spec Дел 7.2 — one
- * worked example precedes each new task type). Uses the easiest level; `opts`
- * forwards the family / sub-type so each variant can have its own example.
+ * worked example precedes each new task type). v2: the caller passes the age's
+ * START level via `opts.level` (the flow computes it from the per-signal start
+ * tables) so the example previews what the child will actually see; defaults to
+ * the easiest level for age-less dev tooling.
  */
 export function generatePractice(
   signal: Signal,
   seed: string | number,
-  opts?: GenerateOpts,
+  opts?: GenerateOpts & { level?: number },
 ): Item {
-  return generateItem({ signal, level: 1, seed, practice: true, ...opts });
+  const { level = 1, ...rest } = opts ?? {};
+  return generateItem({ signal, level, seed, practice: true, ...rest });
 }

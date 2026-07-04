@@ -76,12 +76,15 @@ describe("compareToPrior — same major (Дел 14.2)", () => {
 
 describe("cross-major guard (D-134 / Дел 19.4)", () => {
   it("a stored v1 stamp vs a current v2 build ⇒ incomparable, NO numeric comparison", () => {
-    // Stored under the current (v1) task bank …
-    const priorV1 = buildStoredProfile(scoreProfile(flatTypical), {
-      setSeed: "run-1",
-      attempt: 1,
-    });
-    // … compared against a future v2 build (stamp injected, since live build is v1).
+    // Stored under an old v1 task bank (stamp injected — the live build is v2) …
+    const priorV1 = buildStoredProfile(
+      withTaskBankVersion(scoreProfile(flatTypical), "1.0.0"),
+      {
+        setSeed: "run-1",
+        attempt: 1,
+      },
+    );
+    // … compared against a v2 build.
     const currentV2 = withTaskBankVersion(scoreProfile(logicStrong), "2.0.0");
 
     const cmp = compareToPrior(priorV1, currentV2);
@@ -95,13 +98,18 @@ describe("cross-major guard (D-134 / Дел 19.4)", () => {
   });
 
   it("a minor/patch bump within the same major stays comparable", () => {
-    const prior = buildStoredProfile(scoreProfile(flatTypical), {
-      setSeed: "run-1",
-      attempt: 1,
-    });
+    // Both stamps share major 2 (injected, so the assertion is independent of the
+    // live task-bank version) — a minor/patch bump must stay comparable.
+    const prior = buildStoredProfile(
+      withTaskBankVersion(scoreProfile(flatTypical), "2.0.0"),
+      {
+        setSeed: "run-1",
+        attempt: 1,
+      },
+    );
     const currentPatched = withTaskBankVersion(
       scoreProfile(flatTypical),
-      "1.5.2",
+      "2.5.2",
     );
     expect(compareToPrior(prior, currentPatched).comparable).toBe(true);
   });

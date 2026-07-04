@@ -11,7 +11,7 @@
  * {@link withTiming}; only Gs scoring ever looks at it (spec Дел 6.4 / Дел 8).
  */
 
-import type { GvItem, Item, Move, Point, TowerMove } from "@/features/tasks";
+import type { GvItem, Item, Point, TowerMove } from "@/features/tasks";
 import type { CapturedTiming } from "@/features/timing";
 import type { RawResponse } from "@/features/assessment";
 
@@ -110,15 +110,23 @@ const CT_KEY: Record<string, string> = {
   sequence: "ctSequence",
   debug: "ctDebug",
   loop: "ctLoop",
+  loopEvent: "ctLoopEvent",
   condition: "ctCondition",
-  maze: "ctMaze",
+  conditionLoop: "ctConditionLoop",
+  nestedLoop: "ctNestedLoop",
+  counter: "ctCounter",
+  optimize: "ctOptimize",
 };
 
 /** The `task.*` message key for an item's calm, plain-MK instruction line. */
 export function instructionKey(item: Item): string {
   switch (item.signal) {
     case "gf":
-      return item.stimulus.family === "matrix" ? "gfMatrix" : "gfSeries";
+      return item.stimulus.family === "matrix"
+        ? "gfMatrix"
+        : item.stimulus.notation === "objects"
+          ? "gfSeriesObjects"
+          : "gfSeries";
     case "gv":
       return item.stimulus.family === "rotation" ? "gvRotation" : "gvOddOneOut";
     case "gsm":
@@ -151,7 +159,7 @@ export function gsRowCount(cellCount: number, columns: number): number {
 /** The signal-specific part of a {@link RawResponse} — timing is merged later. */
 export type ResponseFields =
   | { signal: "gf" | "gv"; optionIndex: number }
-  | { signal: "ct"; optionIndex?: number; stepIndex?: number; path?: Move[] }
+  | { signal: "ct"; optionIndex?: number; stepIndex?: number }
   | { signal: "gsm"; tapOrder: number[] }
   | { signal: "gs"; selectedCells: number[] }
   | { signal: "ef"; moves: TowerMove[] }
@@ -169,10 +177,6 @@ export const ctOptionResponse = (optionIndex: number): ResponseFields => ({
 export const ctStepResponse = (stepIndex: number): ResponseFields => ({
   signal: "ct",
   stepIndex,
-});
-export const ctPathResponse = (path: Move[]): ResponseFields => ({
-  signal: "ct",
-  path,
 });
 export const corsiResponse = (tapOrder: number[]): ResponseFields => ({
   signal: "gsm",
@@ -207,8 +211,6 @@ function ctCorrect(item: Extract<Item, { signal: "ct" }>): ResponseFields {
       return ctOptionResponse(item.answer.value);
     case "stepIndex":
       return ctStepResponse(item.answer.value);
-    case "path":
-      return ctPathResponse(item.answer.moves);
   }
 }
 
@@ -218,8 +220,6 @@ function ctWrong(item: Extract<Item, { signal: "ct" }>): ResponseFields {
       return ctOptionResponse(item.answer.value === 0 ? 1 : 0);
     case "stepIndex":
       return ctStepResponse(item.answer.value === 0 ? 1 : 0);
-    case "path":
-      return ctPathResponse([]);
   }
 }
 

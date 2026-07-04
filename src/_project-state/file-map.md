@@ -39,6 +39,7 @@ path/to/file.ext — one-line description of what it does
 - `.prettierrc.json` — Prettier + `prettier-plugin-tailwindcss`
 - `.prettierignore` — excludes deps/build/lockfile/PDF/Markdown; +1.09: `*.ttf`, the fonts `OFL.txt`, `/tmp`
 - `components.json` — shadcn/ui config (radix lib, Nova preset, neutral, Lucide)
+- `.claude/launch.json` — dev-server launch config for the local preview tooling (2.06; `npm run dev` on port 3000)
 - `vitest.config.ts` — Vitest config: node env (default) + `@/` alias; includes `src/**/*.test.ts` **and** `*.test.tsx` (1.08 jsdom tests opt in per-file via a `@vitest-environment jsdom` docblock); `setupFiles: vitest.setup.ts`
 - `vitest.setup.ts` — env-guarded jsdom polyfills for Radix (ResizeObserver / pointer-capture / scrollIntoView); no-op under the Node suites (1.08)
 
@@ -48,12 +49,12 @@ path/to/file.ext — one-line description of what it does
 - `docs/ai-review-setup.md` — one-time CodeRabbit + Codex connect runbook (for Cowork)
 
 **i18n:**
-- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5); +2.04: `admin` namespace (internal staff tool, plain MK — login + 2FA, stats labels + gender map, contacts columns + filters + pagination + export)
+- `messages/mk.json` — Macedonian strings; +1.08: `leadForm` (labels + error tokens), `confirmation`, shared `legal` (verbatim Прилог D.2 data note + D.4 disclaimer), `complete.toForm`; +1.09: `reportPdf` (PDF chrome: wordmark/titles/part banners/section labels/confidence words; reuses `legal`); +1.10: `legal.disclaimerShort` (the §16.1 short line — single source), `pages` (about/privacy/terms copy), `common.home`; **removed** the duplicate `landing.disclaimer` + `prestart.disclaimer` short keys; +2.02: `email` (verbatim Прилог D.3 transactional copy — subject / greeting `{name}` / body / softCta / button / signOff; reuses `legal.disclaimer` = §16.1 placement #5); +2.04: `admin` namespace (internal staff tool, plain MK — login + 2FA, stats labels + gender map, contacts columns + filters + pagination + export); +2.06: `task` namespace reworked for v2 — object-series + 5 new CT-family instructions + EF move counter (`gfSeriesObjects`, `ctLoopEvent`, `ctConditionLoop`, `ctNestedLoop`, `ctCounter`, `ctOptimize`, `efMoves`); removed `ctMaze`/`ctMove*` (maze retired)
 - `src/i18n/request.ts` — next-intl request config (locale `mk`, no routing yet)
 
 **App (routes + backend):**
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
-- `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode)
+- `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
 - `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
@@ -73,7 +74,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/__tests__/disclaimer-single-source.test.ts` — node (1.10): no production `.ts/.tsx` hardcodes the disclaimer copy; each canonical string appears once in `mk.json`
 - `src/app/(site)/__tests__/disclaimer-placements.test.tsx` — jsdom (1.10): placement #2 (pre-start) render guard + placement #1 (async landing RSC) source-wiring guard
 - `src/app/kit/page.tsx` — dev-only UI-kit gallery route (noindex; 404 on production); renders `KitGallery`
-- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**
+- `src/app/kit/kit-gallery.tsx` — client gallery: every component + state, pentagon samples, puzzle-brain across progress; +1.06: every task renderer (live), answer-option states, idle nudge, reward badge; +1.07: the report-engine preview section; **+1.08: the lead-form + confirmation preview section**; +2.06: task samples cover the 9 v2 CT families (maze retired)
 - `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder)
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/layout.tsx` — **admin panel layout (2.04)**: marks all `/admin/**` `noindex,nofollow` + neutral bg; renders NO authenticated chrome (login lives under it too)
@@ -132,48 +133,50 @@ path/to/file.ext — one-line description of what it does
 - `brevo/__tests__/email-template.test.ts` — Vitest (2.02): subject/body/CTA/sign-off/wordmark from mk.json, footer disclaimer === `legal.disclaimer`, CTA href === `buildBookingHref(city)`, `{name}` interpolation + HTML-escape, determinism
 
 **Task bank — versioned config (`src/content/tasks/`) (Phase 1.04):**
-- `version.ts` — `TASK_BANK_VERSION` ("1.0.0"); stored with every anonymous record
-- `levels.ts` — per-domain level 1→10 difficulty tables + accessors (the single place difficulty is tuned)
+- `version.ts` — `TASK_BANK_VERSION` (**"2.0.0"** as of 2.06); stored with every anonymous record
+- `levels.ts` — **calibration v2 (2.06)**: research-grounded level 1→10 tables for all 7 families (Carpenter rule classes, block-figure segments + mirror foils, Corsi direction/path rows + the under-8 substitution lookup + board sizes/ISI, the per-age Gs table `GS_BY_AGE` + 2 rounds, constrained ToL, Glr pairs/trials/symbolStyle, 9 CT families) + the shared per-age `UX_BY_AGE` constraints
 - `index.ts` — barrel (version + level tables)
 
 **Task bank — generators (`src/features/tasks/`) (Phase 1.04) — pure data/geometry, no React:**
-- `types.ts` — the `Item` contract: `Signal`, per-family stimulus/answer types, `GenerateOpts`; documents Attention's intentional absence
+- `types.ts` — the `Item` contract: `Signal`, per-family stimulus/answer types (v2: composed matrix cells + size, object-notation series, block-figure options, Corsi path kinds, Gs family/variant ids, constrained EF meta, Glr trials/symbolStyle, 9 CT stimuli — maze retired), `GenerateOpts` (+`age`/`path`/`targetSeed`); documents Attention's intentional absence
 - `shared.ts` — `makeBase` + coordinate geometry (rotate/reflect/recenter/`samePointSet`)
-- `gf.ts` — Logic: matrix reasoning + numeric series (rules stored for re-derivation)
-- `gv.ts` — Spatial: mental rotation + odd-one-out (chiral polygon geometry)
-- `gsm.ts` — Memory: Corsi span over a fixed 6-tile board (caller passes length/direction)
-- `gs.ts` — Processing speed: symbol-search grid + target-cell answer key
-- `ef.ts` — Planning: Tower of London with BFS-verified `minMoves` + optimal path
-- `glr.ts` — Learning: paired-associate study set + recall round
-- `ct.ts` — STEM: sequence / debug / loop / condition / maze (all symbol-based, zero text)
+- `gf.ts` — Logic v2: Carpenter-class matrices (constancy/progression/add-sub/dist-3/dist-2 + subtlety tiers) + series with 10 rule classes, object notation <7 and the under-9 ×-cap (rules stored for re-derivation)
+- `gv.ts` — Spatial v2: polyomino BLOCK figures (grown, outlined, chirality-verified) for rotation + odd-one-out, true mirror foils per level, age-clamped options
+- `gsm.ts` — Memory v2: Corsi span over the 6-tile (5–6) / canonical 9-tile (7+) boards; simple + crisscross paths (non-adjacent consecutive tiles); caller passes length/direction/path
+- `gs.ts` — Processing speed v2: per-age grid from `GS_BY_AGE`, symbol family/variant ids with REAL similarity tiers (rotations/reflections/detail near-misses), shared `targetSeed` across the 2 scored rounds
+- `ef.ts` — Planning v2: Tower of London with BFS-verified `minMoves` + optimal path + the CONSTRAINED verifier (every optimal path must vacate a goal peg) + L2 distractor goals
+- `glr.ts` — Learning v2: paired-associate sets in pictorial/mixed/abstract styles, per-level trials, age-clamped trial options + the rotation/reflection distinctiveness guard (`GLR_CONFLICT_GROUPS`)
+- `ct.ts` — STEM v2: 9 families — sequence/debug/loop/loopEvent/condition/conditionLoop/nestedLoop/counter/optimize — on obstacle tile boards, all symbol-based, zero text, keys verified by construction (maze retired)
 - `guards.ts` — type guards (`isGfMatrix`, `isCt`, …) for narrowing `Item`
-- `registry.ts` — signal→generator map, `generateItem(...)`, `generatePractice(...)`
+- `registry.ts` — signal→generator map, `generateItem(...)` (v2 opts incl. age), `generatePractice(...)` (v2: at the caller-passed start level)
 - `index.ts` — public barrel (entry points + types + guards + version)
-- `__tests__/{prng,determinism,coverage,answer-key,distractors,purity}.test.ts` — Vitest suite (41 tests)
+- `__tests__/{prng,determinism,coverage,answer-key,distractors,purity}.test.ts` — Vitest suite (v2: per-family key re-derivation incl. the 9 CT families, mirror-foil + constrained-EF + distinctiveness + tier-realness properties, age-clamp coverage)
 
 **Seed norms — versioned config (`src/content/norms/`) (Phase 1.05) — pure data:**
-- `seed-norms.ts` — the single 1.05 tuning surface: start levels, span expectations, item caps, idle/validity/confidence thresholds, composite weights, raw→index formula constants, `SCORING_VERSION`/`NORMS_VERSION`; every value labeled seed. **+3.01:** validity-threshold MODULATION — `resolveValidityThresholds(ctx)` + new seeds for the young-5–7 band, parent-assist relaxation, and the device-relative too-fast ms (`baseline·mult`, clamped); `{}` ⇒ the exact 1.05 base values (D-131)
+- `seed-norms.ts` — **calibration v2 (2.06; filename kept to avoid import churn)**: per-signal start tables (`START_LEVELS`), Corsi expectations + 0.5 backward offset, v2 item caps, age-banded attention/validity thresholds (`ATTENTION_BANDS`), per-age index anchors (`expectedWeightedAccuracy`, Gs throughput), the `PROVISIONAL_NORMS` register, `SCORING_VERSION`/`NORMS_VERSION` = 2.0.0. **+3.01:** validity-threshold MODULATION — `resolveValidityThresholds(ctx)` + new seeds for the young-5–7 band, parent-assist relaxation, and the device-relative too-fast ms (`baseline·mult`, clamped); `{}` ⇒ the exact 1.05 base values (D-143)
 - `index.ts` — barrel
+- `__tests__/calibration-v2.test.ts` — v2 config contract: ladder monotonicity, start-level snapshots, under-8 Gsm substitution, series ×-cap, provisional-register completeness, UX clamp (2.06)
 
 **Adaptive engine (`src/features/assessment/`) (Phase 1.05) — pure, deterministic state machine:**
-- `types.ts` — engine shapes: `RawResponse`, `GradedItem`, per-domain state (laddered/span/fixed), `SessionState`, `NextAction`
-- `engine.ts` — `startSession`/`nextAction`/`applyResponse`/`advanceDomain`/`runSession`; start-by-age, basal/ceiling, span +1/−1 + backward-from-8, fixed age-sized domains, `deriveSeed` per item
-- `fixtures.ts` — reusable scripted-session profiles (logic-strong / spatial-strong / flat / ceiling / strong-invalid) + `correctResponse`/`wrongResponse`/`scoreProfile` (also for 1.07)
+- `types.ts` — engine shapes: `RawResponse`, `GradedItem`, per-domain state (v2: laddered incl. Gsm/Glr with basal fields, fixed-round Gs), `SessionState`, `NextAction`
+- `engine.ts` — `startSession`/`nextAction`/`applyResponse`/`advanceDomain`/`runSession`; v2: per-signal starts, the WISC basal reverse rule (level-weight credits, ceiling suspended during descent), Gsm over direction-carrying rows (under-8 substitution), Glr trials from the ladder, Gs fixed 2 rounds with a shared target seed
+- `fixtures.ts` — reusable scripted-session profiles (logic-strong / spatial-strong / flat / ceiling / strong-invalid) + `correctResponse`/`wrongResponse`/`scoreProfile`; v2 ability model: per-signal level caps + span cap (backward ≈ forward), full-window Gs
 - `index.ts` — public barrel
-- `__tests__/{engine,determinism}.test.ts` — adaptive path, start levels, Gsm growth/ceiling/backward, determinism
+- `__tests__/{engine,determinism}.test.ts` — v2 adaptive path: per-signal starts, basal credit/suspension, Gsm ladder + under-8 substitution, Gs 2 rounds/same targets, determinism
 
 **Scoring layer (`src/features/scoring/`) (Phase 1.05) — raw → indices → bands/confidence/validity:**
 - `types.ts` — `AssessmentResult` + parts; `Band`/`Confidence` imported as TYPES from the 1.03 components so it feeds the UI kit with no adapter
-- `grade.ts` — grade a response against the item's verified answer key (correctness derived, never time-fed)
+- `grade.ts` — grade a response against the item's verified answer key (correctness derived, never time-fed); v2: CT optionIndex/stepIndex only (maze path retired)
 - `time.ts` — time-rules math: `effectiveTime` (idle-gap exclusion), mean/stdDev/coefficient-of-variation
-- `raw.ts` — raw scores per signal (Дел 6.1) + extremes (ceiling/floor) helpers
-- `indices.ts` — raw→0–100 families (accuracy/span/speed), composites (Дел 6.3), bands (Дел 6.4)
-- `attention.ts` — derived attention (time variability + impulsive errors; no administered items)
-- `validity.ts` — validity flags + graduated verdict ok/mild/strong (Дел 7.1); **+3.01:** `computeValidity(items, ctx?)` — too-fast counted device-relatively (`rawElapsedMs < resolved threshold`), fraction + idle count age/assist-modulated via the resolver; `ctx` absent ⇒ 1.05 behaviour
+- `raw.ts` — raw scores per signal (Дел 6.1) + extremes helpers; v2: basal-credit level weighting, level-weighted EF efficiency + Glr recall, 2-round Gs throughput, 0.5 Corsi backward offset
+- `indices.ts` — raw→0–100 families (v2 accuracy recentred: 50 + (acc − expected(signal, age))·75), composites (Дел 6.3), bands (Дел 6.4)
+- `attention.ts` — derived attention; v2: CV normalised against the age band's expected midpoint (typical CV → 0.5 → index ≈ 50)
+- `validity.ts` — validity flags + graduated verdict ok/mild/strong (Дел 7.1); v2: age-banded omission (`gs_omission` over the typical-miss baseline) + age-aware chance accuracy; **+3.01:** `computeValidity(items, ctx)` — too-fast counted device-relatively (`rawElapsedMs < resolved threshold`), fraction + idle count age/assist-modulated via the resolver; `ctx` absent ⇒ 1.05 behaviour
 - `confidence.ts` — per-index confidence high/medium/low (Дел 6.5)
-- `finalize.ts` — folds a completed session into the `AssessmentResult`; **+3.01:** `finalize(state, context?)` threads a session-level `ScoringContext` (`parentAssistMode`, `deviceBaselineMs`) into validity without widening the per-item contract (D-130)
+- `finalize.ts` — folds a completed session into the `AssessmentResult`; v2: per-signal anchored indices with basal credits, Gsm direction split from the ladder, aggregated Gs rounds, laddered Glr; **+3.01:** `finalize(state, context?)` threads a session-level `ScoringContext` (`parentAssistMode`, `deviceBaselineMs`) into validity without widening the per-item contract (D-142)
 - `index.ts` — public barrel (+3.01 `ScoringContext`)
-- `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite (the `purity` scan also covers `persist/`)
+- `__tests__/{scoring-formulas,confidence-validity-extremes,attention-time,profiles-ui,purity}.test.ts` + `helpers.ts` — Vitest suite (the `purity` scan also covers `persist/`); v2 formula + banded-validity coverage
+- `__tests__/anchors.test.ts` — the v2 "typical ≈ 50" anchor tests: formula anchors exact + simulated typical child per age 5–13 (2.06)
 - `__tests__/validity-context.test.ts` — **(3.01)** the resolver + wired verdict: base-case = 1.05, young/assist relaxation (age-held-fixed flip), device-relative comparable-across-devices verdicts + the absolute-ms regression guard
 - `__tests__/finalize-context.test.ts` — **(3.01)** `ScoringContext` threads end-to-end (device baseline flips ok→strong; changes ONLY validity + its confidence, never a score); determinism with context
 - `__tests__/extremes-floor-vs-invalid.test.ts` — **(3.01)** an engaged floor session (not strong, keeps floor + gentle profile) reads differently from a masher (strong → retry), separated by the verdict (Дел 7.3 vs 7.1)
@@ -193,23 +196,23 @@ path/to/file.ext — one-line description of what it does
 - `__tests__/idle-blur.test.ts` — **(3.01)** idle AND `visibilitychange` record the same gap → `effectiveTime` excludes >30 s → the idle-count validity flag; end-to-end blur path through `gradeItem`; the nudge is timer-free + penalty-free (Дел 8)
 
 **Task renderers (`src/features/assessment/tasks/`) (Phase 1.06) — thin `.tsx` over a pure `.ts` core:**
-- `view.ts` — pure presenters + response builders (`buildGvView`, `correctFields`/`wrongFields`, `withTiming`, `instructionKey`); node-tested
-- `glyphs.tsx` — shared SVG glyphs: shapes (Gf), abstract symbols (Gs/Glr), move arrows + condition tokens (CT)
-- `gf-task.tsx` · `gv-task.tsx` · `gsm-task.tsx` · `gs-task.tsx` · `ef-task.tsx` · `glr-task.tsx` · `ct-task.tsx` — one renderer per signal
+- `view.ts` — pure presenters + response builders (`buildGvView`, `correctFields`/`wrongFields`, `withTiming`, `instructionKey` incl. the 9 CT families + object-series); node-tested
+- `glyphs.tsx` — shared SVG glyphs v2: the 4-hue rule palette, composed/tidy `CountedShape` + `ObjectCount` (Gf), pictorial + abstract Glr sets (conflict-group-aware), the two parametric Gs symbol families with real tier variants, CT robot/star/event sprites + arrows + if-tokens
+- `gf-task.tsx` · `gv-task.tsx` · `gsm-task.tsx` · `gs-task.tsx` · `ef-task.tsx` · `glr-task.tsx` · `ct-task.tsx` — one renderer per signal; v2 stimulus upgrade: composed Gf cells + object series, block-figure Gv, scaled/glowing 6- or 9-tile Corsi board (ISI-timed), tier-real Gs symbols + calm ring, ToL board with visible capacities + goal card + move counter + illegal-move shake, pictorial/abstract Glr, CT tile boards + robot + token strips with loop brackets
 - `task-renderer.tsx` — dispatch by signal (same guards as the scorer)
 - `task-screen.tsx` — shared chrome (progress + section + dots), silent stopwatch wiring, idle nudge, practice/real routing
 - `index.ts` — barrel
-- `__tests__/responses.test.ts` — response→answer-key mapping per signal, slow≠wrong, Gv render determinism
+- `__tests__/responses.test.ts` — response→answer-key mapping per signal (v2: all 9 CT families), slow≠wrong, Gv render determinism
 
 **Flow controller (`src/features/assessment/`) (Phase 1.06 + 1.08):**
-- `flow.ts` — pure running-phase logic on the 1.05 engine: `settle` past domainComplete, `nextStep` (practice/real), 5 index-group progress; +1.08: the `advanceEndPhase` end-phase controller (completion → form → confirmation)
+- `flow.ts` — pure running-phase logic on the engine: `settle` past domainComplete, `nextStep` (practice at the age's per-signal START level, v2), 5 index-group progress; +1.08: the `advanceEndPhase` end-phase controller (completion → form → confirmation)
 - `__tests__/flow.test.ts` — flow over the 5 fixture profiles (reproduces the engine path), determinism, one practice per task type
 
 **Local progress store (`src/features/progress/`) (Phase 3.01) — anonymous, on-device, unjoinable (spec Дел 14.2 / §14.1):** pure-core / thin-IO split (like the timing layer); a THIRD store that shares no key with Store A (scores) or Store B (Brevo), holds NO PII.
-- `schema.ts` — the strict Zod `storedProfileSchema` + `StoredProfile = z.infer<…>` (exactly: `schema`/`setSeed`/`attempt`/`age`/`indices`/`validity`/`stamps` — a name/email/phone/city cannot compile or validate); `isStoredProfile` guard; `STORED_PROFILE_KEYS`; enums tied to live `Band`/`Confidence`/`SessionValidity` (D-132)
+- `schema.ts` — the strict Zod `storedProfileSchema` + `StoredProfile = z.infer<…>` (exactly: `schema`/`setSeed`/`attempt`/`age`/`indices`/`validity`/`stamps` — a name/email/phone/city cannot compile or validate); `isStoredProfile` guard; `STORED_PROFILE_KEYS`; enums tied to live `Band`/`Confidence`/`SessionValidity` (D-144)
 - `summary.ts` — pure `buildStoredProfile(result, {setSeed, attempt})` → the no-PII on-device summary
 - `repeat.ts` — pure `nextRepeatSeed(prior)` (a fresh derived session seed ⇒ a NEW item set, deterministic + provably ≠ prior) + `sessionSeedFor(prior, freshSeed)`
-- `compare.ts` — pure `compareToPrior(prior, current)` → per-index growth deltas + band movement, OR the cross-major fallback (`majorVersion`/`isCrossMajor`; different `taskBankVersion` major ⇒ no numeric comparison, D-133)
+- `compare.ts` — pure `compareToPrior(prior, current)` → per-index growth deltas + band movement, OR the cross-major fallback (`majorVersion`/`isCrossMajor`; different `taskBankVersion` major ⇒ no numeric comparison, D-145)
 - `storage.ts` — the ONLY browser touchpoint: a defensive `localStorage` adapter (`load`/`save`/`clear`), fails SOFT on SSR / disabled / quota / corrupt / tampered blob (versioned key `iqup:progress:v1`)
 - `index.ts` — barrel + the composed read API: `loadPriorProfile`, `resolveSessionSeed`, `saveSessionProfile`, `readGrowth`
 - `__tests__/{summary,repeat,compare}.test.ts` — pure Node: PII-free + no-join shape; repeat determinism + freshness (disjoint item set + different first-item content at the engine level); growth deltas + the cross-major guard (stored v1 vs injected v2)
@@ -272,7 +275,7 @@ path/to/file.ext — one-line description of what it does
 - `fontkit.d.ts` — minimal ambient types for `fontkit` (transitive, untyped); used only by the 1.09 font-coverage test
 
 **Scripts:**
-- `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level as JSON (`npx tsx scripts/dump-tasks.ts`)
+- `scripts/dump-tasks.ts` — dev-only: print sample items per signal/level + per-age start-level samples (ages 5/9/13) as JSON (`npx tsx scripts/dump-tasks.ts [signal level seed age]`)
 - `scripts/dump-report-pdf.ts` — dev-only: render all 5 `fixtures.ts` profiles → PDF into gitignored `./tmp/` (`npx tsx scripts/dump-report-pdf.ts [city]`)
 - `scripts/dump-score-row.ts` — dev-only (2.01): print a sample `buildScoreRow` payload as JSON (the exact `/api/score` body; usable for a local e2e write)
 - `scripts/verify-scores-db.ts` — dev-only (2.01): live check that the service role can query `public.scores`, the anon key CANNOT read/write (RLS), and the latest row is date-only + version-stamped + PII-free (env from `.env.local`; prints nothing secret)

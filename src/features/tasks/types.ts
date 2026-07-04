@@ -5,16 +5,29 @@
  * SVG/markup strings, no CSS. A generator returns the stimulus as structured
  * data / coordinate geometry, the option set where applicable, the verified
  * correct answer, and a small `meta` bag of scoring/render hints. Phase 1.06
- * renders these; Phase 1.05 scores them.
+ * renders these; Phase 1.05 scores them. Task bank v2 (Phase 2.06) extends the
+ * shapes for the research calibration: composed matrix cells (+size attribute,
+ * addition/subtraction + distribution rules), object-notation series, polyomino
+ * block figures with mirror foils, Corsi path kinds + the 9-tile board, Gs
+ * similarity-tier symbol descriptors, constrained ToL problems, Glr
+ * trials/symbol styles, and the 9 CT task families (maze retired).
  *
  * ── The 8 signals → 7 generators ──────────────────────────────────────────────
  * The engine measures 8 fine signals (spec Дел 3.1) but only 7 are *testable*
  * tasks. Signal #5, **Attention, has no generator on purpose** — it is a DERIVED
- * indicator computed in Phase 1.05 from timing variability + misses + impulsive
+ * indicator computed in scoring from timing variability + misses + impulsive
  * errors (spec Дел 4: «Внимание (изведено) … Без посебен тест»). A real CPT is
  * 10–15 min and unreliable on an unsupervised phone; deriving it is more honest
  * and safer. So {@link Signal} deliberately omits "attention".
  */
+
+import type {
+  CtFamily,
+  GsSimilarityTier,
+  GsmPathKind,
+  GlrSymbolStyle,
+  SeriesRuleClass,
+} from "@/content/tasks/levels";
 
 /** A point on a normalized coordinate grid (geometry stimuli). */
 export interface Point {
@@ -22,7 +35,7 @@ export interface Point {
   y: number;
 }
 
-/** The 7 testable signals (Attention is derived in 1.05 — see file header). */
+/** The 7 testable signals (Attention is derived in scoring — see file header). */
 export type Signal = "gf" | "gv" | "gsm" | "gs" | "ef" | "glr" | "ct";
 
 /** Abstract stimulus shapes (rendered to SVG in 1.06; arbitrary tokens here). */
@@ -36,19 +49,19 @@ export type ShapeKind =
   | "pentagon"
   | "cross";
 
-/** Grid move tokens, shared by Gs answer geometry and all CT tasks. */
+/** Grid move tokens, shared by all CT robot tasks. */
 export type Move = "up" | "down" | "left" | "right";
 
 /** Fields every item carries regardless of signal. */
 export interface ItemBase {
   signal: Signal;
-  /** Difficulty level 1–10 (already clamped). */
+  /** Difficulty level 1–10 (already clamped; Gs: the age-pegged nominal level). */
   level: number;
   /** The exact seed string used to generate this item (reproducibility). */
   seed: string;
   /** True for un-scored worked examples (spec Дел 7.2). */
   practice: boolean;
-  /** Level-proportional difficulty weight (config; consumed by 1.05 scoring). */
+  /** Level-proportional difficulty weight (config; consumed by scoring). */
   difficultyWeight: number;
   /** Task-bank version, stored with each anonymous record (spec Дел 19.4). */
   taskBankVersion: string;
@@ -56,27 +69,31 @@ export interface ItemBase {
 
 // ── Gf — Logic ────────────────────────────────────────────────────────────────
 
-/** A single matrix cell: a combination of attribute values. */
+/** A single matrix cell: a combination of attribute values (v2 adds size). */
 export interface MatrixCell {
   shape: ShapeKind;
-  /** Repeat count of the shape (1..n). */
+  /** Repeat count of the shape (1..5 in v2). */
   count: number;
-  /** Abstract palette index (renderer maps to a concrete colour). */
+  /** Abstract palette index (renderer maps to the 4-hue colourblind-safer set). */
   colorIndex: number;
   /** Orientation in degrees: 0 | 90 | 180 | 270. */
   rotation: number;
+  /** Size step: 0 = small, 1 = medium, 2 = large. */
+  size: number;
 }
 
-/** The four attribute names a matrix rule can act on. */
-export type MatrixAttr = "shape" | "count" | "colorIndex" | "rotation";
+/** The five attribute names a matrix rule can act on (v2 adds size). */
+export type MatrixAttr = "shape" | "count" | "colorIndex" | "rotation" | "size";
 
-/** How one attribute varies across the matrix. */
+/** How one attribute varies across the matrix (v2 adds addSub + distThree). */
 export type MatrixRuleKind =
   | "constant"
   | "progRow"
   | "progCol"
   | "progBoth"
-  | "xor";
+  | "xor"
+  | "addSub"
+  | "distThree";
 
 /** A per-attribute rule, sufficient to re-derive every cell's value. */
 export interface MatrixAttrRule {
@@ -90,9 +107,16 @@ export interface MatrixAttrRule {
   stepC: number;
   /** Cyclic domain size for categorical attrs (e.g. shape pool size). 0 = numeric. */
   domainSize: number;
-  /** For `xor`: the two input columns' per-row values (length = matrix size). */
+  /** For `xor` (distribution-of-two): the two input columns' per-row values. */
   xorCol0?: number[];
   xorCol1?: number[];
+  /** For `addSub`: per-row operand columns and the operation sign. */
+  addCol0?: number[];
+  addCol1?: number[];
+  addSign?: 1 | -1;
+  /** For `distThree`: the 3 domain values + the Latin-square arrangement. */
+  distValues?: number[];
+  latin?: number[][];
 }
 
 export interface GfMatrixStimulus {
@@ -109,6 +133,8 @@ export interface GfSeriesStimulus {
   family: "series";
   /** Visible terms; the hidden next term is the answer. */
   terms: number[];
+  /** "objects" = render terms as countable object groups (ages < 7), never numerals. */
+  notation: "objects" | "digits";
 }
 
 export type GfStimulus = GfMatrixStimulus | GfSeriesStimulus;
@@ -118,24 +144,19 @@ export interface GfMatrixMeta {
   ruleType: string;
   /** The per-attribute rules — used by the test suite to re-derive the key. */
   rules: MatrixAttrRule[];
+  /** Distractor subtlety tier (1–3) the options were built with. */
+  distractorSubtlety: 1 | 2 | 3;
 }
 
 export interface GfSeriesMeta {
   family: "series";
-  ruleType: SeriesRuleType;
+  ruleType: SeriesRuleClass;
 }
-
-export type SeriesRuleType =
-  | "arithmetic"
-  | "geometric"
-  | "alternating"
-  | "fibonacci"
-  | "quadratic";
 
 export interface GfMatrixItem extends ItemBase {
   signal: "gf";
   stimulus: GfMatrixStimulus;
-  /** Four candidate cells; exactly one completes the pattern. */
+  /** Candidate cells (age-clamped count); exactly one completes the pattern. */
   options: MatrixCell[];
   /** Index into `options` of the correct cell. */
   answer: number;
@@ -145,7 +166,7 @@ export interface GfMatrixItem extends ItemBase {
 export interface GfSeriesItem extends ItemBase {
   signal: "gf";
   stimulus: GfSeriesStimulus;
-  /** Four candidate numbers; exactly one is the next term. */
+  /** Candidate numbers (age-clamped count); exactly one is the next term. */
   options: number[];
   answer: number;
   meta: GfSeriesMeta;
@@ -166,7 +187,7 @@ export interface ShapeTransform {
 }
 
 export interface GvOption {
-  /** The option's polygon as explicit coordinate geometry. */
+  /** The option's outline polygon as explicit coordinate geometry. */
   points: Point[];
   /** How it was derived from the base (lets the test re-verify exactness). */
   transform: ShapeTransform;
@@ -174,7 +195,7 @@ export interface GvOption {
 
 export interface GvRotationStimulus {
   family: "rotation";
-  /** The reference (prompt) shape at orientation 0. */
+  /** The reference (prompt) block figure at orientation 0 (polyomino outline). */
   base: Point[];
 }
 
@@ -190,6 +211,10 @@ export interface GvMeta {
   family: "rotation" | "oddOneOut";
   /** The rotation angle of the correct option (rotation family). */
   correctAngle?: number;
+  /** How many option foils are true mirrors of the base. */
+  mirrorFoilCount: number;
+  /** Unit segments in the block figure (complexity). */
+  segments: number;
 }
 
 export interface GvItem extends ItemBase {
@@ -198,7 +223,7 @@ export interface GvItem extends ItemBase {
   options: GvOption[];
   /**
    * rotation family: index of the option that is a pure rotation of the base.
-   * oddOneOut family: index of the reflected (odd) option.
+   * oddOneOut family: index of the odd option (mirror from L4; other shape below).
    */
   answer: number;
   meta: GvMeta;
@@ -209,17 +234,22 @@ export interface GvItem extends ItemBase {
 export type CorsiDirection = "forward" | "backward";
 
 export interface GsmStimulus {
-  /** Fixed Corsi board: tile positions on a normalized grid. */
+  /** The Corsi board: tile positions on a normalized grid (6 young / 9 standard). */
   tiles: Point[];
   /** Ordered tile indices to flash (the to-be-remembered sequence). */
   sequence: number[];
   direction: CorsiDirection;
+  /** crisscross = consecutive flashes on non-adjacent tiles. */
+  path: GsmPathKind;
 }
 
 export interface GsmMeta {
   direction: CorsiDirection;
-  /** Per-tile presentation cadence in ms (render concern; not implemented here). */
+  path: GsmPathKind;
+  /** Per-tile highlight duration in ms (render concern). */
   presentationMs: number;
+  /** Inter-stimulus interval between highlights in ms (render concern). */
+  isiMs: number;
 }
 
 export interface GsmItem extends ItemBase {
@@ -235,18 +265,18 @@ export interface GsmItem extends ItemBase {
 export interface GsStimulus {
   cellCount: number;
   columns: number;
-  /** Symbol id in each cell (indexes an abstract symbol set). */
+  /** Symbol id per cell — encodes family + variant (see gs.ts SYMBOL ids). */
   cells: number[];
-  /** The symbol id(s) the child must find. */
+  /** The symbol id(s) the child must find (base variants of target families). */
   targets: number[];
 }
 
 export interface GsMeta {
-  /** Visible-timer window in seconds (the only task with a timer; built in 1.06). */
-  windowSec: readonly [number, number];
+  /** Visible-timer window in seconds (the only task with a timer). */
+  windowSec: number;
   hasVisibleTimer: true;
-  /** Target/distractor similarity hint for the renderer (0..1). */
-  similarity: number;
+  /** Distractor-similarity tier range the grid was built with. */
+  similarity: readonly [GsSimilarityTier, GsSimilarityTier];
 }
 
 export interface GsItem extends ItemBase {
@@ -277,6 +307,8 @@ export interface EfStimulus {
 export interface EfMeta {
   /** Number of balls in play. */
   ballCount: number;
+  /** True when every optimal path needs a counter-intuitive (away-from-goal) move. */
+  constrained: boolean;
 }
 
 export interface EfItem extends ItemBase {
@@ -302,7 +334,7 @@ export interface GlrPair {
 export interface GlrTrial {
   /** The cue shown for this recall trial. */
   cue: number;
-  /** Candidate target symbol ids (one correct). */
+  /** Candidate target symbol ids (one correct; count age-clamped). */
   options: number[];
   /** Index into `options` of the correct target. */
   correct: number;
@@ -311,12 +343,16 @@ export interface GlrTrial {
 export interface GlrStimulus {
   /** The study set: pairs to memorize. */
   pairs: GlrPair[];
-  /** One recall round, keyed to the study set. */
+  /** One recall round, keyed to the study set (re-run `meta.trials` times). */
   trials: GlrTrial[];
 }
 
 export interface GlrMeta {
   pairCount: number;
+  /** Study→recall rounds this item is administered with (from the ladder row). */
+  trials: 2 | 3;
+  /** pictorial / mixed / abstract symbol style (from the ladder row). */
+  symbolStyle: GlrSymbolStyle;
 }
 
 export interface GlrItem extends ItemBase {
@@ -327,9 +363,9 @@ export interface GlrItem extends ItemBase {
   meta: GlrMeta;
 }
 
-// ── CT — STEM (5 sub-types) ───────────────────────────────────────────────────
+// ── CT — STEM (9 task families, v2) ───────────────────────────────────────────
 
-export type CtSubtype = "sequence" | "debug" | "loop" | "condition" | "maze";
+export type { CtFamily };
 
 /** A move-program: an ordered list of grid moves. */
 export type Program = Move[];
@@ -339,6 +375,8 @@ export interface CtSequenceStimulus {
   gridSize: number;
   start: Point;
   goal: Point;
+  /** Blocked cells the robot may not enter. */
+  obstacles: Point[];
   /** Candidate move-programs; exactly one reaches the goal. */
   options: Program[];
 }
@@ -348,7 +386,8 @@ export interface CtDebugStimulus {
   gridSize: number;
   start: Point;
   goal: Point;
-  /** The program to debug; exactly one step is an illegal (off-grid) move. */
+  obstacles: Point[];
+  /** The program to debug; exactly one step is an illegal (crashing) move. */
   program: Program;
 }
 
@@ -366,59 +405,97 @@ export interface CtLoopStimulus {
   options: LoopExpr[];
 }
 
+export interface CtLoopEventStimulus {
+  subtype: "loopEvent";
+  gridSize: number;
+  start: Point;
+  /** The event tile: the loop body repeats until the robot lands exactly here. */
+  eventTile: Point;
+  obstacles: Point[];
+  /** Candidate loop bodies; exactly one, repeated, lands on the event tile. */
+  options: Move[][];
+}
+
 /** A condition→action rule (abstract tokens; language-neutral). */
 export interface ConditionRule {
-  /** Stimulus condition id (e.g. an abstract colour index). */
+  /** Stimulus condition id (an abstract colour+number token). */
   when: number;
   /** Resulting action. */
   then: Move;
 }
 
 export interface CtConditionStimulus {
-  subtype: "condition";
+  /** conditionLoop = the same mapping applied over a looped (repeating) input. */
+  subtype: "condition" | "conditionLoop";
   /** The if→then mapping. */
   rules: ConditionRule[];
   /** The input sequence of conditions to map. */
   input: number[];
+  /** conditionLoop: length of the repeating base pattern inside `input`. */
+  patternLength?: number;
   /** Candidate output action sequences; exactly one applies the mapping. */
   options: Move[][];
 }
 
-export interface CtMazeCellWalls {
-  n: boolean;
-  e: boolean;
-  s: boolean;
-  w: boolean;
+/** A nested loop program: repeat outer × (pre + inner×body + post). */
+export interface NestedLoopExpr {
+  outerTimes: number;
+  pre: Move[];
+  innerTimes: number;
+  innerBody: Move[];
+  post: Move[];
 }
 
-export interface CtMazeStimulus {
-  subtype: "maze";
-  size: number;
-  /** Per-cell walls, row-major (index = y*size + x). */
-  cells: CtMazeCellWalls[];
+export interface CtNestedLoopStimulus {
+  subtype: "nestedLoop";
+  /** The flat sequence to be matched to a nested loop. */
+  sequence: Move[];
+  /** Candidate nested-loop expressions; exactly one expands to `sequence`. */
+  options: NestedLoopExpr[];
+}
+
+export interface CtCounterStimulus {
+  subtype: "counter";
+  /** The visible growing program (segments 1..k concatenated). */
+  sequence: Move[];
+  /** Segment lengths (for rendering the grouping); grows by the counter step. */
+  segmentLengths: number[];
+  /** Candidate next segments; exactly one continues the counter pattern. */
+  options: Move[][];
+}
+
+export interface CtOptimizeStimulus {
+  subtype: "optimize";
+  gridSize: number;
   start: Point;
   goal: Point;
+  obstacles: Point[];
+  /** A working-but-wasteful program that reaches the goal. */
+  redundantProgram: Program;
+  /** Candidate programs; exactly one reaches the goal in the minimum moves. */
+  options: Program[];
 }
 
 export type CtStimulus =
   | CtSequenceStimulus
   | CtDebugStimulus
   | CtLoopStimulus
+  | CtLoopEventStimulus
   | CtConditionStimulus
-  | CtMazeStimulus;
+  | CtNestedLoopStimulus
+  | CtCounterStimulus
+  | CtOptimizeStimulus;
 
 export interface CtMeta {
-  ctSubtype: CtSubtype;
+  ctSubtype: CtFamily;
 }
 
-/** CT answer shape varies by sub-type (all verified at generation). */
+/** CT answer shape varies by family (all verified at generation). */
 export type CtAnswer =
-  // sequence / loop / condition → index of the correct option
+  // option-set families → index of the correct option
   | { kind: "optionIndex"; value: number }
   // debug → index of the wrong step in the program
-  | { kind: "stepIndex"; value: number }
-  // maze → the unique solution path (cells + moves)
-  | { kind: "path"; cells: Point[]; moves: Move[] };
+  | { kind: "stepIndex"; value: number };
 
 export interface CtItem extends ItemBase {
   signal: "ct";
@@ -441,12 +518,24 @@ export type Item =
 
 /** Options accepted by the unified entry point and per-generator functions. */
 export interface GenerateOpts {
+  /**
+   * Child age (5–13). Drives the v2 age constraints: option-count clamps
+   * (UX_BY_AGE), Gf series notation + the under-9 ×-series cap, the Corsi board
+   * size + under-8 backward substitution, and the whole Gs parameter row.
+   * Dev tooling may omit it — the level tables then apply unclamped.
+   */
+  age?: number;
   /** Gf / Gv: force a stimulus family (else chosen deterministically by seed). */
   family?: string;
-  /** CT: force a sub-type (else chosen deterministically by seed). */
-  subtype?: CtSubtype;
-  /** Gsm: override sequence length (else from the level table). */
+  /** CT: force a family (else chosen deterministically from the level's set). */
+  subtype?: CtFamily;
+  /** Gsm: override sequence length (else from the level row). */
   length?: number;
-  /** Gsm: override direction (else "forward"). */
+  /** Gsm: override direction (else from the level row). */
   direction?: CorsiDirection;
+  /** Gsm: override path kind (else from the level row). */
+  path?: GsmPathKind;
+  /** Gs: seed for target-symbol selection, shared across the 2 scored rounds so
+   * both rounds hunt the same targets over a fresh layout. */
+  targetSeed?: string;
 }

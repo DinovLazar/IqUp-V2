@@ -1,21 +1,26 @@
 import { describe, expect, it } from "vitest";
+import { ctLevel, gvLevel, uxForAge } from "@/content/tasks/levels";
 import {
   generateItem,
   generatePractice,
   TESTABLE_SIGNALS,
   TASK_BANK_VERSION,
-  type CtSubtype,
+  type CtFamily,
   type Item,
 } from "@/features/tasks";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SEEDS = ["c1", "c2", "c3"];
-const CT_SUBTYPES: CtSubtype[] = [
+const CT_FAMILIES: CtFamily[] = [
   "sequence",
   "debug",
   "loop",
+  "loopEvent",
   "condition",
-  "maze",
+  "conditionLoop",
+  "nestedLoop",
+  "counter",
+  "optimize",
 ];
 
 /** Basic structural validity every item must satisfy. */
@@ -27,8 +32,14 @@ function expectValid(item: Item, level: number, practice: boolean) {
 
   switch (item.signal) {
     case "gf":
+      expect(item.options.length).toBeGreaterThanOrEqual(3);
+      expect(item.options.length).toBeLessThanOrEqual(4);
+      expect(item.answer).toBeGreaterThanOrEqual(0);
+      expect(item.answer).toBeLessThan(item.options.length);
+      break;
     case "gv":
-      expect(item.options.length).toBe(4);
+      // v2: option count is the level's row (2 at L1 … 5 at L10).
+      expect(item.options.length).toBe(gvLevel(level).optionCount);
       expect(item.answer).toBeGreaterThanOrEqual(0);
       expect(item.answer).toBeLessThan(item.options.length);
       break;
@@ -65,6 +76,25 @@ describe("coverage", () => {
     }
   });
 
+  it("every signal produces a valid item at every age 5–13 (v2 age clamps)", () => {
+    for (const signal of TESTABLE_SIGNALS) {
+      for (let age = 5; age <= 13; age++) {
+        const item = generateItem({ signal, level: 3, seed: "age-cov", age });
+        expect(item.signal).toBe(signal);
+        // The UX option clamp binds every option-set item.
+        const max = uxForAge(age).maxOptions;
+        if (item.signal === "gf" || item.signal === "gv") {
+          expect(item.options.length).toBeLessThanOrEqual(max);
+        }
+        if (item.signal === "glr") {
+          for (const trial of item.stimulus.trials) {
+            expect(trial.options.length).toBeLessThanOrEqual(max);
+          }
+        }
+      }
+    }
+  });
+
   it("Attention has no generator (intentionally absent)", () => {
     expect(TESTABLE_SIGNALS).not.toContain("attention");
     expect(TESTABLE_SIGNALS.sort()).toEqual(
@@ -72,13 +102,24 @@ describe("coverage", () => {
     );
   });
 
-  it("CT covers all five sub-types at every level", () => {
-    for (const subtype of CT_SUBTYPES) {
+  it("CT covers all nine families at every level (forced)", () => {
+    for (const subtype of CT_FAMILIES) {
       for (const level of LEVELS) {
         for (const seed of SEEDS) {
           const item = generateItem({ signal: "ct", level, seed, subtype });
           expect(item.signal).toBe("ct");
           if (item.signal === "ct") expect(item.meta.ctSubtype).toBe(subtype);
+        }
+      }
+    }
+  });
+
+  it("CT's natural (seed-driven) family choice stays inside the level's set", () => {
+    for (const level of LEVELS) {
+      for (let s = 0; s < 12; s++) {
+        const item = generateItem({ signal: "ct", level, seed: `nat-${s}` });
+        if (item.signal === "ct") {
+          expect(ctLevel(level).family).toContain(item.meta.ctSubtype);
         }
       }
     }
@@ -97,9 +138,10 @@ describe("coverage", () => {
     }
   });
 
-  it("a practice example exists for every signal", () => {
+  it("a practice example exists for every signal (at a start-style level)", () => {
     for (const signal of TESTABLE_SIGNALS) {
       for (const seed of SEEDS) {
+        expectValid(generatePractice(signal, seed, { level: 3 }), 3, true);
         expectValid(generatePractice(signal, seed), 1, true);
       }
     }

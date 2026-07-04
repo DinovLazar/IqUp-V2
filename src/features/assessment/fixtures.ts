@@ -1,20 +1,23 @@
 /**
  * Scripted-session fixtures — deterministic response + timing scripts that drive
- * the engine end-to-end. Used by the 1.05 test suite and reusable by the report
+ * the engine end-to-end. Used by the test suites and reusable by the report
  * engine (1.07) as canonical "five profiles → five reports" inputs.
  *
  * The model is an **ability threshold** per signal: a child reliably passes items
- * at or below their ability and fails above it (backward Corsi is two steps
- * harder). That yields realistic adaptive paths that climb, floor, or stabilise —
- * exactly what the report engine needs to exercise. All timings are constants, so
- * the whole thing stays pure and reproducible.
+ * at or below their ability and fails above it. Under the v2 ladders that means
+ * a per-signal LEVEL cap for the laddered domains (Gf, Gv, EF, CT, Glr) and a
+ * SPAN cap for Corsi (backward ≈ forward — Kessels 2008). That yields realistic
+ * adaptive paths that climb, floor, or stabilise — exactly what the report
+ * engine needs to exercise. All timings are constants, so the whole thing stays
+ * pure and reproducible.
  */
 
 import {
   EXPECTED_FORWARD_SPAN_BY_AGE,
-  START_LEVEL_BY_AGE,
   byAge,
+  startLevel,
 } from "@/content/norms";
+import { gsForAge } from "@/content/tasks";
 import { finalize, type AssessmentResult } from "@/features/scoring";
 import type {
   CtItem,
@@ -42,7 +45,10 @@ const mcCorrect = (
   timing: ResponseTiming,
 ): RawResponse => ({
   signal: item.signal,
-  optionIndex: correct ? item.answer : item.answer === 0 ? 1 : 0,
+  // Wrong picks rotate off the (uniformly-shuffled) key so scripted mistakes
+  // spread across option positions — a fixture that always tapped slot 0 would
+  // trip the same-position validity flag.
+  optionIndex: correct ? item.answer : (item.answer + 1) % item.options.length,
   ...timing,
 });
 
@@ -52,19 +58,14 @@ function ctResponse(
   timing: ResponseTiming,
 ): RawResponse {
   const { answer } = item;
-  if (answer.kind === "optionIndex" || answer.kind === "stepIndex") {
-    const wrong = answer.value === 0 ? 1 : 0;
-    const chosen = correct ? answer.value : wrong;
-    return answer.kind === "optionIndex"
-      ? { signal: "ct", optionIndex: chosen, ...timing }
-      : { signal: "ct", stepIndex: chosen, ...timing };
+  if (answer.kind === "optionIndex") {
+    const optionCount =
+      "options" in item.stimulus ? item.stimulus.options.length : 4;
+    const chosen = correct ? answer.value : (answer.value + 1) % optionCount;
+    return { signal: "ct", optionIndex: chosen, ...timing };
   }
-  // maze path
-  return {
-    signal: "ct",
-    path: correct ? answer.moves : [],
-    ...timing,
-  };
+  const chosen = correct ? answer.value : answer.value === 0 ? 1 : 0;
+  return { signal: "ct", stepIndex: chosen, ...timing };
 }
 
 const gsmResponse = (
@@ -165,7 +166,7 @@ export function correctResponse(
     case "gs":
       return gsResponse(item, 1, 0, false, timing);
     case "glr":
-      return glrResponse(item, action.rounds ?? 2, 1, timing);
+      return glrResponse(item, action.rounds ?? item.meta.trials, 1, timing);
   }
 }
 
@@ -188,7 +189,7 @@ export function wrongResponse(
     case "gs":
       return gsResponse(item, 0, 0, false, timing);
     case "glr":
-      return glrResponse(item, action.rounds ?? 2, 0, timing);
+      return glrResponse(item, action.rounds ?? item.meta.trials, 0, timing);
   }
 }
 
@@ -199,13 +200,14 @@ export interface Profile {
   age: number;
   sessionSeed: string;
   /** Pass-up-to level per laddered domain (correct iff administered level ≤ this). */
-  ladder: Record<"gf" | "gv" | "ef" | "ct", number>;
-  /** Pass-up-to forward span (backward is two steps harder). */
+  ladder: Record<"gf" | "gv" | "ef" | "ct" | "glr", number>;
+  /** Pass-up-to span, both directions (Corsi backward ≈ forward). */
   gsmForward: number;
   gsFoundFrac: number;
   gsFalseTaps: number;
   gsMash: boolean;
   gsElapsedMs: number;
+  /** Final-round recall accuracy for Glr items ABOVE the ability level. */
   glrFinalFrac: number;
   /** Base elapsed time (ms) for non-Gs items. */
   baseTimeMs: number;
@@ -213,10 +215,15 @@ export interface Profile {
   forceFast?: boolean;
 }
 
-/** A typical-for-age laddered ability (passes its start level, misses above). */
+/** A typical-for-age ability: passes each signal's start level, misses above. */
 function typicalLadder(age: number): Profile["ladder"] {
-  const s = byAge(START_LEVEL_BY_AGE, age);
-  return { gf: s, gv: s, ef: s, ct: s };
+  return {
+    gf: startLevel("gf", age),
+    gv: startLevel("gv", age),
+    ef: startLevel("ef", age),
+    ct: startLevel("ct", age),
+    glr: startLevel("glr", age),
+  };
 }
 
 /** Build the deterministic response script for a profile. */
@@ -248,17 +255,12 @@ export function makeScript(profile: Profile): ResponseScript {
           (action.level ?? 0) <= profile.ladder.ef,
           timing(profile.baseTimeMs),
         );
-      case "gsm": {
-        const cap =
-          action.direction === "backward"
-            ? profile.gsmForward - 2
-            : profile.gsmForward;
+      case "gsm":
         return gsmResponse(
           item,
-          (action.spanLength ?? 0) <= cap,
+          (action.spanLength ?? 0) <= profile.gsmForward,
           timing(profile.baseTimeMs),
         );
-      }
       case "gs":
         return gsResponse(
           item,
@@ -267,13 +269,16 @@ export function makeScript(profile: Profile): ResponseScript {
           profile.gsMash,
           timing(profile.gsElapsedMs),
         );
-      case "glr":
+      case "glr": {
+        const rounds = action.rounds ?? item.meta.trials;
+        const pass = (action.level ?? 0) <= profile.ladder.glr;
         return glrResponse(
           item,
-          action.rounds ?? 2,
-          profile.glrFinalFrac,
+          rounds,
+          pass ? 1 : profile.glrFinalFrac,
           timing(profile.baseTimeMs),
         );
+      }
     }
   };
 }
@@ -298,7 +303,8 @@ const base = (age: number, label: string, seed: string): Profile => ({
   gsFoundFrac: 0.65,
   gsFalseTaps: 1,
   gsMash: false,
-  gsElapsedMs: 16_000,
+  // A typical child uses the whole per-age window (throughput anchors assume it).
+  gsElapsedMs: gsForAge(age).windowSec * 1000,
   glrFinalFrac: 0.55,
   baseTimeMs: 4_000,
 });
@@ -321,7 +327,7 @@ export const flatTypical: Profile = base(9, "flat-typical", "fixture-flat");
 /** Ceiling: aces everything at the top — sets ceiling markers. */
 export const ceilingProfile: Profile = {
   ...base(13, "ceiling", "fixture-ceiling"),
-  ladder: { gf: 10, gv: 10, ef: 10, ct: 10 },
+  ladder: { gf: 10, gv: 10, ef: 10, ct: 10, glr: 10 },
   gsmForward: 99,
   gsFoundFrac: 1,
   gsFalseTaps: 0,

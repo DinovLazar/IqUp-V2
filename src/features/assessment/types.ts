@@ -6,15 +6,14 @@
  * `applyResponse` (reducer) folds a scripted response back in. Timing arrives ONLY
  * as data on the response (`elapsedMs` + `idleGaps`) — the real stopwatch and idle
  * detection are Phase 1.06.
+ *
+ * v2 (Phase 2.06): every domain but Gs ladders over the calibration-v2 level
+ * tables (Gsm rows carry length/direction/path; Glr rows carry pairs/trials),
+ * with the WISC-style reverse-on-first-fail BASAL rule; Gs is fixed-by-age with
+ * 2 scored rounds (the speeded exception — no staircase, no basal).
  */
 
-import type {
-  CorsiDirection,
-  Item,
-  Move,
-  Signal,
-  TowerMove,
-} from "@/features/tasks";
+import type { CorsiDirection, Item, Signal, TowerMove } from "@/features/tasks";
 
 // ── Responses (input to the reducer) ──────────────────────────────────────────
 
@@ -30,7 +29,7 @@ export interface ResponseTiming {
 export type RawResponse = ResponseTiming &
   (
     | { signal: "gf" | "gv"; optionIndex: number }
-    | { signal: "ct"; optionIndex?: number; stepIndex?: number; path?: Move[] }
+    | { signal: "ct"; optionIndex?: number; stepIndex?: number }
     | { signal: "gsm"; tapOrder: number[] }
     | { signal: "gs"; selectedCells: number[] }
     | { signal: "ef"; moves: TowerMove[] }
@@ -68,7 +67,7 @@ export interface GradedItem {
   /** Corsi: the span length + direction administered. */
   spanLength?: number;
   direction?: CorsiDirection;
-  /** Primary binary outcome — drives laddering / span growth. */
+  /** Primary binary outcome — drives the staircase. */
   correct: boolean;
   effectiveTimeMs: number;
   rawElapsedMs: number;
@@ -85,9 +84,9 @@ export interface GradedItem {
   glr?: GlrObservation;
 }
 
-// ── Per-domain state (three control flows) ────────────────────────────────────
+// ── Per-domain state (two control flows in v2) ────────────────────────────────
 
-/** Laddered basal/ceiling domains: Gf, Gv, EF, CT. */
+/** Laddered basal/ceiling domains: Gf, Gv, Gsm, EF, Glr, CT. */
 export interface LadderedDomain {
   kind: "laddered";
   signal: Signal;
@@ -99,37 +98,33 @@ export interface LadderedDomain {
   done: boolean;
   /** Highest level answered correctly (ceiling detection). */
   maxLevelCorrect: number;
+  /**
+   * Basal (v2): true until the first correct answer. While true, a wrong answer
+   * demotes item-by-item WITHOUT tripping the consecutive-error ceiling.
+   */
+  basalPhase: boolean;
+  /**
+   * Levels below the first-correct level, credited as passed at their level
+   * weight for the level-weighted accuracy score (WISC reverse-rule credit).
+   * Empty until the basal is established (or when the domain floors out at L1).
+   */
+  basalCreditLevels: number[];
 }
 
-/** Span-adaptive domain: Gsm (forward, then backward from age 8). */
-export interface SpanDomain {
-  kind: "span";
-  signal: "gsm";
-  phase: "forward" | "backward";
-  currentSpan: number;
-  consecutiveErrors: number;
-  trialsInPhase: number;
-  forward: GradedItem[];
-  backward: GradedItem[];
-  /** Whether backward runs at all (age ≥ 8). */
-  runBackward: boolean;
-  done: boolean;
-}
-
-/** Fixed, age-sized single-administration domains: Gs, Glr. */
-export interface FixedDomain {
-  kind: "fixed";
-  signal: "gs" | "glr";
-  /** The difficulty level (grid size / pair count) for the age. */
+/** The fixed-by-age speeded domain: Gs (2 scored rounds, no staircase). */
+export interface GsDomain {
+  kind: "gs";
+  signal: "gs";
+  /** The age-pegged nominal level recorded on the items. */
   level: number;
-  /** Glr: number of recall rounds expected (informational). */
-  rounds?: number;
-  administered: boolean;
-  item: GradedItem | null;
+  /** Scored rounds administered so far. */
+  items: GradedItem[];
+  /** Rounds to administer (GS_ROUNDS = 2). */
+  rounds: number;
   done: boolean;
 }
 
-export type DomainState = LadderedDomain | SpanDomain | FixedDomain;
+export type DomainState = LadderedDomain | GsDomain;
 
 // ── Session state ─────────────────────────────────────────────────────────────
 
@@ -151,14 +146,14 @@ export interface AdministerAction {
   signal: Signal;
   /** Per-domain index of this item (drives the derived item seed). */
   itemIndex: number;
-  /** Seed for this item: deriveSeed(sessionSeed, signal, itemIndex[, …]). */
+  /** Seed for this item: deriveSeed(sessionSeed, signal, itemIndex). */
   itemSeed: string;
-  /** Laddered domains. */
+  /** Difficulty level administered (Gs: the age-pegged nominal level). */
   level?: number;
   /** Corsi. */
   spanLength?: number;
   direction?: CorsiDirection;
-  /** Glr: how many recall rounds the UI should run. */
+  /** Glr: how many recall rounds the UI should run (the ladder row's trials). */
   rounds?: number;
   /** The deterministic item to render (from generateItem on itemSeed). */
   item: Item;

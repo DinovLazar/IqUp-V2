@@ -22,7 +22,7 @@ const engagedFloor: Profile = {
   label: "engaged-floor",
   age: 7,
   sessionSeed: "floor-engaged",
-  ladder: { gf: 0, gv: 0, ef: 0, ct: 0 },
+  ladder: { gf: 0, gv: 0, ef: 0, ct: 0, glr: 0 },
   gsmForward: 0,
   gsFoundFrac: 0,
   gsFalseTaps: 0,

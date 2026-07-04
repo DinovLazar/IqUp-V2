@@ -26,14 +26,10 @@ function administeredSeeds(sessionSeed: string, age = 9): string[] {
   );
   const seeds: string[] = [];
   for (const signal of final.order) {
+    // v2 domains are either `laddered` or `gs`; both carry an `items` list (Gsm
+    // is laddered now, its rows carry direction), so one walk covers them all.
     const d = final.domains[signal];
-    if (d.kind === "laddered") seeds.push(...d.items.map((i) => i.itemSeed));
-    else if (d.kind === "span")
-      seeds.push(
-        ...d.forward.map((i) => i.itemSeed),
-        ...d.backward.map((i) => i.itemSeed),
-      );
-    else if (d.item) seeds.push(d.item.itemSeed);
+    seeds.push(...d.items.map((i) => i.itemSeed));
   }
   return seeds;
 }

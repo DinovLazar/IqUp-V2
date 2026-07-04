@@ -1,32 +1,44 @@
 /**
- * Validity flags + graduated session verdict (spec Дел 7.1). Flags guard against a
- * confident profile built on garbage data; they are quality metadata, never framed
- * negatively toward the child (this layer emits codes only — wording is 1.07).
+ * Validity flags + graduated session verdict (spec Дел 7.1, calibration v2).
+ * Flags guard against a confident profile built on garbage data; they are
+ * quality metadata, never framed negatively toward the child (this layer emits
+ * codes only — wording is 1.07).
  *
- *   too_fast        > F% of answers under the too-fast threshold → STRONG (session)
+ *   too_fast        > the resolved fraction of answers under the resolved
+ *                     (device-relative) too-fast threshold      → STRONG (session)
  *   same_position   > 60% of MC answers same option slot         → mild
  *   idle_pauses     > N excluded long idle gaps                  → mild
  *   gs_mashing      ~all Gs cells tapped                         → mild   (Gs only)
+ *   gs_omission     > age band's OMISSION cut-off of Gs targets missed
+ *                                                                → mild   (Gs only)
  *   random_accuracy a whole MC domain at chance level            → mild   (per signal)
  *
- * The too-fast threshold (F% and the per-item ms floor) and the idle count N are
- * MODULATED by the session context (Phase 3.01): the young 5–7 band, parent-assist
- * (reading aloud), and the device tap baseline all relax the time-based thresholds
- * so those sessions are not false-flagged (spec Дел 7.2 / 7.4, D-071). With no
- * context the thresholds are the exact 1.05 base values. The too-fast comparison
- * uses each item's raw elapsed time against the resolved threshold, so it is
- * device-relative when a baseline is present — not an absolute-ms bias.
+ * Two calibration layers modulate the flags:
+ *   • v2 (Phase 2.06): the omission cut-off is AGE-BANDED (ATTENTION_BANDS,
+ *     [provisional]); chance accuracy follows the age's option-count clamp.
+ *   • Phase 3.01: the too-fast threshold (the per-item ms floor and the strong
+ *     fraction F%) and the idle count N are MODULATED by the session context —
+ *     the young 5–7 band, parent-assist (reading aloud), and the device tap
+ *     baseline all relax the time-based thresholds so those sessions are not
+ *     false-flagged (spec Дел 7.2 / 7.4, D-071). With no context those thresholds
+ *     are the exact 1.05 base values, and the too-fast comparison uses each item's
+ *     raw elapsed time against the resolved threshold, so it is device-relative
+ *     when a baseline is present — not an absolute-ms bias.
  *
- * Verdict: any strong flag ⇒ `strong` (no confident profile, 1.06 shows retry);
- * else any flag ⇒ `mild` (usable, soft note); else `ok`.
+ * Verdict: any strong flag ⇒ `strong` (no confident profile, the UI shows the
+ * graceful retry); else any flag ⇒ `mild` (usable, soft note); else `ok`.
  */
 
 import {
-  CHANCE_ACCURACY_4OPT,
+  AGE_MIN,
   GS_MASHING_FRACTION,
+  GS_TYPICAL_MISS_FRACTION,
   RANDOM_ACCURACY_DELTA,
   RANDOM_ACCURACY_MIN_ITEMS,
   SAME_POSITION_FRACTION,
+  attentionBand,
+  chanceAccuracyForAge,
+  clampAge,
   resolveValidityThresholds,
   type ScoredSignal,
   type ValidityContext,
@@ -46,22 +58,29 @@ export interface ValidityResult {
 /**
  * Compute validity flags + verdict from every graded item in the session.
  *
- * @param ctx  Age / parent-assist / device-baseline context that modulates the
- *             time-based thresholds (Phase 3.01). Omit (or `{}`) for the 1.05 base
- *             thresholds — used verbatim by the existing unit tests.
+ * @param ctx  Age / parent-assist / device-baseline context. `age` bands the
+ *             omission + chance-accuracy checks (v2) and, with parent-assist and
+ *             the device baseline, modulates the time-based thresholds (Phase
+ *             3.01). Omit `age` (or pass `{}`) for the 1.05 base thresholds —
+ *             absent age is treated as the youngest band for the age-banded
+ *             checks, and as the *base* (non-young) case by the threshold
+ *             resolver, matching the pre-3.01 behaviour the unit tests pin.
  */
 export function computeValidity(
   allItems: readonly GradedItem[],
   ctx: ValidityContext = {},
 ): ValidityResult {
+  const age = clampAge(ctx.age ?? AGE_MIN);
+  const band = attentionBand(age);
   const flags: ValidityFlag[] = [];
   const total = allItems.length;
   const { tooFastMs, tooFastFractionStrong, maxIdlePauses } =
     resolveValidityThresholds(ctx);
 
-  // too-fast — > F% of answers under the resolved (device-relative) threshold ⇒
-  // strong. Compared against raw elapsed so the same *relative* speed gets the
-  // same verdict across devices when a baseline is present (§7.2, D-071).
+  // too-fast — > the resolved fraction of answers under the resolved
+  // (device-relative) threshold ⇒ strong. Compared against raw elapsed so the
+  // same *relative* speed gets the same verdict across devices when a baseline
+  // is present (§7.2, D-071).
   if (total > 0) {
     const tooFast = allItems.filter((it) => it.rawElapsedMs < tooFastMs).length;
     if (tooFast / total > tooFastFractionStrong) {
@@ -89,20 +108,40 @@ export function computeValidity(
     flags.push({ code: "idle_pauses", severity: "mild" });
   }
 
-  // Gs mashing — tapping ~all cells invalidates the speed grid.
-  const gsItem = allItems.find((it) => it.signal === "gs");
-  if (gsItem?.gs && gsItem.gs.cellCount > 0) {
-    if (gsItem.gs.tappedCount / gsItem.gs.cellCount >= GS_MASHING_FRACTION) {
+  // Gs mashing + omission — over the scored rounds together.
+  const gsItems = allItems.filter((it) => it.signal === "gs" && it.gs);
+  if (gsItems.length > 0) {
+    let tapped = 0;
+    let cells = 0;
+    let found = 0;
+    let targets = 0;
+    for (const it of gsItems) {
+      tapped += it.gs!.tappedCount;
+      cells += it.gs!.cellCount;
+      found += it.gs!.found;
+      targets += it.gs!.targetCount;
+    }
+    if (cells > 0 && tapped / cells >= GS_MASHING_FRACTION) {
       flags.push({ code: "gs_mashing", signal: "gs", severity: "mild" });
+    }
+    // Symbol search is throughput-scored (a typical child leaves ~35% of the
+    // grid uncleared), so the CPT-derived omission cut-off applies to misses
+    // BEYOND that typical baseline.
+    if (
+      targets > 0 &&
+      1 - found / targets > GS_TYPICAL_MISS_FRACTION + band.omission
+    ) {
+      flags.push({ code: "gs_omission", signal: "gs", severity: "mild" });
     }
   }
 
   // random-level accuracy across a whole MC domain ⇒ reduced confidence (per signal).
+  const chance = chanceAccuracyForAge(age);
   for (const signal of MC_SIGNALS) {
     const items = allItems.filter((it) => it.signal === signal);
     if (items.length >= RANDOM_ACCURACY_MIN_ITEMS) {
       const acc = correctCount(items) / items.length;
-      if (Math.abs(acc - CHANCE_ACCURACY_4OPT) <= RANDOM_ACCURACY_DELTA) {
+      if (Math.abs(acc - chance) <= RANDOM_ACCURACY_DELTA) {
         flags.push({ code: "random_accuracy", signal, severity: "mild" });
       }
     }

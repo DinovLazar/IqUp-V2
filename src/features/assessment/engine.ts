@@ -1,14 +1,21 @@
 /**
  * The adaptive engine — a pure, deterministic state machine (no clock, no I/O, no
- * randomness beyond the seeded PRNG). Three control flows live behind one uniform
- * selector/reducer interface:
+ * randomness beyond the seeded PRNG). Two control flows live behind one uniform
+ * selector/reducer interface (calibration v2):
  *
- *   • laddered basal/ceiling (Gf, Gv, EF, CT) — correct → level ↑, error → ↓;
- *     stop on `CEILING_CONSECUTIVE_ERRORS` consecutive errors or the age item cap.
- *   • span-adaptive (Gsm) — start at the age's expected forward span; +1 correct,
- *     −1 error; ceiling on consecutive errors. From age 8, run backward after
- *     forward (start ≈ forward − offset).
- *   • fixed, age-sized (Gs, Glr) — one administration sized by age.
+ *   • laddered basal/ceiling (Gf, Gv, Gsm, EF, Glr, CT) — per-signal start
+ *     level for the age; correct → level ↑, error → ↓ (floor L1, ceiling L10);
+ *     WISC-style BASAL: a wrong FIRST item demotes item-by-item (ceiling
+ *     suspended) until the first correct answer, and every level below that
+ *     first-correct level is credited as passed at its level weight; then the
+ *     normal staircase resumes and `CEILING_CONSECUTIVE_ERRORS` consecutive
+ *     errors (or the age item cap) end the domain. Gsm rows carry
+ *     length/direction/path (under-8 backward→forward+crisscross substitution
+ *     via the level lookup); Glr rows carry pairs/trials.
+ *   • fixed, age-sized speeded (Gs) — the WISC speeded-subtest exception: no
+ *     staircase, no basal; 2 scored rounds from the per-age parameter row
+ *     (round 2 = fresh layout, same params, same targets via a shared
+ *     target seed).
  *
  * `startSession` → state; `nextAction` (selector) → what to do; `applyResponse`
  * (reducer) → next state; `advanceDomain` steps past a finished domain. Same
@@ -16,39 +23,45 @@
  */
 
 import {
-  BACKWARD_SPAN_OFFSET,
   CEILING_CONSECUTIVE_ERRORS,
   DOMAIN_ORDER,
-  EXPECTED_FORWARD_SPAN_BY_AGE,
-  GLR_LEVEL_BY_AGE,
-  GLR_ROUNDS_BY_AGE,
-  GSM_MAX_SPAN,
   GSM_MAX_TRIALS_PER_DIRECTION,
-  GSM_MIN_SPAN,
-  GS_LEVEL_BY_AGE,
-  SPAN_CEILING_CONSECUTIVE_ERRORS,
-  START_LEVEL_BY_AGE,
-  byAge,
   clampAge,
   itemCap,
+  startLevel,
+  type LadderedSignal,
 } from "@/content/norms";
-import { MAX_LEVEL, MIN_LEVEL } from "@/content/tasks";
+import {
+  GS_ROUNDS,
+  MAX_LEVEL,
+  MIN_LEVEL,
+  glrLevel,
+  gsNominalLevel,
+  gsmLevelForAge,
+} from "@/content/tasks";
 import { generateItem, type Signal } from "@/features/tasks";
 import { deriveSeed } from "@/lib/prng";
 import { gradeItem } from "@/features/scoring/grade";
 import type {
   AdministerAction,
   DomainState,
-  FixedDomain,
   GradedItem,
+  GsDomain,
   LadderedDomain,
   NextAction,
   RawResponse,
   SessionState,
-  SpanDomain,
 } from "./types";
 
-const LADDERED_SIGNALS: readonly Signal[] = ["gf", "gv", "ef", "ct"];
+/** Every signal ladders except the fixed-by-age, speeded Gs. */
+const LADDERED_SIGNALS: readonly Signal[] = [
+  "gf",
+  "gv",
+  "gsm",
+  "ef",
+  "glr",
+  "ct",
+];
 
 // ── Session bootstrap ─────────────────────────────────────────────────────────
 
@@ -63,46 +76,22 @@ function initDomain(signal: Signal, age: number): DomainState {
     return {
       kind: "laddered",
       signal,
-      level: byAge(START_LEVEL_BY_AGE, age),
+      level: startLevel(signal as LadderedSignal, age),
       consecutiveErrors: 0,
       items: [],
       cap: itemCap(signal, age),
       done: false,
       maxLevelCorrect: 0,
+      basalPhase: true,
+      basalCreditLevels: [],
     };
   }
-  if (signal === "gsm") {
-    return {
-      kind: "span",
-      signal: "gsm",
-      phase: "forward",
-      currentSpan: byAge(EXPECTED_FORWARD_SPAN_BY_AGE, age),
-      consecutiveErrors: 0,
-      trialsInPhase: 0,
-      forward: [],
-      backward: [],
-      runBackward: clampAge(age) >= 8,
-      done: false,
-    };
-  }
-  if (signal === "gs") {
-    return {
-      kind: "fixed",
-      signal: "gs",
-      level: byAge(GS_LEVEL_BY_AGE, age),
-      administered: false,
-      item: null,
-      done: false,
-    };
-  }
-  // glr
   return {
-    kind: "fixed",
-    signal: "glr",
-    level: byAge(GLR_LEVEL_BY_AGE, age),
-    rounds: byAge(GLR_ROUNDS_BY_AGE, age),
-    administered: false,
-    item: null,
+    kind: "gs",
+    signal: "gs",
+    level: gsNominalLevel(age),
+    items: [],
+    rounds: GS_ROUNDS,
     done: false,
   };
 }
@@ -135,10 +124,33 @@ function buildAdminister(
   if (d.kind === "laddered") {
     const itemIndex = d.items.length;
     const itemSeed = deriveSeed(state.sessionSeed, d.signal, itemIndex);
+    if (d.signal === "gsm") {
+      const row = gsmLevelForAge(d.level, state.age);
+      const item = generateItem({
+        signal: "gsm",
+        level: d.level,
+        seed: itemSeed,
+        age: state.age,
+        length: row.length,
+        direction: row.direction,
+        path: row.path,
+      });
+      return {
+        kind: "administer",
+        signal: "gsm",
+        itemIndex,
+        itemSeed,
+        level: d.level,
+        spanLength: row.length,
+        direction: row.direction,
+        item,
+      };
+    }
     const item = generateItem({
       signal: d.signal,
       level: d.level,
       seed: itemSeed,
+      age: state.age,
     });
     return {
       kind: "administer",
@@ -146,43 +158,26 @@ function buildAdminister(
       itemIndex,
       itemSeed,
       level: d.level,
+      rounds: d.signal === "glr" ? glrLevel(d.level).trials : undefined,
       item,
     };
   }
-  if (d.kind === "span") {
-    const itemIndex = d.forward.length + d.backward.length;
-    const itemSeed = deriveSeed(state.sessionSeed, "gsm", itemIndex);
-    const item = generateItem({
-      signal: "gsm",
-      level: 1,
-      seed: itemSeed,
-      length: d.currentSpan,
-      direction: d.phase,
-    });
-    return {
-      kind: "administer",
-      signal: "gsm",
-      itemIndex,
-      itemSeed,
-      spanLength: d.currentSpan,
-      direction: d.phase,
-      item,
-    };
-  }
-  // fixed (gs / glr)
-  const itemSeed = deriveSeed(state.sessionSeed, d.signal, 0);
+  // Gs — fixed 2 scored rounds; the targets are shared across rounds.
+  const itemIndex = d.items.length;
+  const itemSeed = deriveSeed(state.sessionSeed, "gs", itemIndex);
   const item = generateItem({
-    signal: d.signal,
+    signal: "gs",
     level: d.level,
     seed: itemSeed,
+    age: state.age,
+    targetSeed: deriveSeed(state.sessionSeed, "gs-targets"),
   });
   return {
     kind: "administer",
-    signal: d.signal,
-    itemIndex: 0,
+    signal: "gs",
+    itemIndex,
     itemSeed,
     level: d.level,
-    rounds: d.signal === "glr" ? d.rounds : undefined,
     item,
   };
 }
@@ -202,10 +197,38 @@ export function nextAction(state: SessionState): NextAction {
 
 // ── Reducers ──────────────────────────────────────────────────────────────────
 
+const levelRange = (below: number): number[] =>
+  Array.from({ length: Math.max(0, below - MIN_LEVEL) }, (_, i) => i + 1);
+
 function reduceLaddered(d: LadderedDomain, g: GradedItem): LadderedDomain {
   const items = [...d.items, g];
-  let { level, consecutiveErrors, maxLevelCorrect } = d;
-  if (g.correct) {
+  let { level, consecutiveErrors, maxLevelCorrect, basalPhase } = d;
+  let { basalCreditLevels } = d;
+
+  if (basalPhase) {
+    if (g.correct) {
+      // Basal established: credit every level below the first-correct level.
+      const firstCorrect = g.level ?? level;
+      basalPhase = false;
+      basalCreditLevels = levelRange(firstCorrect);
+      maxLevelCorrect = Math.max(maxLevelCorrect, firstCorrect);
+      level = Math.min(MAX_LEVEL, firstCorrect + 1);
+      consecutiveErrors = 0;
+    } else if (level <= MIN_LEVEL) {
+      // Wrong at L1: the descent can go no lower, so the basal phase ends with
+      // nothing credited — but ONE error is not a termination (§0 sanctions
+      // only the ceiling and the cap). The normal consecutive-error ceiling
+      // takes over: a child who mistapped the very first L1 item gets another
+      // L1 item; a descent chain arrives here with ≥2 errors and ends anyway.
+      basalPhase = false;
+      basalCreditLevels = [];
+      consecutiveErrors += 1;
+    } else {
+      // Demote item-by-item; the ceiling is suspended during the descent.
+      level -= 1;
+      consecutiveErrors += 1;
+    }
+  } else if (g.correct) {
     maxLevelCorrect = Math.max(maxLevelCorrect, g.level ?? level);
     level = Math.min(MAX_LEVEL, level + 1);
     consecutiveErrors = 0;
@@ -213,69 +236,35 @@ function reduceLaddered(d: LadderedDomain, g: GradedItem): LadderedDomain {
     level = Math.max(MIN_LEVEL, level - 1);
     consecutiveErrors += 1;
   }
-  const done =
-    items.length >= d.cap || consecutiveErrors >= CEILING_CONSECUTIVE_ERRORS;
-  return { ...d, items, level, consecutiveErrors, maxLevelCorrect, done };
-}
 
-function reduceSpan(d: SpanDomain, g: GradedItem, age: number): SpanDomain {
-  const trialsInPhase = d.trialsInPhase + 1;
-  let { currentSpan, consecutiveErrors } = d;
-  if (g.correct) {
-    currentSpan = Math.min(GSM_MAX_SPAN, currentSpan + 1);
-    consecutiveErrors = 0;
-  } else {
-    currentSpan = Math.max(GSM_MIN_SPAN, currentSpan - 1);
-    consecutiveErrors += 1;
-  }
-  const forward = d.phase === "forward" ? [...d.forward, g] : d.forward;
-  const backward = d.phase === "backward" ? [...d.backward, g] : d.backward;
-
-  const phaseDone =
-    consecutiveErrors >= SPAN_CEILING_CONSECUTIVE_ERRORS ||
-    trialsInPhase >= GSM_MAX_TRIALS_PER_DIRECTION;
-
-  if (!phaseDone) {
-    return {
-      ...d,
-      forward,
-      backward,
-      currentSpan,
-      consecutiveErrors,
-      trialsInPhase,
-    };
-  }
-  // Forward just ended and backward is due (age ≥ 8): switch phases.
-  if (d.phase === "forward" && d.runBackward) {
-    const expectedForward = byAge(EXPECTED_FORWARD_SPAN_BY_AGE, age);
-    const backStart = Math.max(
-      GSM_MIN_SPAN,
-      expectedForward - BACKWARD_SPAN_OFFSET,
+  // Gsm backstop (kept from v1): no direction may run past its trial cap.
+  const directionCapped =
+    d.signal === "gsm" &&
+    (["forward", "backward"] as const).some(
+      (dir) =>
+        items.filter((it) => it.direction === dir).length >=
+        GSM_MAX_TRIALS_PER_DIRECTION,
     );
-    return {
-      ...d,
-      forward,
-      backward,
-      phase: "backward",
-      currentSpan: backStart,
-      consecutiveErrors: 0,
-      trialsInPhase: 0,
-      done: false,
-    };
-  }
+
+  const done =
+    items.length >= d.cap ||
+    directionCapped ||
+    (!basalPhase && consecutiveErrors >= CEILING_CONSECUTIVE_ERRORS);
   return {
     ...d,
-    forward,
-    backward,
-    currentSpan,
+    items,
+    level,
     consecutiveErrors,
-    trialsInPhase,
-    done: true,
+    maxLevelCorrect,
+    basalPhase,
+    basalCreditLevels,
+    done,
   };
 }
 
-function reduceFixed(d: FixedDomain, g: GradedItem): FixedDomain {
-  return { ...d, administered: true, item: g, done: true };
+function reduceGs(d: GsDomain, g: GradedItem): GsDomain {
+  const items = [...d.items, g];
+  return { ...d, items, done: items.length >= d.rounds };
 }
 
 /**
@@ -294,10 +283,8 @@ export function applyResponse(
   const signal = action.signal;
   const d = state.domains[signal];
 
-  let next: DomainState;
-  if (d.kind === "laddered") next = reduceLaddered(d, graded);
-  else if (d.kind === "span") next = reduceSpan(d, graded, state.age);
-  else next = reduceFixed(d, graded);
+  const next: DomainState =
+    d.kind === "laddered" ? reduceLaddered(d, graded) : reduceGs(d, graded);
 
   return { ...state, domains: { ...state.domains, [signal]: next } };
 }

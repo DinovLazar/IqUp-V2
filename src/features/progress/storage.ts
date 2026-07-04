@@ -9,7 +9,7 @@
  * than throwing — the assessment must never break because local progress is
  * unavailable. The payload is a small JSON blob (a handful of numbers + short
  * strings), comfortably within the ~5 MB localStorage budget, so IndexedDB is
- * unnecessary (D-130).
+ * unnecessary (D-144).
  */
 
 import { isStoredProfile, type StoredProfile } from "./schema";
