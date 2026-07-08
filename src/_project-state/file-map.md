@@ -57,7 +57,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
 - `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised); +3.02: `blu/teal/org/yel-ink` re-darkened to clear 4.5:1 on their own soft tint (kept in sync with `src/lib/indices.ts`)
 - `src/app/favicon.ico` — placeholder favicon (rebranded later)
-- `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1)
+- `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1); +Maint-Logo: header lockup is now the real `<Logo />` (non-linked — already home), replacing the `PuzzleBrain` chip + text stand-in (D-156)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
 - `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once. **+3.01:** `parentAssistMode` + the device calibration baseline now feed `finalize(state, ctx)`; each finished run's anonymous summary is persisted on-device via `@/features/progress` (repeat ⇒ fresh seed); still no server/PII (1.06/1.08/3.01)
 - `src/app/(site)/procena/setup-screen.tsx` — age gate 5–13 (<5/>13 blocked, MK message; `noValidate`); no child name (1.06)
@@ -67,7 +67,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/(site)/procena/confirmation.tsx` — **confirmation (1.08)**: renders `selectReportSummary` (pentagon + 5 bands + top strength, no number), email-sent line, §D.2 data note, booking CTA (`?grad={city}` + `cta_booking_click`); graceful-retry variant; +1.10: §D.4 = the shared `<Disclaimer variant="full">` (§16.1 placement #3, both branches)
 - `src/app/(site)/procena/end-phase-view.tsx` — the completion → form → confirmation screen switch (1.08), split out of the flow machine so its guards are unit-testable; +3.02: `LeadForm`/`Confirmation` load via `next/dynamic({ ssr: false })` (lazy-load by section)
 - `src/app/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
-- `src/app/(site)/page-shell.tsx` — shared chrome for the static pages (1.10): wordmark + back-to-home header + centered content column (sync Server Component)
+- `src/app/(site)/page-shell.tsx` — shared chrome for the static pages (1.10): wordmark + back-to-home header + centered content column (sync Server Component); +Maint-Logo: header wordmark is now the real `<Logo />` inside the existing home `<Link>` (D-156)
 - `src/app/(site)/za-testot/page.tsx` — **About-the-test (1.10)**: §16.1 placement #6 — §1.1 "what it is / what it isn't" + the FULL shared `Disclaimer`; MK `metadata` + H1
 - `src/app/(site)/politika-za-privatnost/page.tsx` — **Privacy (1.10)**: routable shell (resolves the consent link); H1 + "pending legal review" placeholder (final copy = Phase 3.03)
 - `src/app/(site)/uslovi/page.tsx` — **Terms (1.10)**: routable shell; H1 + "pending legal review" placeholder (final copy = Phase 3.03)
@@ -79,7 +79,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/kit/report-preview.tsx` — dev-only report preview (1.07): all five `fixtures.ts` profiles assembled through `assembleReport` (pentagon + bands + Part А/Б + positioning + CTA; retry + ceiling variants; static Прилог D.4 disclaimer placeholder); +3.02: internal `Heading` `h4`→`h3` (was skipping a level under the Section's `h2`, axe heading-order)
 - `src/app/kit/lead-preview.tsx` — dev-only lead preview (1.08): the form in three states (empty / validation-error / missing-consent, via the `autoValidate`/`defaultValues` seams) + the confirmation from a `fixtures.ts` profile (+ graceful-retry)
 - `src/app/admin/layout.tsx` — **admin panel layout (2.04)**: marks all `/admin/**` `noindex,nofollow` + neutral bg; renders NO authenticated chrome (login lives under it too)
-- `src/app/admin/admin-shell.tsx` — **authenticated admin chrome (2.04)**: header wordmark + nav (Статистика/Контакти) + `SignOutButton`, centered content column; sync Server Component (next-intl); used by the stats + contacts pages only
+- `src/app/admin/admin-shell.tsx` — **authenticated admin chrome (2.04)**: header wordmark + nav (Статистика/Контакти) + `SignOutButton`, centered content column; sync Server Component (next-intl); used by the stats + contacts pages only; +Maint-Logo: wordmark is now the real `<Logo />` + a muted `admin.roleTag` ("Админ") tag (kept the back-office marker the old `· Админ` wordmark gave; D-156)
 - `src/app/admin/sign-out-button.tsx` — **(2.04)** client sign-out: clears the Supabase session via the browser client, routes to `/admin/login`
 - `src/app/admin/login/page.tsx` — **`/admin/login` (2.04)**: the one admin route reachable without a session; renders the client `LoginForm`; +3.02: root wrapped in `<main>` (was missing a landmark, axe)
 - `src/app/admin/login/login-form.tsx` — **(2.04)** client login state machine: email+password → TOTP enrol (QR/secret) or challenge → aal2 → `/admin`; friendly MK errors; NOT the security boundary
@@ -113,6 +113,7 @@ path/to/file.ext — one-line description of what it does
 - `idle-nudge.tsx` — gentle idle nudge ("Сè е во ред?" + Продолжи), overlay/inline, no timer/penalty (1.06, D-047)
 - `reward-badge.tsx` — "IQ UP! Истражувач" celebratory tile + custom yellow star SVG (1.06, D-047)
 - `disclaimer.tsx` — **shared §16.1 "informative, not diagnostic" component (1.10)**: full/short registers from `messages/mk.json` `legal`; isomorphic (no `"use client"`); exports `DISCLAIMER_KEYS` (the PDF copy-parity guard's key map)
+- `logo.tsx` — **shared real IQ UP! brand mark (Maint-Logo, D-156)**: plain isomorphic `<img src="/brand/iqup-logo.svg" alt="IQ UP!">`, intrinsic 192×54, `h-9 w-auto` default + overridable `className`; served as a file (not inlined) so the SVG's `<style>`/gradient/clip ids can't leak globally; used by the landing, static-page shell, and admin headers only
 - `__tests__/disclaimer.test.tsx` — jsdom (1.10): both registers render verbatim from mk.json; `DISCLAIMER_KEYS` resolve
 
 **Lib (`src/lib/`):**
@@ -296,6 +297,7 @@ path/to/file.ext — one-line description of what it does
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
 - `public/images/.gitkeep` — brand/photos added later
+- `public/brand/iqup-logo.svg` — **the real IQ UP! horizontal lockup (Maint-Logo, D-156)**: puzzle-brain + "EDUCATION THAT INSPIRES", intrinsic 192×54, `<style>`/gradient/clip defs (why it's served as a file, not inlined); the home for brand marks (favicon-source / OG / PDF exports land here later). Served by `logo.tsx`. e-mail/PDF/favicon/OG still pending
 
 **Project state (`src/_project-state/`):**
 - `current-state.md` — live "where are we" snapshot

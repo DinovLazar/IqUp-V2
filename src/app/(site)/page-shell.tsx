@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft } from "lucide-react";
 
-import { PuzzleBrain } from "@/components/ui/puzzle-brain";
+import { Logo } from "@/components/ui/logo";
 
 /**
  * Shared chrome for the static `(site)` pages (Phase 1.10): /za-testot,
@@ -19,12 +19,9 @@ export function PageShell({ children }: { children: React.ReactNode }) {
       <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-5">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-field outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
+          className="flex items-center rounded-field outline-none focus-visible:ring-[3px] focus-visible:ring-focus"
         >
-          <PuzzleBrain completed={5} variant="chip" showTrack={false} />
-          <span className="text-subhead font-extrabold tracking-tight text-pur">
-            IQ UP!
-          </span>
+          <Logo />
         </Link>
         <Link
           href="/"

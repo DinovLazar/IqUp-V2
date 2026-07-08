@@ -5,7 +5,7 @@ import { ArrowRight, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Disclaimer } from "@/components/ui/disclaimer";
-import { PuzzleBrain } from "@/components/ui/puzzle-brain";
+import { Logo } from "@/components/ui/logo";
 
 // Real landing (handover §5.1) — photo-forward, brand hero, value message, an
 // MK/EN switch (MK only active for the MVP), the "Започни проценка" entry to
@@ -39,12 +39,8 @@ export default async function HomePage() {
     <main className="flex min-h-dvh flex-col bg-grad-wash">
       {/* Header */}
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-2">
-          <PuzzleBrain completed={5} variant="chip" showTrack={false} />
-          <span className="text-subhead font-extrabold tracking-tight text-pur">
-            IQ UP!
-          </span>
-        </div>
+        {/* Real brand lockup (D-156); not linked — the user is already home. */}
+        <Logo />
         <div
           className="flex items-center gap-1 rounded-full border border-border bg-surface p-1"
           aria-label="Јазик"
