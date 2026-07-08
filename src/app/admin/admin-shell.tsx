@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "./sign-out-button";
 
@@ -22,7 +23,14 @@ export function AdminShell({
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-4 px-4 py-3">
-          <span className="text-subhead text-pur">{t("appName")}</span>
+          {/* Real brand lockup (D-156) + a muted "Админ" tag so staff still see
+              this is the back-office, the signal the old "· Админ" wordmark gave. */}
+          <div className="flex items-center gap-2">
+            <Logo />
+            <span className="text-label font-semibold text-muted">
+              {t("roleTag")}
+            </span>
+          </div>
           <nav className="flex items-center gap-1" aria-label="Admin">
             <NavLink href="/admin" current={active === "stats"}>
               {t("nav.stats")}

@@ -247,6 +247,7 @@
   },
   "admin": {
     "appName": "IQ UP! · Админ",
+    "roleTag": "Админ",
     "nav": {
       "stats": "Статистика",
       "contacts": "Контакти",
