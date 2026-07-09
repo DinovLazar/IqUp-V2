@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ArrowRight, Check } from "lucide-react";
@@ -10,25 +11,10 @@ import { Logo } from "@/components/ui/logo";
 // Real landing (handover §5.1) — photo-forward, brand hero, value message, an
 // MK/EN switch (MK only active for the MVP), the "Започни проценка" entry to
 // /procena, and the shared "informative, not diagnostic" footnote (§16.1
-// placement #1 — the short `Disclaimer`). Class photos are dashed placeholders
-// (Cowork delivers the real assets later — clean swap).
+// placement #1 — the short `Disclaimer`).
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("landing");
   return { title: "IQ UP!", description: t("subhead") };
-}
-
-function PhotoPlaceholder({ label }: { label: string }) {
-  return (
-    <div
-      role="img"
-      aria-label={label}
-      className="flex aspect-[4/3] w-full items-center justify-center rounded-card-lg border-2 border-dashed border-border-pur bg-tint-pur/50"
-    >
-      <span className="px-4 text-center text-label font-normal text-muted">
-        {label}
-      </span>
-    </div>
-  );
 }
 
 export default async function HomePage() {
@@ -60,8 +46,15 @@ export default async function HomePage() {
 
       {/* Hero */}
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-10 px-5 py-8 md:flex-row md:items-center md:gap-12">
-        <div className="w-full md:w-[58%]">
-          <PhotoPlaceholder label={t("photoPlaceholder")} />
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-card-lg md:w-[58%]">
+          <Image
+            src="/images/hero-iqup-class.jpg"
+            alt={t("photoAlt")}
+            fill
+            priority
+            sizes="(min-width: 768px) 58vw, 100vw"
+            className="object-cover"
+          />
         </div>
 
         <div className="flex w-full flex-col gap-6 md:w-[42%]">
