@@ -12,15 +12,16 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IdleNudge } from "@/components/ui/idle-nudge";
-import { PuzzleBrain } from "@/components/ui/puzzle-brain";
+import { Logo } from "@/components/ui/logo";
 import { TaskRenderer } from "./task-renderer";
 import { withTiming, type ResponseFields } from "./view";
 
-// The task-agnostic chrome that wraps EVERY task (handover §5.2): puzzle-brain
-// progress + "Секција X од 5" + section dots, a calm instruction, a barely-there
-// explorer accent, the renderer, and the gentle idle nudge. Owns the silent
-// per-item stopwatch (the app's only clock) and routes practice vs real answers.
-// No countdown lives here — the only timer is inside the Gs renderer.
+// The task-agnostic chrome that wraps EVERY task (handover §5.2): the IQ UP!
+// logo + "Секција X од 5" + section dots (which carry the live progress), a calm
+// instruction, a barely-there explorer accent, the renderer, and the gentle idle
+// nudge. Owns the silent per-item stopwatch (the app's only clock) and routes
+// practice vs real answers. No countdown lives here — the only timer is inside
+// the Gs renderer.
 
 export interface TaskScreenProps {
   item: Item;
@@ -28,7 +29,7 @@ export interface TaskScreenProps {
   /** First practice item → capture the device calibration baseline. */
   calibrate?: boolean;
   section: { current: number; total: number };
-  /** Index-groups completed (0–5), drives the puzzle-brain + dots. */
+  /** Index-groups completed (0–5), drives the section dots. */
   brainCompleted: number;
   instruction: string;
   hint?: string;
@@ -91,7 +92,8 @@ export function TaskScreen({
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <PuzzleBrain completed={brainCompleted} variant="chip" />
+            {/* Static IQ UP! logo (D-156 <Logo>); the section dots carry progress. */}
+            <Logo />
             <span className="text-label text-muted">
               {t("task.section", {
                 current: section.current,
