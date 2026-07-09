@@ -56,7 +56,8 @@ path/to/file.ext — one-line description of what it does
 **App (routes + backend):**
 - `src/app/layout.tsx` — root layout; loads Montserrat via `next/font`, sets `<html lang>` + font var, wraps in `NextIntlClientProvider`
 - `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised); +3.02: `blu/teal/org/yel-ink` re-darkened to clear 4.5:1 on their own soft tint (kept in sync with `src/lib/indices.ts`)
-- `src/app/favicon.ico` — placeholder favicon (rebranded later)
+- `src/app/favicon.ico` — **brand favicon** (Maint-Favicon, D-157): 16/32/48 PNG-embedded ICO of the IQ UP! mark, generated from `icon.svg` via `sharp` (replaced the default `create-next-app` icon)
+- `src/app/icon.svg` — **brand tab icon** (Maint-Favicon, D-157): the App-Router SVG favicon; a viewBox crop (`-2 0 54 54`, square) of `public/brand/iqup-logo.svg` — icon + "IQ UP!" cluster, tagline windowed out. Next auto-emits the `<link rel="icon">` tags for this + `favicon.ico`
 - `src/app/(site)/page.tsx` — **real landing** (1.06): brand hero, value message, MK/EN switch (MK active), dashed photo placeholders, "Започни проценка" → `/procena`; +1.10: footnote = the shared `<Disclaimer variant="short">` (§16.1 placement #1); +Maint-Logo: header lockup is now the real `<Logo />` (non-linked — already home), replacing the `PuzzleBrain` chip + text stand-in (D-156)
 - `src/app/(site)/procena/page.tsx` — assessment route (server); renders the client `Assessment` (1.06)
 - `src/app/(site)/procena/assessment.tsx` — client flow state machine: setup → pre-start → practice/real (on the 1.05 engine) → completion → **form → confirmation** (1.08, `advanceEndPhase`); finalizes the result once + assembles the report once. **+3.01:** `parentAssistMode` + the device calibration baseline now feed `finalize(state, ctx)`; each finished run's anonymous summary is persisted on-device via `@/features/progress` (repeat ⇒ fresh seed); still no server/PII (1.06/1.08/3.01)
@@ -113,7 +114,7 @@ path/to/file.ext — one-line description of what it does
 - `idle-nudge.tsx` — gentle idle nudge ("Сè е во ред?" + Продолжи), overlay/inline, no timer/penalty (1.06, D-047)
 - `reward-badge.tsx` — "IQ UP! Истражувач" celebratory tile + custom yellow star SVG (1.06, D-047)
 - `disclaimer.tsx` — **shared §16.1 "informative, not diagnostic" component (1.10)**: full/short registers from `messages/mk.json` `legal`; isomorphic (no `"use client"`); exports `DISCLAIMER_KEYS` (the PDF copy-parity guard's key map)
-- `logo.tsx` — **shared real IQ UP! brand mark (Maint-Logo, D-156)**: plain isomorphic `<img src="/brand/iqup-logo.svg" alt="IQ UP!">`, intrinsic 192×54, `h-9 w-auto` default + overridable `className`; served as a file (not inlined) so the SVG's `<style>`/gradient/clip ids can't leak globally; used by the landing, static-page shell, and admin headers only
+- `logo.tsx` — **shared real IQ UP! brand mark (Maint-Logo, D-156)**: plain isomorphic `<img src="/brand/iqup-logo.svg" alt="IQ UP!">`, intrinsic 192×54, `h-9 w-auto` default + overridable `className`; served as a file (not inlined) so the SVG's `<style>`/gradient/clip ids can't leak globally; used by the landing, static-page shell, admin, and (Maint-Favicon, D-157) the assessment task-screen headers
 - `__tests__/disclaimer.test.tsx` — jsdom (1.10): both registers render verbatim from mk.json; `DISCLAIMER_KEYS` resolve
 
 **Lib (`src/lib/`):**
@@ -203,7 +204,7 @@ path/to/file.ext — one-line description of what it does
 - `glyphs.tsx` — shared SVG glyphs v2: the 4-hue rule palette, composed/tidy `CountedShape` + `ObjectCount` (Gf), pictorial + abstract Glr sets (conflict-group-aware), the two parametric Gs symbol families with real tier variants, CT robot/star/event sprites + arrows + if-tokens
 - `gf-task.tsx` · `gv-task.tsx` · `gsm-task.tsx` · `gs-task.tsx` · `ef-task.tsx` · `glr-task.tsx` · `ct-task.tsx` — one renderer per signal; v2 stimulus upgrade: composed Gf cells + object series, block-figure Gv, scaled/glowing 6- or 9-tile Corsi board (ISI-timed), tier-real Gs symbols + calm ring, ToL board with visible capacities + goal card + move counter + illegal-move shake, pictorial/abstract Glr, CT tile boards + robot + token strips with loop brackets
 - `task-renderer.tsx` — dispatch by signal (same guards as the scorer); +3.02: all 7 renderers load via `next/dynamic({ ssr: false })` (lazy-load by section) with a shared `TaskLoadingFallback`
-- `task-screen.tsx` — shared chrome (progress + section + dots), silent stopwatch wiring, idle nudge, practice/real routing
+- `task-screen.tsx` — shared chrome (static `<Logo />` + section + progress dots), silent stopwatch wiring, idle nudge, practice/real routing; +Maint-Favicon (D-157): the header's live-progress `PuzzleBrain` chip → static `<Logo />` (the section dots still carry progress)
 - `index.ts` — barrel
 - `__tests__/responses.test.ts` — response→answer-key mapping per signal (v2: all 9 CT families), slow≠wrong, Gv render determinism
 
@@ -297,7 +298,7 @@ path/to/file.ext — one-line description of what it does
 **Public assets:**
 - `public/fonts/.gitkeep` — Montserrat added in 1.02/1.03
 - `public/images/.gitkeep` — brand/photos added later
-- `public/brand/iqup-logo.svg` — **the real IQ UP! horizontal lockup (Maint-Logo, D-156)**: puzzle-brain + "EDUCATION THAT INSPIRES", intrinsic 192×54, `<style>`/gradient/clip defs (why it's served as a file, not inlined); the home for brand marks (favicon-source / OG / PDF exports land here later). Served by `logo.tsx`. e-mail/PDF/favicon/OG still pending
+- `public/brand/iqup-logo.svg` — **the real IQ UP! horizontal lockup (Maint-Logo, D-156)**: puzzle-brain + "EDUCATION THAT INSPIRES", intrinsic 192×54, `<style>`/gradient/clip defs (why it's served as a file, not inlined); the home for brand marks (favicon-source / OG / PDF exports land here later). Served by `logo.tsx`; the favicon (`src/app/icon.svg` + `favicon.ico`) is now cropped from it (Maint-Favicon, D-157). e-mail/PDF/OG still pending
 
 **Project state (`src/_project-state/`):**
 - `current-state.md` — live "where are we" snapshot
