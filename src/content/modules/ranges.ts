@@ -9,8 +9,14 @@
 import type { Band, LocalizedText } from "@/features/report/types";
 
 export const RANGE_BY_BAND: Record<Band, LocalizedText> = {
-  exceptional: { mk: "меѓу највисоките за возраста" },
-  strong: { mk: "над типичното за возраста" },
-  solid: { mk: "типично за возраста" },
-  development: { mk: "со простор за раст за возраста" },
+  exceptional: {
+    mk: "меѓу највисоките за возраста",
+    sr: "među najvišima za uzrast",
+  },
+  strong: { mk: "над типичното за возраста", sr: "iznad tipičnog za uzrast" },
+  solid: { mk: "типично за возраста", sr: "tipično za uzrast" },
+  development: {
+    mk: "со простор за раст за возраста",
+    sr: "sa prostorom za rast za uzrast",
+  },
 };

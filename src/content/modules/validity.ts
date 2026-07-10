@@ -20,6 +20,7 @@ export const VALIDITY_MODULES: readonly ReportModule[] = [
     trigger: (f) => f.mildFlag,
     text: {
       mk: "Некои одговори беа многу брзи — за најточен профил, пробајте повторно во мирен момент.",
+      sr: "Neki odgovori su bili vrlo brzi — za najtačniji profil, pokušajte ponovo u mirnom trenutku.",
     },
   },
   {
@@ -30,6 +31,7 @@ export const VALIDITY_MODULES: readonly ReportModule[] = [
     trigger: (f) => f.strongFlag,
     text: {
       mk: "Резултатите не се доволно репрезентативни за сигурен профил. Препорачуваме да пробате повторно во мирна средина, со малку повеќе време.",
+      sr: "Rezultati nisu dovoljno reprezentativni za siguran profil. Preporučujemo da pokušate ponovo u mirnom okruženju, uz malo više vremena.",
     },
   },
 ];

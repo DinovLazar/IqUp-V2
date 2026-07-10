@@ -19,11 +19,12 @@ export interface SubmitLeadResult {
 }
 
 /**
- * Assessment UI language stored with the anonymous row. MVP is Macedonian-only
- * (next-intl locale "mk"); when SR/HR/EN land, the form will pass the active
- * locale instead of this constant.
+ * The active assessment UI language (Feat-Serbian-Localization). The form passes
+ * the active next-intl locale ("mk" | "sr"); it is stored with the anonymous score
+ * row (a coarse demographic, Store A) and sent to `/api/lead` so the report + PDF +
+ * e-mail render in the same language. Defaults to Macedonian.
  */
-const MVP_LANGUAGE = "mk";
+export type LeadLocale = "mk" | "sr";
 
 /** The lead-capture endpoint (Phase 2.02). */
 const LEAD_ENDPOINT = "/api/lead";
@@ -47,11 +48,12 @@ const LEAD_ENDPOINT = "/api/lead";
 export async function submitLead(
   values: LeadFormValues,
   result: AssessmentResult,
+  locale: LeadLocale = "mk",
 ): Promise<SubmitLeadResult> {
   const response = await fetch(LEAD_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...values, result }),
+    body: JSON.stringify({ ...values, result, locale }),
   });
   if (!response.ok) {
     throw new Error(`lead submit failed: ${response.status}`);
@@ -64,6 +66,7 @@ export interface LeadSubmitDeps {
   submit: (
     values: LeadFormValues,
     result: AssessmentResult,
+    locale: LeadLocale,
   ) => Promise<SubmitLeadResult>;
   /**
    * Write the anonymous score row — a SEPARATE, non-blocking step decoupled from
@@ -93,6 +96,7 @@ export interface LeadSubmitDeps {
 export async function runLeadSubmit(
   values: LeadFormValues,
   result: AssessmentResult,
+  locale: LeadLocale,
   deps: LeadSubmitDeps,
 ): Promise<void> {
   // 1. Anonymous score write — separate + non-blocking. Belt-and-suspenders: the
@@ -102,14 +106,14 @@ export async function runLeadSubmit(
     deps.writeScore(result, {
       city: values.city,
       childGender: values.childGender,
-      language: MVP_LANGUAGE,
+      language: locale,
     });
   } catch {
     // Never block the parent on the anonymous score write.
   }
 
-  // 2. Lead path (still stubbed in Part 1).
-  await deps.submit(values, result);
+  // 2. Lead path — POSTs to /api/lead in the active locale (report/PDF/e-mail).
+  await deps.submit(values, result, locale);
 
   // 3. Analytics (city only) + advance.
   deps.track("lead_submit", { city: values.city });

@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { Controller, useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import type { AssessmentResult } from "@/features/scoring";
 import {
@@ -13,6 +13,7 @@ import {
   submitLead,
   writeScore,
   type LeadFormValues,
+  type LeadLocale,
 } from "@/features/lead";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export function LeadForm({
 }: LeadFormProps) {
   const t = useTranslations("leadForm");
   const tl = useTranslations("legal");
+  const locale = useLocale() as LeadLocale;
   const uid = React.useId();
   const fid = (name: string) => `${uid}-${name}`;
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -94,7 +96,7 @@ export function LeadForm({
   const onValid = async (values: LeadFormValues) => {
     setSubmitError(null);
     try {
-      await runLeadSubmit(values, result, {
+      await runLeadSubmit(values, result, locale, {
         submit: submitLead,
         writeScore,
         track: trackEvent,

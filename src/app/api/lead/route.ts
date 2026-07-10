@@ -39,8 +39,11 @@ export const runtime = "nodejs";
 // A write + outbound e-mail — never cached / statically optimized.
 export const dynamic = "force-dynamic";
 
-/** Active assessment locale (MVP: Macedonian) — server-set, matches the score row. */
-const ACTIVE_LOCALE = "mk";
+/** Enabled assessment locales (Feat-Serbian-Localization). Anything else → `mk`. */
+type LeadLang = "mk" | "sr";
+function resolveLeadLang(value: unknown): LeadLang {
+  return value === "sr" ? "sr" : "mk";
+}
 
 /** Today as `YYYY-MM-DD` (date-only) — server-set consent date. */
 function today(): string {
@@ -73,6 +76,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const values = parsed.data;
 
+  // The active locale the assessment ran in (Feat-Serbian-Localization). The
+  // `leadSchema` strips it, so it is read from the raw body alongside `result`.
+  const lang = resolveLeadLang((body as { locale?: unknown }).locale);
+
   // 3. Build the contact attributes (exact Brevo names/types). `CHILD_GENDER` is
   //    the stable language-independent code (matches the score row), "" if absent;
   //    `LANGUAGE` + `CONSENT_DATE` are server-set; consents are passed as given.
@@ -84,7 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       PHONE: values.phone,
       CITY: values.city,
       CHILD_GENDER: values.childGender ?? "",
-      LANGUAGE: ACTIVE_LOCALE,
+      LANGUAGE: lang,
       CONSENT_SERVICE: values.consentService,
       CONSENT_PARENT: values.consentParent,
       CONSENT_MARKETING: values.consentMarketing === true,
@@ -110,12 +117,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   //    swallowed — the lead is captured, so the confirmation must still render.
   try {
     const result = (body as { result?: unknown }).result as AssessmentResult;
-    const model = assembleReport(result);
-    const pdf = await renderReportPdf(model, { city: values.city });
+    const model = assembleReport(result, lang);
+    const pdf = await renderReportPdf(model, { city: values.city, lang });
     const bookingHref = buildBookingHref(resolveBookingUrl(), values.city);
     const { subject, html, text } = buildReportEmail({
       parentFirstName: values.parentFirstName,
       bookingHref,
+      lang,
     });
     await sendReportEmail({
       to: { email: values.email, name: values.parentFirstName },

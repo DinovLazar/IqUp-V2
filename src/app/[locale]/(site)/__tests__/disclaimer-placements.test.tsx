@@ -21,7 +21,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 
-import messages from "../../../../messages/mk.json";
+import messages from "../../../../../messages/mk.json";
 import { PrestartScreen } from "../procena/prestart-screen";
 
 afterEach(() => cleanup());
@@ -42,7 +42,7 @@ describe("§16.1 placement #2 — pre-start screen renders the shared short Disc
 describe("§16.1 placement #1 — landing footnote wires the shared short Disclaimer", () => {
   it('the landing page source renders <Disclaimer variant="short"> (async RSC, source-guarded)', () => {
     const src = readFileSync(
-      join(process.cwd(), "src/app/(site)/page.tsx"),
+      join(process.cwd(), "src/app/[locale]/(site)/page.tsx"),
       "utf8",
     );
     expect(src).toContain("import { Disclaimer }");

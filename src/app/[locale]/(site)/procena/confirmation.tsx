@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { RotateCcw, Sparkles, Star } from "lucide-react";
 
 import type { AssessmentResult } from "@/features/scoring";
 import { assembleReport, selectReportSummary } from "@/features/report";
+import type { Lang } from "@/features/report/types";
 import {
   buildBookingHref,
   resolveBookingUrl,
@@ -40,11 +41,13 @@ export interface ConfirmationProps {
 export function Confirmation({ result, city, onRestart }: ConfirmationProps) {
   const t = useTranslations("confirmation");
   const tl = useTranslations("legal");
+  const locale = useLocale() as Lang;
 
-  // Deterministic: assemble once, then project to the on-screen subset.
+  // Deterministic: assemble once in the active locale, then project to the
+  // on-screen subset. The Serbian report shows every band/strength/CTA in Serbian.
   const summary = React.useMemo(
-    () => selectReportSummary(assembleReport(result)),
-    [result],
+    () => selectReportSummary(assembleReport(result, locale)),
+    [result, locale],
   );
 
   if (summary.variant === "retry") {

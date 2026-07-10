@@ -23,6 +23,10 @@ const FILES = [
 const MK = "АБВГДЃЕЖЗЅИЈКЛЉМНЊОПРСТЌУФХЦЧЏШабвгдѓежзѕијклљмнњопрстќуфхцчџш";
 // Latin + punctuation the chrome/CTA/wordmark use ("IQ UP!", "STEM", bullets, ellipsis).
 const EXTRA = "IQUPSTEMabc·–—…!?";
+// Serbian latinica diacritics (Feat-Serbian-Localization). The digraphs dž/lj/nj
+// are two-letter sequences of already-covered base letters, so the SR-specific
+// single codepoints that need coverage are č ć š ž đ (upper + lower).
+const SR = "čćšžđČĆŠŽĐ";
 
 describe("PDF fonts — Montserrat (Cyrillic + Latin)", () => {
   it("bundles all five weights", () => {
@@ -38,6 +42,18 @@ describe("PDF fonts — Montserrat (Cyrillic + Latin)", () => {
         (ch) => !font.hasGlyphForCodePoint(ch.codePointAt(0)!),
       );
       expect(missing, `${f} missing: ${missing.join("")}`).toEqual([]);
+    }
+  });
+
+  it("covers every Serbian latinica diacritic (č ć š ž đ) in every weight — no tofu", () => {
+    for (const f of FILES) {
+      const font = fontkit.create(readFileSync(join(FONT_DIR, f)));
+      const missing = [...SR].filter(
+        (ch) => !font.hasGlyphForCodePoint(ch.codePointAt(0)!),
+      );
+      expect(missing, `${f} missing SR latinica: ${missing.join("")}`).toEqual(
+        [],
+      );
     }
   });
 });

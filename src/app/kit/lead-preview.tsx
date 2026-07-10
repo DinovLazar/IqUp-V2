@@ -8,8 +8,8 @@ import {
   strongInvalid,
 } from "@/features/assessment/fixtures";
 import type { LeadFormValues } from "@/features/lead";
-import { LeadForm } from "@/app/(site)/procena/lead-form";
-import { Confirmation } from "@/app/(site)/procena/confirmation";
+import { LeadForm } from "@/app/[locale]/(site)/procena/lead-form";
+import { Confirmation } from "@/app/[locale]/(site)/procena/confirmation";
 import { Badge } from "@/components/ui/badge";
 
 /**

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocale } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,24 @@ export const CONFIDENCE: Record<
   medium: { word: "средна", bars: 2, color: "#9A6200" },
   low: { word: "ниска", bars: 1, color: "#5E5862" },
 };
+
+/**
+ * The confidence WORD per locale (Feat-Serbian-Localization). MK is the default
+ * (equal to `CONFIDENCE[*].word`); SR is the Serbian (Latin) register. The PDF
+ * pulls its confidence word from `reportPdf.confidence` in the message files;
+ * this component picks the word by the active locale (`useLocale`). The
+ * {bars,color} glyph stays locale-independent in `CONFIDENCE`.
+ */
+export const CONFIDENCE_WORDS: Record<string, Record<Confidence, string>> = {
+  mk: { high: "висока", medium: "средна", low: "ниска" },
+  sr: { high: "visoka", medium: "srednja", low: "niska" },
+};
+
+/** The confidence word for a locale (Macedonian fallback). */
+export function confidenceWord(level: Confidence, locale?: string): string {
+  const map = (locale && CONFIDENCE_WORDS[locale]) || CONFIDENCE_WORDS.mk;
+  return map[level];
+}
 
 function SignalBars({ bars, color }: { bars: number; color: string }) {
   return (
@@ -50,7 +69,9 @@ function ConfidenceLabel({
   showLabel,
   className,
 }: ConfidenceLabelProps) {
-  const { word, bars, color } = CONFIDENCE[level];
+  const locale = useLocale();
+  const { bars, color } = CONFIDENCE[level];
+  const word = confidenceWord(level, locale);
   return (
     <span
       data-slot="confidence-label"

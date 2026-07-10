@@ -19,7 +19,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 
 import { buildBookingHref, resolveBookingUrl } from "@/features/lead/cta";
 
-import type { ReportModel } from "../types";
+import type { Lang, ReportModel } from "../types";
 import { buildReportDocument } from "./document";
 import { registerPdfFonts } from "./fonts";
 
@@ -28,6 +28,12 @@ export interface RenderReportOptions {
   city?: string;
   /** Override the booking base URL; defaults to `resolveBookingUrl()` (env/placeholder). */
   bookingUrl?: string;
+  /**
+   * Locale of the report (Feat-Serbian-Localization). Should match the locale the
+   * `ReportModel` was assembled in (`assembleReport(result, lang)`), so the model
+   * body + the PDF chrome are the same language. Defaults to `mk`.
+   */
+  lang?: Lang;
 }
 
 /** Render a report `ReportModel` to a PDF `Buffer` (server-side). */
@@ -38,5 +44,7 @@ export async function renderReportPdf(
   registerPdfFonts();
   const bookingUrl = options.bookingUrl ?? resolveBookingUrl();
   const bookingHref = buildBookingHref(bookingUrl, options.city ?? "");
-  return renderToBuffer(buildReportDocument(model, { bookingHref }));
+  return renderToBuffer(
+    buildReportDocument(model, { bookingHref, lang: options.lang }),
+  );
 }

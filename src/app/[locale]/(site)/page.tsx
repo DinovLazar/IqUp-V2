@@ -1,23 +1,41 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowRight, Check } from "lucide-react";
 
+import { Link } from "@/i18n/navigation";
+import { alternatesFor, ogLocaleFor } from "@/i18n/metadata";
 import { Button } from "@/components/ui/button";
 import { Disclaimer } from "@/components/ui/disclaimer";
+import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { Logo } from "@/components/ui/logo";
 
-// Real landing (handover §5.1) — photo-forward, brand hero, value message, an
-// MK/EN switch (MK only active for the MVP), the "Започни проценка" entry to
-// /procena, and the shared "informative, not diagnostic" footnote (§16.1
-// placement #1 — the short `Disclaimer`).
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("landing");
-  return { title: "IQ UP!", description: t("subhead") };
+// Real landing (handover §5.1) — photo-forward, brand hero, value message, the
+// functional MK/SR locale switcher (Feat-Serbian-Localization), the "Започни
+// проценка" entry to /procena, and the shared "informative, not diagnostic"
+// footnote (§16.1 placement #1 — the short `Disclaimer`).
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "landing" });
+  return {
+    title: "IQ UP!",
+    description: t("subhead"),
+    alternates: alternatesFor("/"),
+    openGraph: ogLocaleFor(locale),
+  };
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("landing");
   const points = [t("point1"), t("point2"), t("point3")];
 
@@ -27,21 +45,7 @@ export default async function HomePage() {
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5">
         {/* Real brand lockup (D-156); not linked — the user is already home. */}
         <Logo />
-        <div
-          className="flex items-center gap-1 rounded-full border border-border bg-surface p-1"
-          aria-label="Јазик"
-        >
-          <span className="rounded-full bg-pur px-3 py-1 text-label font-semibold text-white">
-            {t("langMk")}
-          </span>
-          <span
-            className="cursor-not-allowed rounded-full px-3 py-1 text-label font-semibold text-disabled-fg"
-            aria-disabled
-            title={t("langDisabledNote")}
-          >
-            {t("langEn")}
-          </span>
-        </div>
+        <LocaleSwitcher />
       </header>
 
       {/* Hero */}

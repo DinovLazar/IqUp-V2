@@ -43,10 +43,10 @@ import {
   View,
 } from "@react-pdf/renderer";
 
-import { INDEX_BY_KEY, INDICES } from "@/lib/indices";
+import { INDEX_BY_KEY, INDICES, indexLabel } from "@/lib/indices";
 import { BOOKING_URL_PLACEHOLDER } from "@/features/lead/cta";
 
-import type { IndexPresentation, ReportModel } from "../types";
+import type { IndexPresentation, Lang, ReportModel } from "../types";
 import { PentagonPdf } from "./pentagon-pdf";
 import {
   PDF_BAND_FILL,
@@ -57,9 +57,23 @@ import {
   PDF_FONT_WEIGHT,
 } from "./theme";
 import mk from "../../../../messages/mk.json";
+import sr from "../../../../messages/sr.json";
 
-const t = mk.reportPdf;
-const legal = mk.legal;
+// The PDF chrome (banners, section headings, confidence words) is picked from the
+// message bundle for the report's locale (Feat-Serbian-Localization). The
+// per-index band words / ranges / narrative are already baked into the
+// `ReportModel` by `assembleReport(result, lang)`, so the model + chrome agree.
+const MESSAGES = { mk, sr } as const;
+
+/** The reportPdf + legal + confirmation chrome for a locale (Macedonian fallback). */
+type PdfMessages = {
+  reportPdf: (typeof mk)["reportPdf"];
+  legal: (typeof mk)["legal"];
+  confirmation: (typeof mk)["confirmation"];
+};
+function messagesFor(lang: Lang): PdfMessages {
+  return (MESSAGES[lang as "mk" | "sr"] ?? mk) as PdfMessages;
+}
 
 export interface BuildReportDocumentOptions {
   /**
@@ -68,6 +82,8 @@ export interface BuildReportDocumentOptions {
    * builder stays pure: it receives the finished href, it does not read env.
    */
   bookingHref?: string;
+  /** Locale for the PDF chrome + the index labels drawn on the page (default `mk`). */
+  lang?: Lang;
 }
 
 // ── Puzzle-brain motif (mirrors `src/components/ui/puzzle-brain.tsx`) ──────────
@@ -452,7 +468,13 @@ const s = StyleSheet.create({
 
 // ── Small presentational pieces ───────────────────────────────────────────────
 
-function Header({ assembled = true }: { assembled?: boolean }) {
+function Header({
+  assembled = true,
+  t,
+}: {
+  assembled?: boolean;
+  t: PdfMessages["reportPdf"];
+}) {
   return (
     <View>
       <View style={s.header}>
@@ -520,7 +542,13 @@ function ConfidenceGlyph({ bars, color }: { bars: number; color: string }) {
 }
 
 /** One per-index row — mirrors `IndexBandBar`: word + indicative range + confidence, never a number. */
-function IndexRow({ idx }: { idx: IndexPresentation }) {
+function IndexRow({
+  idx,
+  t,
+}: {
+  idx: IndexPresentation;
+  t: PdfMessages["reportPdf"];
+}) {
   const meta = INDEX_BY_KEY[idx.key];
   const fill = PDF_BAND_FILL[idx.band];
   const level = PDF_BAND_LEVEL[idx.band];
@@ -581,6 +609,11 @@ export function buildReportDocument(
   options: BuildReportDocumentOptions = {},
 ) {
   const bookingHref = options.bookingHref ?? BOOKING_URL_PLACEHOLDER;
+  const lang: Lang = options.lang ?? "mk";
+  const m = messagesFor(lang);
+  const t = m.reportPdf;
+  const legal = m.legal;
+  const confirmation = m.confirmation;
 
   if (model.variant === "retry") {
     return (
@@ -588,11 +621,11 @@ export function buildReportDocument(
         <Page size="A4" style={s.page}>
           {/* §16.1 placement #4 — TOP (full §D.4). */}
           <Text style={s.disclaimerTop}>{legal.disclaimer}</Text>
-          <Header assembled={false} />
+          <Header assembled={false} t={t} />
           <View style={s.retryBox}>
-            <Text style={s.retryTitle}>{mk.confirmation.retryTitle}</Text>
+            <Text style={s.retryTitle}>{confirmation.retryTitle}</Text>
             <Text style={s.retryNote}>
-              {model.validity.note ?? mk.confirmation.retryNote}
+              {model.validity.note ?? confirmation.retryNote}
             </Text>
           </View>
           {/* §16.1 placement #4 — BOTTOM (short line), fixed on every page. */}
@@ -619,7 +652,7 @@ export function buildReportDocument(
         {/* §16.1 placement #4 — TOP placement (full §D.4 paragraph). */}
         <Text style={s.disclaimerTop}>{legal.disclaimer}</Text>
 
-        <Header assembled />
+        <Header assembled t={t} />
         <Text style={s.intro}>{t.intro}</Text>
 
         {/* ── Part А · Cognitive profile ── */}
@@ -632,7 +665,7 @@ export function buildReportDocument(
           </View>
           <View style={s.bands}>
             {indices.map((idx) => (
-              <IndexRow key={idx.key} idx={idx} />
+              <IndexRow key={idx.key} idx={idx} t={t} />
             ))}
           </View>
         </View>
@@ -662,7 +695,9 @@ export function buildReportDocument(
                         <View
                           style={[s.dot, { backgroundColor: meta.color }]}
                         />
-                        <Text style={s.activityHeadText}>{meta.label}</Text>
+                        <Text style={s.activityHeadText}>
+                          {indexLabel(group.index, lang)}
+                        </Text>
                       </View>
                       {group.items.map((item, i) => (
                         <View key={i} style={s.bulletRow}>

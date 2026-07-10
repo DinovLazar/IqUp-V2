@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-import messages from "../../../../messages/mk.json";
+import messages from "../../../../../messages/mk.json";
 
 /**
  * Single-source guard (Phase 1.10). The §16.1 disclaimer copy must live ONLY in
@@ -18,9 +18,9 @@ import messages from "../../../../messages/mk.json";
 const FULL = messages.legal.disclaimer;
 const SHORT = messages.legal.disclaimerShort;
 
-const SRC = fileURLToPath(new URL("../../../../src", import.meta.url));
+const SRC = fileURLToPath(new URL("../../../../../src", import.meta.url));
 const MK = fileURLToPath(
-  new URL("../../../../messages/mk.json", import.meta.url),
+  new URL("../../../../../messages/mk.json", import.meta.url),
 );
 
 function sourceFiles(dir: string, acc: string[] = []): string[] {

@@ -1,6 +1,7 @@
 import * as React from "react";
+import { useLocale } from "next-intl";
 
-import { INDEX_BY_KEY, type IndexKey } from "@/lib/indices";
+import { INDEX_BY_KEY, indexLabel, type IndexKey } from "@/lib/indices";
 import { cn } from "@/lib/utils";
 import { BandLabel, type Band } from "./band-label";
 import { ConfidenceLabel, type Confidence } from "./confidence-label";
@@ -35,6 +36,7 @@ function IndexBandBar({
   confidence,
   className,
 }: IndexBandBarProps) {
+  const locale = useLocale();
   const meta = INDEX_BY_KEY[indexKey];
   const fill = BAND_FILL[band];
   return (
@@ -49,7 +51,7 @@ function IndexBandBar({
             style={{ backgroundColor: meta.color }}
             aria-hidden
           />
-          {meta.label}
+          {indexLabel(indexKey, locale)}
         </span>
         <BandLabel indexKey={indexKey} band={band} />
       </div>

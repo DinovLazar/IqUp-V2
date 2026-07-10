@@ -88,3 +88,36 @@ export const INDEX_BY_KEY: Record<IndexKey, IndexMeta> = Object.fromEntries(
 
 /** Index keys in canonical order. */
 export const INDEX_ORDER: readonly IndexKey[] = INDICES.map((i) => i.key);
+
+/**
+ * Locale label overlays (Feat-Serbian-Localization). The five index names above
+ * are the Macedonian source and stay the DEFAULT; this overlay holds the Serbian
+ * (Latin) names, read by the locale-aware pentagon (web + PDF) and the report
+ * assembler. The default locale (Macedonian) falls back to `INDICES` above, so MK
+ * output is byte-for-byte unchanged. Adding HR/EN later means one more entry here —
+ * no consumer changes (colors/order are shared, only the names are localized).
+ */
+export const INDEX_LABEL_OVERLAYS: Record<
+  string,
+  Record<IndexKey, { label: string; labelShort: string }>
+> = {
+  sr: {
+    logic: { label: "Logičko mišljenje", labelShort: "Logičko" },
+    spatial: { label: "Prostorno mišljenje", labelShort: "Prostorno" },
+    memory: { label: "Memorija i fokus", labelShort: "Memorija" },
+    planning: { label: "Planiranje i brzina", labelShort: "Planiranje" },
+    stem: { label: "Učenje i STEM", labelShort: "STEM" },
+  },
+};
+
+/** Full index name for a locale (Macedonian default; SR/… from the overlay). */
+export function indexLabel(key: IndexKey, locale?: string): string {
+  const overlay = locale ? INDEX_LABEL_OVERLAYS[locale] : undefined;
+  return overlay ? overlay[key].label : INDEX_BY_KEY[key].label;
+}
+
+/** Short index name (pentagon vertices / tight layouts) for a locale. */
+export function indexLabelShort(key: IndexKey, locale?: string): string {
+  const overlay = locale ? INDEX_LABEL_OVERLAYS[locale] : undefined;
+  return overlay ? overlay[key].labelShort : INDEX_BY_KEY[key].labelShort;
+}

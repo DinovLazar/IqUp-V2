@@ -3,7 +3,7 @@
  *
  * The shared, framework-free Zod schema (reused unchanged by the Part-2 API
  * route), the stubbed submit orchestrator + its pure pipeline, and the pure
- * booking-href builder. The screens live in `src/app/(site)/procena/`.
+ * booking-href builder. The screens live in `src/app/[locale]/(site)/procena/`.
  */
 
 export {
@@ -18,6 +18,7 @@ export {
   runLeadSubmit,
   type SubmitLeadResult,
   type LeadSubmitDeps,
+  type LeadLocale,
 } from "./submit";
 export { writeScore, postScore } from "./score";
 export {
