@@ -14,17 +14,30 @@
 import type { Lang, LocalizedText } from "./types";
 
 const CHILD_TOKEN = "{child}";
-const CHILD_LOWER = "вашето дете";
-const CHILD_UPPER = "Вашето дете";
+
+/**
+ * The neuter „your child" phrase per register (lower / sentence-initial form).
+ * No child name is ever collected, so this token is the ONLY interpolation, and
+ * every localized sentence is authored to agree with the neuter noun exactly as
+ * the Macedonian copy does („вашето дете" ⇄ „vaše dete", both neuter singular).
+ */
+const CHILD_PHRASE: Record<Lang, { lower: string; upper: string }> = {
+  mk: { lower: "вашето дете", upper: "Вашето дете" },
+  sr: { lower: "vaše dete", upper: "Vaše dete" },
+  hr: { lower: "vaše dijete", upper: "Vaše dijete" },
+  en: { lower: "your child", upper: "Your child" },
+};
 
 /** Characters that mark the previous sentence as finished (so the next word capitalises). */
 const SENTENCE_END = new Set([".", "!", "?", "…", ":", "„", "\n"]);
 
 /**
- * Replace every `{child}` token, choosing the sentence-initial („Вашето дете") or
- * mid-sentence („вашето дете") form from the preceding non-space character.
+ * Replace every `{child}` token, choosing the sentence-initial („Вашето дете" /
+ * „Vaše dete") or mid-sentence form from the preceding non-space character, in the
+ * requested register.
  */
-export function resolveChild(text: string): string {
+export function resolveChild(text: string, lang: Lang = "mk"): string {
+  const phrase = CHILD_PHRASE[lang] ?? CHILD_PHRASE.mk;
   let out = "";
   let cursor = 0;
   for (;;) {
@@ -37,7 +50,7 @@ export function resolveChild(text: string): string {
     const trimmed = out.replace(/\s+$/u, "");
     const prev = trimmed.length === 0 ? "" : trimmed[trimmed.length - 1];
     const initial = prev === "" || SENTENCE_END.has(prev);
-    out += initial ? CHILD_UPPER : CHILD_LOWER;
+    out += initial ? phrase.upper : phrase.lower;
     cursor = idx + CHILD_TOKEN.length;
   }
 }
@@ -45,7 +58,7 @@ export function resolveChild(text: string): string {
 /** Pick a language (falling back to `mk`) and resolve `{child}` tokens. */
 export function resolveText(text: LocalizedText, lang: Lang = "mk"): string {
   const raw = text[lang] ?? text.mk;
-  return resolveChild(raw);
+  return resolveChild(raw, lang);
 }
 
 /** Resolve an array of localized strings (activity lists). */

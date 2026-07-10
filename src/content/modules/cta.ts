@@ -10,31 +10,42 @@
 
 import type { IndexKey, ReportModule } from "@/features/report/types";
 
-function cta(index: IndexKey, mk: string): ReportModule {
+function cta(index: IndexKey, mk: string, sr: string): ReportModule {
   return {
     id: `cta_${index}`,
     category: "cta",
     index,
     priority: 1,
     trigger: (f) => f.primaryGrowthIndex === index,
-    ctaText: { mk },
+    ctaText: { mk, sr },
   };
 }
 
 export const CTA_MODULES: readonly ReportModule[] = [
-  cta("logic", "Закажи демо час: зајакни го логичкото мислење преку игра"),
+  cta(
+    "logic",
+    "Закажи демо час: зајакни го логичкото мислење преку игра",
+    "Zakaži demo čas: ojačaj logičko mišljenje kroz igru",
+  ),
   cta(
     "spatial",
     "Закажи демо час: зајакни го просторното мислење преку градба и облици",
+    "Zakaži demo čas: ojačaj prostorno mišljenje kroz gradnju i oblike",
   ),
   cta(
     "memory",
     "Закажи демо час: зајакни ги меморијата и фокусот преку игри на низи",
+    "Zakaži demo čas: ojačaj memoriju i fokus kroz igre nizova",
   ),
-  cta("planning", "Закажи демо час: зајакни го планирањето чекор по чекор"),
+  cta(
+    "planning",
+    "Закажи демо час: зајакни го планирањето чекор по чекор",
+    "Zakaži demo čas: ojačaj planiranje korak po korak",
+  ),
   cta(
     "stem",
     "Закажи демо час: зајакни го STEM-размислувањето преку разиграни задачи",
+    "Zakaži demo čas: ojačaj STEM-mišljenje kroz razigrane zadatke",
   ),
 
   // Fallback (slot is never empty).
@@ -43,6 +54,9 @@ export const CTA_MODULES: readonly ReportModule[] = [
     category: "cta",
     priority: 0,
     trigger: () => true,
-    ctaText: { mk: "Закажи бесплатен демо час" },
+    ctaText: {
+      mk: "Закажи бесплатен демо час",
+      sr: "Zakaži besplatan demo čas",
+    },
   },
 ];

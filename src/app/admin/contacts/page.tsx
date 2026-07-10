@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { requireAdminPage } from "@/lib/supabase/admin-guard";
@@ -147,7 +148,9 @@ export default async function AdminContactsPage({
               <div className="flex gap-2">
                 <Button type="submit">{t("apply")}</Button>
                 <Button asChild variant="ghost">
-                  <a href="/admin/contacts">{t("clear")}</a>
+                  {/* next/link (not the locale-aware nav): admin is MK-only and
+                      lives outside the [locale] tree (Feat-Serbian-Localization). */}
+                  <Link href="/admin/contacts">{t("clear")}</Link>
                 </Button>
               </div>
             </form>

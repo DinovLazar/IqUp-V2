@@ -1,6 +1,7 @@
 import * as React from "react";
+import { useLocale } from "next-intl";
 
-import { INDICES } from "@/lib/indices";
+import { INDICES, indexLabel, indexLabelShort } from "@/lib/indices";
 import {
   pentagonLabelPoints,
   pentagonProfilePoints,
@@ -33,14 +34,22 @@ interface PentagonProps {
   title?: string;
 }
 
+/** Accessible chart name per locale (used when no explicit `title` is passed). */
+const PENTAGON_TITLE: Record<string, string> = {
+  mk: "Когнитивен профил",
+  sr: "Kognitivni profil",
+};
+
 function Pentagon({
   values,
   size = 280,
   showLabels = true,
   labelVariant = "short",
   className,
-  title = "Когнитивен профил",
+  title,
 }: PentagonProps) {
+  const locale = useLocale();
+  const chartTitle = title ?? PENTAGON_TITLE[locale] ?? PENTAGON_TITLE.mk;
   const cx = size / 2;
   const cy = size / 2;
   const r = size * (showLabels ? 0.3 : 0.4);
@@ -56,7 +65,7 @@ function Pentagon({
       width={size}
       height={size}
       role="img"
-      aria-label={title}
+      aria-label={chartTitle}
       className={cn("overflow-visible", className)}
     >
       {/* grid rings */}
@@ -123,7 +132,9 @@ function Pentagon({
                 fontWeight={600}
                 fill="#231F26"
               >
-                {labelVariant === "full" ? meta.label : meta.labelShort}
+                {labelVariant === "full"
+                  ? indexLabel(meta.key, locale)
+                  : indexLabelShort(meta.key, locale)}
               </text>
             </g>
           );

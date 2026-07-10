@@ -46,7 +46,7 @@ describe("submitLead (POSTs /api/lead)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("POSTs { ...values, result } to /api/lead and resolves on a 2xx", async () => {
+  it("POSTs { ...values, result, locale } to /api/lead and resolves on a 2xx", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -55,11 +55,22 @@ describe("submitLead (POSTs /api/lead)", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/lead");
     expect(init.method).toBe("POST");
-    // The body IS exactly `{ ...values, result }` as it goes over the wire
-    // (normalize both sides through JSON: undefined optionals are dropped).
+    // The body IS exactly `{ ...values, result, locale }` as it goes over the wire
+    // (normalize both sides through JSON: undefined optionals are dropped). The
+    // locale defaults to "mk".
     expect(JSON.parse(init.body as string)).toEqual(
-      JSON.parse(JSON.stringify({ ...VALUES, result: RESULT })),
+      JSON.parse(JSON.stringify({ ...VALUES, result: RESULT, locale: "mk" })),
     );
+  });
+
+  it("carries the active locale in the POST body (SR)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await submitLead(VALUES, RESULT, "sr");
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body as string).locale).toBe("sr");
   });
 
   it("rejects on a non-2xx response (form shows an error, no confirmation)", async () => {
@@ -90,9 +101,9 @@ describe("runLeadSubmit pipeline", () => {
       }),
     });
 
-    await runLeadSubmit(VALUES, RESULT, deps);
+    await runLeadSubmit(VALUES, RESULT, "mk", deps);
 
-    expect(deps.submit).toHaveBeenCalledWith(VALUES, RESULT);
+    expect(deps.submit).toHaveBeenCalledWith(VALUES, RESULT, "mk");
     expect(deps.track).toHaveBeenCalledWith("lead_submit", { city: "Скопје" });
     expect(deps.onSubmitted).toHaveBeenCalledWith(VALUES);
     // Score write first; then persist before track before advance.
@@ -101,7 +112,7 @@ describe("runLeadSubmit pipeline", () => {
 
   it("passes the result + ONLY coarse demographics to the score write (no PII, no lead key)", async () => {
     const writeScore = vi.fn();
-    await runLeadSubmit(VALUES, RESULT, makeDeps({ writeScore }));
+    await runLeadSubmit(VALUES, RESULT, "mk", makeDeps({ writeScore }));
 
     expect(writeScore).toHaveBeenCalledTimes(1);
     const [result, demographics] = writeScore.mock.calls[0];
@@ -114,6 +125,15 @@ describe("runLeadSubmit pipeline", () => {
     });
   });
 
+  it("stamps the active locale as the score-row language + the submit locale (SR)", async () => {
+    const writeScore = vi.fn();
+    const submit = vi.fn(async () => ({ ok: true as const }));
+    await runLeadSubmit(VALUES, RESULT, "sr", makeDeps({ writeScore, submit }));
+
+    expect(writeScore.mock.calls[0][1].language).toBe("sr");
+    expect(submit).toHaveBeenCalledWith(VALUES, RESULT, "sr");
+  });
+
   it("never blocks the flow if the score write throws (non-blocking)", async () => {
     const deps = makeDeps({
       writeScore: vi.fn(() => {
@@ -122,7 +142,9 @@ describe("runLeadSubmit pipeline", () => {
     });
 
     // Must still resolve — confirmation + PDF unaffected.
-    await expect(runLeadSubmit(VALUES, RESULT, deps)).resolves.toBeUndefined();
+    await expect(
+      runLeadSubmit(VALUES, RESULT, "mk", deps),
+    ).resolves.toBeUndefined();
     expect(deps.submit).toHaveBeenCalledOnce();
     expect(deps.track).toHaveBeenCalledOnce();
     expect(deps.onSubmitted).toHaveBeenCalledWith(VALUES);
@@ -135,7 +157,7 @@ describe("runLeadSubmit pipeline", () => {
       }),
     });
 
-    await expect(runLeadSubmit(VALUES, RESULT, deps)).rejects.toThrow(
+    await expect(runLeadSubmit(VALUES, RESULT, "mk", deps)).rejects.toThrow(
       "network down",
     );
     // Score write is decoupled — it ran before (and independently of) the lead.

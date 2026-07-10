@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocale } from "next-intl";
 
 import { INDEX_BY_KEY, type IndexKey } from "@/lib/indices";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,34 @@ export const BANDS: Record<Band, { word: string; level: number }> = {
   strong: { word: "Силно", level: 3 },
   exceptional: { word: "Исклучително", level: 4 },
 };
+
+/**
+ * The parent-facing band WORD per locale (Feat-Serbian-Localization). MK is the
+ * default (equal to `BANDS[*].word`); SR is the Serbian (Latin) register. Read by
+ * this component (via `useLocale`) and, so the report model + PDF stay consistent,
+ * by the report assembler. The magnitude `level` (the glyph) is locale-independent
+ * and stays in `BANDS`.
+ */
+export const BAND_WORDS: Record<string, Record<Band, string>> = {
+  mk: {
+    development: "Во развој",
+    solid: "Солидно",
+    strong: "Силно",
+    exceptional: "Исклучително",
+  },
+  sr: {
+    development: "U razvoju",
+    solid: "Solidno",
+    strong: "Snažno",
+    exceptional: "Izuzetno",
+  },
+};
+
+/** The band word for a locale (Macedonian fallback). */
+export function bandWord(band: Band, locale?: string): string {
+  const map = (locale && BAND_WORDS[locale]) || BAND_WORDS.mk;
+  return map[band];
+}
 
 export const BAND_ORDER: readonly Band[] = [
   "development",
@@ -52,8 +81,10 @@ interface BandLabelProps {
 }
 
 function BandLabel({ indexKey, band, range, className }: BandLabelProps) {
+  const locale = useLocale();
   const meta = INDEX_BY_KEY[indexKey];
-  const { word, level } = BANDS[band];
+  const { level } = BANDS[band];
+  const word = bandWord(band, locale);
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <span

@@ -17,7 +17,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 
-import messages from "../../../../../messages/mk.json";
+import messages from "../../../../../../messages/mk.json";
 import { scoreProfile, logicStrong } from "@/features/assessment/fixtures";
 import type { LeadFormValues } from "@/features/lead";
 import { trackEvent } from "@/lib/analytics";

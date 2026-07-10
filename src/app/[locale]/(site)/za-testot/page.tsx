@@ -1,22 +1,38 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import { useTranslations } from "next-intl";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Check, X } from "lucide-react";
 
+import { alternatesFor, ogLocaleFor } from "@/i18n/metadata";
 import { Disclaimer } from "@/components/ui/disclaimer";
 import { PageShell } from "../page-shell";
 
 // About-the-test (Phase 1.10) — §16.1 placement #6. A short parent-voice
 // "what this is / what it isn't" section drawn from spec §1.1, then the FULL
 // shared §D.4 disclaimer. Sync Server Component (next-intl `useTranslations` is
-// isomorphic); MK `metadata` resolved in `generateMetadata`.
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("pages.about");
-  return { title: t("metaTitle"), description: t("metaDescription") };
+// isomorphic); locale-aware `metadata` + hreflang alternates in `generateMetadata`.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "pages.about" });
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+    alternates: alternatesFor("/za-testot"),
+    openGraph: ogLocaleFor(locale),
+  };
 }
 
-export default function ZaTestotPage() {
-  const t = useTranslations("pages.about");
+export default async function ZaTestotPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("pages.about");
   const isItems = t.raw("isItems") as string[];
   const isntItems = t.raw("isntItems") as string[];
 

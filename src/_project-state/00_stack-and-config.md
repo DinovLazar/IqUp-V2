@@ -344,3 +344,17 @@
   No runtime dependency, env var, or DB change. `next.config.ts` unchanged. Four index `*-ink` hex values re-darkened in `globals.css` + `src/lib/indices.ts` (contrast fix, D-151) — same tokens, no new tokens added. New MK string: `common.loading`.
 
   **Verification:** `npm run build` ✓, `npm run typecheck` ✓, `npm run lint` ✓, `npm test` ✓ (**69 files, 502 tests**). Full Lighthouse/axe/contrast numbers in `src/_project-state/completions/Part-3-Phase-02-Completion.md`.
+
+- **2026-07-10 · Feat (Code) — Serbian (Latin) localization: SR added as a second locale next to MK. NO new dependencies.**
+
+  **No new packages.** next-intl 4.13.0 (already pinned) gains i18n routing; the Serbian latinica support is a **font-subset config change**, not a dependency (D-160).
+
+  **Config surface changes (no env vars, no DB changes):**
+  - **`src/app/fonts.ts` (new)** — the shared `next/font/google` Montserrat instance moved here, with subsets **`["latin", "latin-ext", "cyrillic"]`** (added `latin-ext` for č ć š ž đ; the web app). The bundled `@react-pdf` Montserrat static TTFs already cover latinica (verified by a fontkit glyph-coverage test — no font file change).
+  - **next-intl 4 i18n routing enabled** — `src/i18n/routing.ts` (`defineRouting`, single canonical locale list `["mk","sr"]`, `defaultLocale: "mk"`, `localePrefix: "as-needed"`, `localeDetection: false`), `src/i18n/navigation.ts` (`createNavigation`), `src/i18n/metadata.ts` (hreflang/og-locale helpers); `src/i18n/request.ts` rewritten to resolve `requestLocale` + `hasLocale`. `next.config.ts` still points the plugin at `./src/i18n/request.ts` (unchanged). `src/middleware.ts` composes `createMiddleware(routing)` with the 2.04 admin session refresh (matcher broadened to all non-api/asset paths; `/admin` + `/kit`/`/embed` branched out) (D-163).
+  - **App tree restructure (D-163):** `app/(site)/**` → `app/[locale]/(site)/**`; root `app/layout.tsx` is now a pass-through (`import "./globals.css"` + returns children); new `app/[locale]/layout.tsx` + `app/kit/layout.tsx` + updated `app/admin/layout.tsx` render `<html>` via the shared `app/root-document.tsx`. `/` + `/procena` + the three static pages are statically generated for BOTH `/mk*` and `/sr*` (● SSG).
+  - **`messages/sr.json` (new)** — full Serbian (Latin) bundle, exact key + array-shape parity with `mk.json` (parity-tested). `mk.json` switcher keys: dropped `landing.langEn`/`langDisabledNote`, added `landing.langSr` + `landing.langSwitcherLabel`.
+  - **`MODULE_LIBRARY_VERSION` 1.0.0 → 1.1.0** (MINOR, D-164) — every report module gained an `sr` register; MK output byte-for-byte unchanged; carried only in `ReportModel.meta`, NOT in the anonymous score row.
+  - **Vitest:** `resolve.alias` (array form) aliases `@/i18n/navigation` → `test/mocks/i18n-navigation.tsx` (jsdom-safe stub, D-167). No production config touched by this.
+
+  **Verification:** `npm run typecheck` ✓, `npm run lint` ✓, `npm run format:check` ✓, `npm run build` ✓ (16 pages, MK + SR SSG; the pre-existing D-128 `middleware`→`proxy` warning remains), `npm test` ✓ (**73 files, 529 tests**). In-browser: `/` = MK (`<html lang="mk">`), switcher → `/sr` = Serbian (`<html lang="sr">`, `Otkrijte kako razmišlja vaše dete`), locale-aware links keep `/sr`, switcher not rendered inside `/procena`, hreflang MK↔SR + `og:locale` present, zero console errors. SR PDF (42 KB) + e-mail assemble in Serbian with real latinica.

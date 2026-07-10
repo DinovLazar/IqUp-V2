@@ -19,6 +19,11 @@
  */
 
 import mk from "../../../messages/mk.json";
+import sr from "../../../messages/sr.json";
+
+/** Supported e-mail locales (Feat-Serbian-Localization). */
+export type EmailLang = "mk" | "sr";
+const MESSAGES = { mk, sr } as const;
 
 /** Brand palette (literal hex; mirrors the `@theme` tokens in `globals.css`). */
 const COLOR = {
@@ -41,6 +46,8 @@ export interface ReportEmailInput {
   parentFirstName: string;
   /** Booking CTA target — `buildBookingHref(resolveBookingUrl(), city)` (`?grad={city}`). */
   bookingHref: string;
+  /** E-mail locale (Feat-Serbian-Localization) — matches the report locale; default `mk`. */
+  lang?: EmailLang;
 }
 
 export interface ReportEmail {
@@ -60,28 +67,31 @@ function escapeHtml(value: string): string {
 }
 
 /** Resolve the `{name}` placeholder in the greeting with the (escaped) parent name. */
-function greetingHtml(parentFirstName: string): string {
-  return mk.email.greeting.replace("{name}", escapeHtml(parentFirstName));
+function greetingHtml(template: string, parentFirstName: string): string {
+  return template.replace("{name}", escapeHtml(parentFirstName));
 }
 
-function greetingText(parentFirstName: string): string {
-  return mk.email.greeting.replace("{name}", parentFirstName);
+function greetingText(template: string, parentFirstName: string): string {
+  return template.replace("{name}", parentFirstName);
 }
 
 /**
- * Build the transactional report e-mail. Copy = Appendix D.3 (`email.*`) + the
- * single-sourced `legal.disclaimer` (placement #5). The CTA links to `bookingHref`.
+ * Build the transactional report e-mail in `lang` (Macedonian by default). Copy =
+ * Appendix D.3 (`email.*`) + the single-sourced `legal.disclaimer` (placement #5),
+ * from the locale's message bundle. The CTA links to `bookingHref`.
  */
 export function buildReportEmail({
   parentFirstName,
   bookingHref,
+  lang = "mk",
 }: ReportEmailInput): ReportEmail {
-  const e = mk.email;
-  const disclaimer = mk.legal.disclaimer;
+  const m = MESSAGES[lang] ?? mk;
+  const e = m.email;
+  const disclaimer = m.legal.disclaimer;
   const hrefAttr = escapeHtml(bookingHref);
 
   const html = `<!DOCTYPE html>
-<html lang="mk">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -99,7 +109,7 @@ export function buildReportEmail({
 </tr>
 <tr>
 <td style="padding:8px 32px 0 32px;font-family:${FONT_STACK};">
-<p style="margin:0 0 16px 0;font-size:18px;font-weight:600;color:${COLOR.ink};">${greetingHtml(parentFirstName)}</p>
+<p style="margin:0 0 16px 0;font-size:18px;font-weight:600;color:${COLOR.ink};">${greetingHtml(e.greeting, parentFirstName)}</p>
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:${COLOR.ink};">${escapeHtml(e.body)}</p>
 <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:${COLOR.muted};">${escapeHtml(e.softCta)}</p>
 </td>
@@ -135,7 +145,7 @@ export function buildReportEmail({
   const text = [
     e.wordmark,
     "",
-    greetingText(parentFirstName),
+    greetingText(e.greeting, parentFirstName),
     "",
     e.body,
     "",

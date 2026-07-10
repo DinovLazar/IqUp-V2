@@ -13,7 +13,12 @@
  * result never depends on array or sort stability (resolved-decision 4).
  */
 
-import { INDEX_BY_KEY, INDEX_ORDER, type IndexKey } from "@/lib/indices";
+import {
+  indexLabel,
+  INDEX_ORDER,
+  INDEX_BY_KEY,
+  type IndexKey,
+} from "@/lib/indices";
 import type { AssessmentResult } from "@/features/scoring";
 import {
   ACTIVITY_MODULES,
@@ -29,7 +34,7 @@ import {
   STYLE_MODULES,
   VALIDITY_MODULES,
 } from "@/content/modules";
-import { BANDS } from "@/components/ui/band-label";
+import { bandWord } from "@/components/ui/band-label";
 
 import { deriveFeatures } from "./features";
 import { resolveText, resolveTexts } from "./text";
@@ -38,9 +43,18 @@ import type {
   ActivityBlock,
   DerivedFeatures,
   IndexPresentation,
+  Lang,
   ReportModel,
   ReportModule,
 } from "./types";
+
+/** The parent-facing CTA fallback per register (matches the module fallback copy). */
+const CTA_FALLBACK: Record<Lang, string> = {
+  mk: "Закажи бесплатен демо час",
+  sr: "Zakaži besplatan demo čas",
+  hr: "Zakaži besplatan demo sat",
+  en: "Book a free demo class",
+};
 
 /** Tie-break key: lower is better. Higher priority first, then index order, then id. */
 function rank(m: ReportModule): [number, number, string] {
@@ -76,22 +90,22 @@ function compareKey(
   return a[2] < b[2] ? -1 : a[2] > b[2] ? 1 : 0;
 }
 
-/** Resolve a narrative module's MK text (with `{child}` expanded). */
-function moduleText(m: ReportModule): string {
-  return resolveText(m.text ?? { mk: "" });
+/** Resolve a narrative module's text (with `{child}` expanded) in `lang`. */
+function moduleText(m: ReportModule, lang: Lang): string {
+  return resolveText(m.text ?? { mk: "" }, lang);
 }
 
 /** Build the five parent-facing index rows (Дел 10.2 — word + range, no number). */
-function buildIndices(f: DerivedFeatures): IndexPresentation[] {
+function buildIndices(f: DerivedFeatures, lang: Lang): IndexPresentation[] {
   return INDEX_ORDER.map((key: IndexKey) => {
     const band = f.indexBand[key];
     return {
       key,
-      label: INDEX_BY_KEY[key].label,
+      label: indexLabel(key, lang),
       value: f.indexValue[key],
       band,
-      wordLabel: BANDS[band].word,
-      range: resolveText(RANGE_BY_BAND[band]),
+      wordLabel: bandWord(band, lang),
+      range: resolveText(RANGE_BY_BAND[band], lang),
       confidence: f.indexConfidence[key],
       ceiling: f.indexCeiling[key],
       floor: f.indexFloor[key],
@@ -101,18 +115,30 @@ function buildIndices(f: DerivedFeatures): IndexPresentation[] {
 }
 
 /** One activity set per index, in lib/indices order — guarantees per-index coverage. */
-function buildActivities(): ActivityBlock[] {
+function buildActivities(lang: Lang): ActivityBlock[] {
   return INDEX_ORDER.map((key) => {
     const m = ACTIVITY_MODULES.find((a) => a.index === key);
     if (!m || !m.activities) {
       // Authoring guarantees one activity module per index; this keeps the type total.
       return { index: key, moduleId: `activity_${key}`, items: [] };
     }
-    return { index: key, moduleId: m.id, items: resolveTexts(m.activities) };
+    return {
+      index: key,
+      moduleId: m.id,
+      items: resolveTexts(m.activities, lang),
+    };
   });
 }
 
-export function assembleReport(result: AssessmentResult): ReportModel {
+/**
+ * Assemble the deterministic `ReportModel` in `lang` (Macedonian by default). The
+ * scoring inputs are language-neutral — only the narrative/label RESOLUTION uses
+ * the locale, so the MK output is byte-for-byte unchanged (Feat-Serbian-Localization).
+ */
+export function assembleReport(
+  result: AssessmentResult,
+  lang: Lang = "mk",
+): ReportModel {
   const f = deriveFeatures(result);
 
   const meta: ReportModel["meta"] = {
@@ -138,7 +164,7 @@ export function assembleReport(result: AssessmentResult): ReportModel {
       cta: null,
       validity: {
         variant: "strong",
-        note: strong ? moduleText(strong) : undefined,
+        note: strong ? moduleText(strong, lang) : undefined,
         retry: true,
       },
     };
@@ -168,51 +194,51 @@ export function assembleReport(result: AssessmentResult): ReportModel {
   return {
     variant: "profile",
     meta,
-    indices: buildIndices(f),
+    indices: buildIndices(f, lang),
     partA: {
       topStrength: {
         index: f.topStrengthIndex,
         moduleId: strength?.id ?? "strength_fallback",
-        text: strength ? moduleText(strength) : "",
+        text: strength ? moduleText(strength, lang) : "",
       },
       growthArea: {
         index: f.primaryGrowthIndex,
         moduleId: growth?.id ?? "growth_fallback",
-        text: growth ? moduleText(growth) : "",
+        text: growth ? moduleText(growth, lang) : "",
       },
       solvingStyle: {
         style: style?.style ?? f.solvingStyle,
         moduleId: style?.id ?? "style_balanced",
-        text: style ? moduleText(style) : "",
+        text: style ? moduleText(style, lang) : "",
       },
-      activities: buildActivities(),
+      activities: buildActivities(lang),
       extreme: extreme
         ? {
             kind: extreme.extreme as "ceiling" | "floor",
             moduleId: extreme.id,
-            text: moduleText(extreme),
+            text: moduleText(extreme, lang),
           }
         : undefined,
     },
     partB: {
       readiness: {
         moduleId: readiness?.id ?? "stem_readiness_fallback",
-        text: readiness ? moduleText(readiness) : "",
+        text: readiness ? moduleText(readiness, lang) : "",
       },
       stemBridge: {
         lead: bridge?.stemLead ?? f.stemLead,
         moduleId: bridge?.id ?? "stem_bridge_default",
-        text: bridge ? moduleText(bridge) : "",
+        text: bridge ? moduleText(bridge, lang) : "",
       },
     },
     positioning: positioning
       ? {
           moduleId: positioning.id,
-          text: moduleText(positioning),
+          text: moduleText(positioning, lang),
           program: {
             key: positioning.program ?? "bibi",
             name: positioning.programName
-              ? resolveText(positioning.programName)
+              ? resolveText(positioning.programName, lang)
               : "",
             tier: positioning.programTier ?? "basic",
           },
@@ -220,13 +246,11 @@ export function assembleReport(result: AssessmentResult): ReportModel {
         }
       : null,
     cta: {
-      text: cta?.ctaText
-        ? resolveText(cta.ctaText)
-        : "Закажи бесплатен демо час",
+      text: cta?.ctaText ? resolveText(cta.ctaText, lang) : CTA_FALLBACK[lang],
     },
     validity: {
       variant: f.mildFlag ? "mild" : "ok",
-      note: mild ? moduleText(mild) : undefined,
+      note: mild ? moduleText(mild, lang) : undefined,
       retry: false,
     },
   };

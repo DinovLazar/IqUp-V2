@@ -126,11 +126,28 @@ describe("POST /api/lead — happy path", () => {
     expect(a.CONSENT_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("renders the PDF from the server-assembled model + the parent's city", async () => {
+  it("renders the PDF from the server-assembled model + the parent's city (default MK)", async () => {
     await POST(withResult(VALID_LEAD));
-    expect(renderMock).toHaveBeenCalledWith(assembleReport(RESULT), {
+    expect(renderMock).toHaveBeenCalledWith(assembleReport(RESULT, "mk"), {
       city: "Скопје",
+      lang: "mk",
     });
+  });
+
+  it("threads a Serbian lead's locale into the contact, model, PDF + e-mail", async () => {
+    await POST(post({ ...VALID_LEAD, result: RESULT, locale: "sr" }));
+
+    // Brevo LANGUAGE reflects the locale.
+    expect(upsertMock.mock.calls[0][0].attributes.LANGUAGE).toBe("sr");
+    // The model is assembled in Serbian and the PDF renders with lang "sr".
+    expect(renderMock).toHaveBeenCalledWith(assembleReport(RESULT, "sr"), {
+      city: "Скопје",
+      lang: "sr",
+    });
+    // The (real) e-mail assembled in Serbian — the subject is the sr.json copy.
+    expect(sendMock.mock.calls[0][0].subject).toBe(
+      "Kognitivni profil vašeg deteta je spreman",
+    );
   });
 
   it("server-sets LANGUAGE + CONSENT_DATE, ignoring any client-sent values", async () => {

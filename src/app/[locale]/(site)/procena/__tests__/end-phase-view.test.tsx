@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 
-import messages from "../../../../../messages/mk.json";
+import messages from "../../../../../../messages/mk.json";
 import { scoreProfile, logicStrong } from "@/features/assessment/fixtures";
 import type { LeadFormValues } from "@/features/lead";
 import { EndPhaseView } from "../end-phase-view";

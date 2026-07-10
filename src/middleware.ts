@@ -1,22 +1,38 @@
 /**
- * Admin session middleware (Phase 2.04).
+ * Composed middleware (Phase 2.04 admin session + Feat-Serbian-Localization i18n).
  *
- * Runs on every `/admin/**` request to (1) REFRESH the Supabase Auth session
- * cookie (so server components see a live session) and (2) bounce obviously
- * unauthenticated requests to `/admin/login`. It is intentionally LIGHT — it is
- * NOT the security boundary: it only checks that a user exists, never aal2 or the
- * allowlist. The real boundary is `requireAdmin()`, which every admin page and
- * the export route calls (so a session that is authenticated but not aal2 / not
- * allowlisted still reaches no data). `/admin/login` is excluded to avoid a loop.
+ * The app has two concerns handled here, branched by pathname:
  *
- * Built on `@supabase/ssr` with request/response cookie bridging, using only the
- * public anon key (edge-safe; the service-role client never runs here).
+ *  1. `/admin/**` — REFRESH the Supabase Auth session cookie (so server components
+ *     see a live session) and bounce obviously unauthenticated requests to
+ *     `/admin/login`. This is intentionally LIGHT — NOT the security boundary
+ *     (that is `requireAdmin()`, which checks aal2 + the allowlist). Admin is
+ *     Macedonian-only, so it gets NO locale routing.
+ *
+ *  2. Everything else public (`/`, `/procena`, `/za-testot`, …, and the `/sr`
+ *     variants) — the next-intl middleware, which serves Macedonian at the root and
+ *     Serbian under `/sr` (`localePrefix: "as-needed"`) and sets `<html lang>` +
+ *     the `NEXT_LOCALE` cookie.
+ *
+ *  `/kit` + `/embed` are dev/reserved and NOT localized, so they pass straight
+ *  through with no locale rewrite.
+ *
+ * Both branches are edge-safe: the admin branch uses only the public anon key; the
+ * intl branch is pure routing. `/api`, `/_next`, `/_vercel` and static files are
+ * excluded by the matcher. (The file stays `middleware.ts` — the Next 16.2
+ * `middleware`→`proxy` rename is the separate, still-open D-128 follow-up.)
  */
 
+import createMiddleware from "next-intl/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+import { routing } from "@/i18n/routing";
+
+const handleI18nRouting = createMiddleware(routing);
+
+/** `/admin/**` session refresh + unauthenticated redirect (Phase 2.04, unchanged). */
+async function handleAdmin(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -71,8 +87,31 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse;
 }
 
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
+
+  // Admin session (Macedonian-only tool; no locale routing).
+  if (pathname.startsWith("/admin")) {
+    return handleAdmin(request);
+  }
+
+  // Dev/reserved, unlocalized — no locale prefix, no rewrite.
+  if (
+    pathname === "/kit" ||
+    pathname.startsWith("/kit/") ||
+    pathname === "/embed" ||
+    pathname.startsWith("/embed/")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Everything else public → next-intl (MK at root, SR under /sr).
+  return handleI18nRouting(request);
+}
+
 export const config = {
-  // All admin routes (`/admin` and everything under it). `/admin/login` is
-  // handled inside the middleware so it is reachable, avoiding a redirect loop.
-  matcher: ["/admin/:path*"],
+  // Run on all paths EXCEPT API routes, Next internals, and static files (any
+  // path containing a dot, e.g. favicon.ico / icon.svg). Both the `/admin/**`
+  // session refresh and the public i18n routing are dispatched inside `middleware`.
+  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
 };
