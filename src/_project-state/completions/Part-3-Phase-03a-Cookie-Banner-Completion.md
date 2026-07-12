@@ -4,8 +4,8 @@
 **Executing Claude:** Code
 **Date completed:** 2026-07-12
 **Branch:** `feat/cookie-consent-banner` (cut from `main` tip `e4a0d1e`)
-**Commits:** single squash for the phase (code + tests + docs together)
-**PR:** into `main` (this phase's PR — Lazar merges)
+**Commits:** `557a87f` (code + tests + docs) + this report-fields update
+**PR:** [#23](https://github.com/DinovLazar/IqUp-V2/pull/23) into `main` (Lazar merges)
 
 ## What shipped
 
