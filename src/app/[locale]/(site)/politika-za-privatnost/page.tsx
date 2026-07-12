@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { alternatesFor, ogLocaleFor } from "@/i18n/metadata";
+import { CookieSettings } from "@/features/consent/cookie-settings";
 import { PageShell } from "../page-shell";
 
 // Privacy policy (Phase 1.10) — a routable shell so the lead-form/confirmation
@@ -38,6 +39,8 @@ export default async function PrivacyPolicyPage({
         <p className="rounded-card border border-border bg-surface p-5 text-body text-muted">
           {t("pending")}
         </p>
+        {/* Withdraw / re-choose cookie consent — reopens the banner (spec §16.3). */}
+        <CookieSettings />
       </article>
     </PageShell>
   );

@@ -4,6 +4,7 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { routing } from "@/i18n/routing";
+import { CookieBanner } from "@/features/consent/cookie-banner";
 import { RootDocument } from "../root-document";
 
 /**
@@ -47,5 +48,14 @@ export default async function LocaleLayout({
   // Enable static rendering for this locale subtree (must precede next-intl reads).
   setRequestLocale(locale);
 
-  return <RootDocument locale={locale}>{children}</RootDocument>;
+  // The cookie banner mounts on the PUBLIC locale tree only (D-171): passing it as a
+  // child of RootDocument puts it inside the NextIntlClientProvider, so it appears
+  // on every MK + SR page. `/admin` + `/kit` render their own RootDocument without
+  // it, so the banner never shows there.
+  return (
+    <RootDocument locale={locale}>
+      {children}
+      <CookieBanner />
+    </RootDocument>
+  );
 }
