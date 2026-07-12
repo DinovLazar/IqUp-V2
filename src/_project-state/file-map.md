@@ -63,7 +63,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/layout.tsx` — **(Feat-SR) pass-through root layout**: `import "./globals.css"` + returns children; `<html>` lives in the per-branch roots below (mixed localized/unlocalized tree, D-163)
 - `src/app/fonts.ts` — **(Feat-SR)** shared `next/font/google` Montserrat (`latin` + `latin-ext` + `cyrillic`; `--font-montserrat`)
 - `src/app/root-document.tsx` — **(Feat-SR)** shared `<html lang>` + `<body>` + font + `NextIntlClientProvider` shell used by the three `<html>` roots (`[locale]`, admin, kit)
-- `src/app/[locale]/layout.tsx` — **(Feat-SR)** localized root: validates `[locale]` (`hasLocale`→notFound), `setRequestLocale`, `generateStaticParams` (mk+sr), locale-aware `generateMetadata`, renders `RootDocument`
+- `src/app/[locale]/layout.tsx` — **(Feat-SR)** localized root: validates `[locale]` (`hasLocale`→notFound), `setRequestLocale`, `generateStaticParams` (mk+sr), locale-aware `generateMetadata`, renders `RootDocument`; **+3.03a mounts `<CookieBanner/>` alongside `{children}`** (public tree only — not `/admin`, `/kit` — D-171)
 - `src/app/kit/layout.tsx` — **(Feat-SR)** kit `<html>` root (`RootDocument locale="mk"`; noindex) — dev gallery stays Macedonian, outside `[locale]`
 - `src/app/admin/layout.tsx` — admin panel layout (2.04); +Feat-SR: now an `<html>` root via `RootDocument locale="mk"` (admin stays Macedonian, outside `[locale]`), still `noindex` + neutral bg
 - `src/app/globals.css` — Tailwind v4 entry + **brand `@theme`** (all design tokens; shadcn semantic tokens mapped to brand; no dark mode); +2.06: the EF illegal-move shake keyframes (reduced-motion-neutralised); +3.02: `blu/teal/org/yel-ink` re-darkened to clear 4.5:1 on their own soft tint (kept in sync with `src/lib/indices.ts`)
@@ -82,7 +82,7 @@ path/to/file.ext — one-line description of what it does
 - `src/app/[locale]/(site)/procena/__tests__/{lead-form,confirmation,end-phase-view}.test.tsx` — jsdom + Testing Library (1.08): `form_view` on mount, inline validation + missing-consent errors, valid-submit seam wiring; confirmation summary render (no number, both variants) + CTA href/`cta_booking_click`; end-phase screen-wiring guards
 - `src/app/[locale]/(site)/page-shell.tsx` — shared chrome for the static pages (1.10): wordmark + back-to-home header + centered content column (sync Server Component); +Maint-Logo: header wordmark is now the real `<Logo />` inside the existing home `<Link>` (D-156)
 - `src/app/[locale]/(site)/za-testot/page.tsx` — **About-the-test (1.10)**: §16.1 placement #6 — §1.1 "what it is / what it isn't" + the FULL shared `Disclaimer`; MK `metadata` + H1
-- `src/app/[locale]/(site)/politika-za-privatnost/page.tsx` — **Privacy (1.10)**: routable shell (resolves the consent link); H1 + "pending legal review" placeholder (final copy = Phase 3.03)
+- `src/app/[locale]/(site)/politika-za-privatnost/page.tsx` — **Privacy (1.10)**: routable shell (resolves the consent link); H1 + "pending legal review" placeholder (final copy = 3.03b); **+3.03a mounts the `<CookieSettings/>` "manage cookies" control** (withdraw consent → banner reappears)
 - `src/app/[locale]/(site)/uslovi/page.tsx` — **Terms (1.10)**: routable shell; H1 + "pending legal review" placeholder (final copy = Phase 3.03)
 - `src/app/[locale]/(site)/__tests__/static-pages.test.tsx` — jsdom (1.10): each static page renders its H1 + content; About shows the full §D.4 disclaimer
 - `src/app/[locale]/(site)/__tests__/disclaimer-single-source.test.ts` — node (1.10): no production `.ts/.tsx` hardcodes the disclaimer copy; each canonical string appears once in `mk.json`
@@ -137,7 +137,7 @@ path/to/file.ext — one-line description of what it does
 - `pentagon.ts` — pure framework-agnostic pentagon geometry (shared by web + future PDF)
 - `prng.ts` — seeded PRNG (mulberry32 + FNV-1a) + helpers (`pick`/`shuffle`/`intInRange`/`deriveSeed`); the only randomness source for the task system
 - `utils.ts` — `cn()` className helper
-- `analytics.ts` — **analytics seam (1.08)**: typed `trackEvent` no-op (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); GA4 + Meta wired in 2.03; no PII in params
+- `analytics.ts` — **analytics seam (1.08) + consent gate (3.03a)**: typed `trackEvent` (Прилог F: `form_view` / `lead_submit` / `cta_booking_click`); **first line returns unless `hasAnalyticsConsent()` — D-169**; the forward body is the split-out, unit-spyable `analyticsForwarder.forward` (GA4 + Meta wired there in 2.03, behind the gate); no PII in params. `__tests__/analytics.test.ts` — the gate (mocks consent): no forward when undecided/declined, forwards once accepted, gate runs first
 - `__tests__/indices-contrast.test.ts` — **(3.02)** pins every index `ink` ≥4.5:1 on its own `soft` tint + the `globals.css`↔`indices.ts` hex sync
 - `env.ts` — **shared server-side environment resolver (2.02, extracted from 2.01)**: `resolveEnvironment()` (`APP_ENV` → `development|preview|production`, default development) + `ALLOWED_ENVIRONMENTS`; used by BOTH the score `environment` stamp and the Brevo list selection so they always agree (D-120)
 - `supabase/server.ts` — **server-only service-role Supabase client (2.01)**: `getServiceRoleClient()`; guarded by `import "server-only"` + a non-`NEXT_PUBLIC_` key; the only writer to `public.scores`; +2.04 also reads the `admin_users` allowlist, the `admin_score_stats` RPC, and writes `admin_export_log`; never imported client-side
@@ -238,6 +238,19 @@ path/to/file.ext — one-line description of what it does
 - `__tests__/storage.test.tsx` — **jsdom:** save↔load round-trip; empty/corrupt/wrong-shape → null (fails soft); versioned key
 - `__tests__/guards.test.ts` — static scan: imports neither Supabase nor Brevo (unjoinable), and only `storage.ts` reads `window`/`localStorage`
 - `__tests__/end-phase.test.ts` — `advanceEndPhase` walks completion → form → confirmation and rests at confirmation (1.08)
+
+**Cookie consent store + UI (`src/features/consent/`) (Phase 3.03a) — the third on-device store + the analytics gate (spec §16.3 / §14 / §19.3):** pure-core / thin-IO split (like progress); no PII, no join to Store A/B (D-170).
+- `schema.ts` — strict Zod `storedConsentSchema` + `StoredConsent = z.infer<…>` (`decision: "accepted"|"declined"`, `version` literal, optional date-only `decidedAt` — nothing else compiles/validates); `CONSENT_VERSION`; `isStoredConsent` guard; `ConsentDecision`
+- `storage.ts` — the ONLY browser touchpoint: a defensive `localStorage` adapter (`loadStoredConsent`/`saveStoredConsent`/`clearStoredConsent`, versioned key `iqup:cookie-consent:v1`, date-stamped, fails SOFT on SSR / disabled / quota / corrupt / tampered) + the change signal (`notifyConsentChange` + `subscribeConsentChange`: same-tab custom event + cross-tab `storage` event)
+- `consent.ts` — the browser-free API over storage: `getConsent` / `setConsent` / `clearConsent` / `hasAnalyticsConsent` (true ONLY for `"accepted"`; false undecided/declined/SSR — D-169) / `subscribeConsent`
+- `index.ts` — barrel exposing the store API only (no `.tsx`), so `@/lib/analytics` can import the gate without pulling a client component
+- `cookie-banner.tsx` — **`"use client"`** non-blocking bottom banner: `useSyncExternalStore` (null on server + until mounted, hydration-safe; shows only while undecided; reactive to consent changes). `Card`/`Button`, two equal ≥44px actions "Accept all"/"Essential only", **no dismiss-X** (D-168), short `<Disclaimer/>` (§16.1 #7), locale-aware Privacy `Link`, `role="region"` + `aria-label`, `motion-safe:` entrance under the reduced-motion kill-switch
+- `cookie-settings.tsx` — **`"use client"`** "manage cookies" button on the Privacy page → `clearConsent()` (→ the banner reappears; GDPR withdraw)
+- `__tests__/storage.test.ts` — **jsdom:** save↔load round-trip (date-only, no extra keys); empty/corrupt/tampered/wrong-version/fine-timestamp → null; versioned key; quota fail-soft; notify/subscribe + cross-tab storage event
+- `__tests__/consent.test.ts` — **jsdom:** `hasAnalyticsConsent` true ONLY for `"accepted"`; set/clear + change notification
+- `__tests__/consent-ssr.test.ts` — **Node (no window):** undecided + analytics-off; writers/subscribe are harmless no-ops
+- `__tests__/guards.test.ts` — static scan: only `storage.ts` reads `window`/`localStorage`; imports neither Supabase nor Brevo (unjoinable)
+- `__tests__/cookie-banner.test.tsx` — **jsdom:** shows undecided / hidden once decided; Accept→accepted + analytics ON + hidden; Essential→declined + OFF + hidden; short disclaimer; locale-aware Privacy link; `role="region"` + label; two real buttons, no dismiss-X
 
 **Report engine (`src/features/report/`) (Phase 1.07) — pure, deterministic; reads 1.05 read-only:**
 - `types.ts` — the engine contract: `DerivedFeatures`, the `ReportModule` schema (Дел 9.2), `ReportModel` (single render contract for 1.08 + 1.09), `ReportSummary`, `REPORT_ENGINE_VERSION`

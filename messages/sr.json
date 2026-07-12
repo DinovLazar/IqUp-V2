@@ -125,6 +125,15 @@
     "disclaimer": "Ova procena je edukativan, informativan skrining namenjen roditeljima. Nije klinički test, ne daje dijagnozu niti zvanični IQ rezultat, i ne zamenjuje procenu licenciranog psihologa. Rezultati su indikativni i normirani prema uzrastu. Ako imate zabrinutost za razvoj svog deteta, obratite se stručnom licu.",
     "disclaimerShort": "Edukativan, informativan skrining — nije klinički test i ne daje dijagnozu."
   },
+  "cookie": {
+    "heading": "Kolačići na ovom sajtu",
+    "body": "Osnovni kolačići su neophodni da bi aplikacija radila. Uz vašu dozvolu koristimo i kolačiće za statistiku, kako bismo je poboljšavali. Odluku možete promeniti u svakom trenutku preko Politike privatnosti.",
+    "accept": "Prihvati sve",
+    "decline": "Samo osnovni",
+    "privacyLink": "Politika privatnosti",
+    "manageLabel": "Promeni izbor kolačića",
+    "ariaLabel": "Obaveštenje o kolačićima"
+  },
   "leadForm": {
     "title": "Preuzmite besplatan izveštaj",
     "intro": "Unesite svoje podatke da vam pošaljemo izveštaj na imejl.",
